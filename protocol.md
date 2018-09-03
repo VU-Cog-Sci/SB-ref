@@ -1,4 +1,4 @@
-# finding nemo
+# Finding nemo
 
 ## 1st session - 61 mins
 - pRF, 25 mins
