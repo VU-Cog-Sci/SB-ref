@@ -160,6 +160,11 @@ class PRFSession(EyelinkSession):
                 elif self.stim_direction_indices[i] in (0,4): # NS-SN:
                     self.bar_pass_durations.append(self.vertical_bar_pass_in_TR * self.TR)
 
+        self.total_duration = np.sum(np.array(self.bar_pass_durations))
+
+        
+
+
         # nostim-top-left-bottom-right-nostim-top-left-bottom-right-nostim
         # nostim-bottom-left-nostim-right-top-nostim
         self.trial_array = np.array([[self.stim_direction_indices[i], self.stim_present_booleans[i]] for i in range(len(self.stim_bool))])
@@ -218,4 +223,34 @@ class PRFSession(EyelinkSession):
                 break
         self.close()
     
+    def _get_frame_values(self,
+                          framerate,
+                          trial_duration,
+                          min_value,
+                          exp_scale,
+                          values=[-1, 1],
+                          safety_margin=None):
 
+        if safety_margin is None:
+            safety_margin =  5
+
+        n_values = len(values)
+
+        total_duration = trial_duration + safety_margin
+        total_n_frames = total_duration * framerate
+
+        result = np.zeros(total_n_frames)
+
+        n_samples = np.ceil(total_duration * 2 / (exp_scale + min_value)).astype(int)
+        durations = np.random.exponential(exp_scale, n_samples) + min_value
+
+        frame_times = np.linspace(0, total_duration, total_n_frames, endpoint=False)
+
+        first_index = np.random.randint(n_values)
+
+        result[frame_times < durations[0]] = values[first_index]
+
+        for ix, c in enumerate(np.cumsum(durations)):
+            result[frame_times > c] = values[(first_index + ix) % n_values]
+
+        return result
