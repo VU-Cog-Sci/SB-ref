@@ -6,11 +6,11 @@ from numpy.random import random, shuffle #we only need these two commands from t
 from math import *
 import random, sys
 
-sys.path.append( 'exp_tools' )
+# sys.path.append( 'exp_tools' )
 # sys.path.append( os.environ['EXPERIMENT_HOME'] )
 
-from PRFStim import *
-from Trial import *
+from stim import PRFStim
+from exptools.core.trial import Trial
 
 class PRFTrial(Trial):
     def __init__(self, parameters = {}, phase_durations = [], session = None, screen = None, tracker = None):
@@ -73,29 +73,6 @@ class PRFTrial(Trial):
                     self.events.append([99,self.session.clock.getTime()-self.start_time])
                     if (self.phase == 0) + (self.phase==1):
                         self.phase_forward()
-                elif ev in self.session.response_button_signs.keys():
-                    if self.phase == 2:
-                        # then check whether one of the correct buttons was pressed:
-                        if self.session.response_button_signs[ev] in [-1,1]:
-                            # do we even need an answer?
-                            if self.stim.last_sampled_staircase != None:
-                                # what value were we presenting at?
-                                if self.session.task == 'bar':
-                                    response = self.session.response_button_signs[ev]*self.stim.present_color_task_sign
-                                elif self.session.task == 'fix':
-                                    response = self.session.response_button_signs[ev]*self.stim.present_fix_task_sign
-
-                                # update the staircase
-                                self.session.staircases[self.stim.last_sampled_staircase].answer((response+1)/2)
-                                # now block the possibility of further updates
-                                self.stim.last_sampled_staircase = None
-
-                                log_msg = 'staircase %s bin %d updated after response %s at %f'%( self.session.task, self.stim.eccentricity_bin, str((response+1)/2), self.session.clock.getTime() )
-
-                                self.events.append( log_msg )
-                                print log_msg
-                                if self.session.tracker:
-                                    self.session.tracker.log( log_msg )
 
                 event_msg = 'trial ' + str(self.ID) + ' key: ' + str(ev) + ' at time: ' + str(self.session.clock.getTime())
                 self.events.append(event_msg)

@@ -1,5 +1,5 @@
 import sys
-from session import LR_IMSession
+from session import PRFSession
 import appnope
 
 
@@ -19,7 +19,7 @@ def main():
     # run = 1
     appnope.nope()
 
-    ts = LR_IMSession(subject_initials=initials, index_number=index_number, tracker_on=False)
+    ts = PRFSession(subject_initials=initials, index_number=index_number, tracker_on=False)
     ts.run()
 
 if __name__ == '__main__':
