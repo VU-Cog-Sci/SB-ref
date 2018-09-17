@@ -63,14 +63,14 @@ class LR_IMSession(EyelinkSession):
 
     def setup_stimuli(self):
         size_fixation_pix = self.deg2pix(self.size_fixation_deg)
-
         self.fixation = visual.GratingStim(self.screen,
                                            tex='sin',
-                                           mask='circle',
+                                           mask='raisedCos',
                                            size=size_fixation_pix,
                                            texRes=512,
                                            color='white',
-                                           sf=0)
+                                           sf=0,
+                                           maskParams={'fringeWidth': 0.4})
 
         self.square_stim = visual.Rect(self.screen, 
                                 width=self.deg2pix(self.shape_size),

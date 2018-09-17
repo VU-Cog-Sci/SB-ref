@@ -2,7 +2,7 @@ global:
   screen:
     size: [1920, 1080]
     full_screen: False
-    background_color: [-1, -1, -1]
+    background_color: [0,0,0]
     gamma_scale: [2.475,2.25,2.15]
     physical_screen_size: [69, 39]
     physical_screen_distance: 225

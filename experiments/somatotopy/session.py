@@ -15,35 +15,84 @@ class MSSession(EyelinkSession):
 
         super(MSSession, self).__init__(*args, **kwargs)
 
-        # self.create_screen(full_screen=True, engine='pygaze')
-
-        config_file = os.path.join(os.path.abspath(os.getcwd()), 'default_settings.json')
-
-        with open(config_file) as config_file:
-            config = json.load(config_file)
-
-        self.config = config
+        for argument in ['size_fixation_deg', 'language']:
+            value = kwargs.pop(argument, self.config.get('stimuli', argument))
+            setattr(self, argument, value)
+        for argument in ['pre_post_fixation_time', 'inter_trial_fixation_time',  'stimulus_time']:
+            value = kwargs.pop(argument, self.config.get('timing', argument))
+            setattr(self, argument, value)
         self.create_trials()
 
         self.stopped = False
 
     def create_trials(self):
         """creates trials by loading a list of jpg files from the img/ folder"""
+        self.movies = [
+        'eyebrows.avi',
+        'eyes.avi',
+        'mouth.avi',
+        'tongue.avi',
+        'lhand_fing1.avi', 
+        'lhand_fing2.avi', 
+        'lhand_fing3.avi', 
+        'lhand_fing4.avi', 
+        'lhand_fing5.avi', 
+        'lleg.avi', 
+        'eyebrows.avi',
+        'eyes.avi',
+        'mouth.avi',
+        'tongue.avi',
+        'bhand_fing1.avi', 
+        'bhand_fing2.avi', 
+        'bhand_fing4.avi', 
+        'bhand_fing3.avi', 
+        'bhand_fing5.avi', 
+        'bleg.avi', 
+        'tongue.avi',
+        'mouth.avi',
+        'eyes.avi',
+        'eyebrows.avi',
+        'rhand_fing1.avi', 
+        'rhand_fing2.avi', 
+        'rhand_fing3.avi', 
+        'rhand_fing4.avi', 
+        'rhand_fing5.avi', 
+        'rleg.avi',
+        'eyebrows.avi',
+        'eyes.avi',
+        'mouth.avi',
+        'tongue.avi',
+        'lhand_fing1.avi', 
+        'lhand_fing2.avi', 
+        'lhand_fing3.avi', 
+        'lhand_fing4.avi', 
+        'lhand_fing5.avi', 
+        'lleg.avi', 
+        'eyebrows.avi',
+        'eyes.avi',
+        'mouth.avi',
+        'tongue.avi',
+        'bhand_fing1.avi', 
+        'bhand_fing2.avi', 
+        'bhand_fing4.avi', 
+        'bhand_fing3.avi', 
+        'bhand_fing5.avi', 
+        'bleg.avi', 
+        'tongue.avi',
+        'mouth.avi',
+        'eyes.avi',
+        'eyebrows.avi',
+        'rhand_fing1.avi', 
+        'rhand_fing2.avi', 
+        'rhand_fing3.avi', 
+        'rhand_fing4.avi', 
+        'rhand_fing5.avi', 
+        'rleg.avi']
+        movie_files = [os.path.join(os.path.abspath(os.getcwd()), 'imgs', 'op',  '%s'%m) for m in self.movies]
+        # print(movie_files)
+        self.movie_stims = [MovieStim(self.screen, filename=imf.replace('.avi', '_small.avi'), size=self.screen.size) for imf in movie_files]
+        # print(self.movie_stims)
 
-        if self.index_number == 1:
-            self.movies = [0,1]
-        elif self.index_number == 2:
-            self.movies = [2,3]
-        elif self.index_number == 3:
-            self.movies = [4,5]        
-        elif self.index_number == 4:
-            self.movies = [6,7]        
-        elif self.index_number == 5:
-            self.movies = [8,9]
-
-        movie_files = [os.path.join(os.path.abspath(os.getcwd()), 'imgs', 'fn_output_%s_%i_ss_pcm.avi'%(self.config['language'], m)) for m in self.movies]
-
-        self.movie_stims = [MovieStim(self.screen, filename=imf, size=self.screen.size) for imf in movie_files]
         self.trial_order = np.arange(len(self.movie_stims))
 
 
@@ -55,15 +104,21 @@ class MSSession(EyelinkSession):
 
             parameters = {'stimulus': self.trial_order[ti], 'movie':self.movies[self.trial_order[ti]]}
 
-            parameters.update(self.config)
-            
-            trial = MSTrial(ti=ti,
-                           config=self.config,
+            # parameters.update(self.config)
+            if (ti == 0):
+                phase_durations = [1800, self.pre_post_fixation_time, self.stimulus_time, self.inter_trial_fixation_time]
+            elif (ti == len(self.movies)-1):
+                phase_durations = [-0.001, self.inter_trial_fixation_time, self.stimulus_time, self.pre_post_fixation_time]
+            else:
+                phase_durations = [-0.001, self.inter_trial_fixation_time, self.stimulus_time, self.inter_trial_fixation_time]
+
+
+            trial = MSTrial(phase_durations=phase_durations,
                            screen=self.screen,
                            session=self,
                            parameters=parameters,
                            tracker=self.tracker)
-            trial.run()
+            trial.run(ID=ti)
 
             if self.stopped == True:
                 break

@@ -59,3 +59,12 @@ for f in glob.glob('*_ss_pcm.avi'):
     os.system(this_audio_conv)
 
 
+ffmpeg_conv_format = 'ffmpeg -i {ip} -vcodec h264 {op}'
+
+for f in glob.glob('*.avi'):
+    this_conv = ffmpeg_conv_format.format(
+        ip=f,
+        op='op/' + f.replace('.avi', '_small.avi')
+        )
+    print(this_conv)
+    # os.system(this_audio_conv)
