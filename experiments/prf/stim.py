@@ -41,14 +41,11 @@ class PRFStim(object):
         if self.trial.parameters['orientation'] in [0,np.pi]: # these are the horizontal passes (e.g. top-bottom)
             self.size_pix = [self.screen.size[1]*session.vertical_stim_size,
                             self.screen.size[0]*session.horizontal_stim_size]
-            self.period = session.vertical_pass_dur * session.TR
         else: # vertical bar passes:
             self.size_pix = [self.screen.size[0]*session.horizontal_stim_size,
                             self.screen.size[1]*session.vertical_stim_size]
-            self.period = np.int(np.round(session.horizontal_pass_dur * session.TR))
         
-        if self.trial.parameters['stim_bool'] == 0:
-            self.period = np.int(np.round(session.vertical_pass_dur * session.TR))
+        self.period = self.trial.parameters['stim_duration']
 
         self.full_width = self.size_pix[0] + self.bar_width + self.session.element_size
         self.midpoint = 0
@@ -60,25 +57,19 @@ class PRFStim(object):
         self.eccentricity_bin = -1
         self.redraws = 0
         self.frames = 0
-        self.last_stimulus_present_for_task = 0
 
         # psychopy stimuli
-        self.populate_stimulus(pulse=False)
+        self.populate_stimulus()
 
         # create the stimulus
         self.session.element_array = visual.ElementArrayStim(screen, nElements = self.session.num_elements, sizes = self.element_sizes, sfs = self.element_sfs, 
             xys = self.element_positions, colors = self.colors, colorSpace = 'rgb') 
 
-        # set this to its default no-answer necessary value of None - this is tested for in PRFTrial when incorporating responses
-        self.last_sampled_staircase = None
 
     def convert_sample(self,in_sample):
         return 1 - (1/(np.e**in_sample+1))
     
-    def populate_stimulus(self,pulse=False):
-
-        # what eccentricity bin are we in? 
-        self.eccentricity_bin = np.min([floor(2.0 * abs(self.phase - 0.5) * (self.session.nr_staircases_ecc)), self.session.nr_staircases_ecc-1])
+    def populate_stimulus(self):
 
         RG_ratio = 0.5
         BY_ratio = 0.5
@@ -90,17 +81,13 @@ class PRFStim(object):
         self.fix_gray_value = self.session.background_color
 
         # and change them if a pulse is wanted
-        if pulse: 
 
-            # Now set the actual stimulus parameters
-            self.colors = np.concatenate((np.ones((int(np.round(self.num_elements*RG_ratio/2.0)),3)) * np.array([1,-1,0]) * self.RG_color,  # red/green - red
-                                        np.ones((int(np.round(self.num_elements*RG_ratio/2.0)),3)) * np.array([-1,1,0]) * self.RG_color,  # red/green - green
-                                        np.ones((int(np.round(self.num_elements*BY_ratio/2.0)),3)) * np.array([-1,-1,1]) * self.BY_color,  # blue/yellow - blue
-                                        np.ones((int(np.round(self.num_elements*BY_ratio/2.0)),3)) * np.array([1,1,-1]) * self.BY_color))  # blue/yellow - yellow
+        # Now set the actual stimulus parameters
+        self.colors = np.concatenate((np.ones((int(np.round(self.num_elements*RG_ratio/2.0)),3)) * np.array([1,-1,0]) * self.RG_color,  # red/green - red
+                                    np.ones((int(np.round(self.num_elements*RG_ratio/2.0)),3)) * np.array([-1,1,0]) * self.RG_color,  # red/green - green
+                                    np.ones((int(np.round(self.num_elements*BY_ratio/2.0)),3)) * np.array([-1,-1,1]) * self.BY_color,  # blue/yellow - blue
+                                    np.ones((int(np.round(self.num_elements*BY_ratio/2.0)),3)) * np.array([1,1,-1]) * self.BY_color))  # blue/yellow - yellow
 
-            # and fix point parameters
-            self.present_fix_task_sign = np.random.choice([-1,1])
-            self.fix_gray_value = np.ones(3) * fix_value * self.present_fix_task_sign
     
         np.random.shuffle(self.colors)
 
@@ -111,56 +98,43 @@ class PRFStim(object):
 
         self.element_positions = np.random.rand(self.num_elements, 2) * np.array([self.bar_length, self.bar_width]) - np.array([self.bar_length/2.0, self.bar_width/2.0])
         # self.element_sfs = np.ones((self.num_elements)) * self.session.element_spatial_frequency']
-        self.element_sfs = np.random.rand(self.num_elements)*5+0.5
+        self.element_sfs = np.random.rand(self.num_elements)*7+0.25
         self.element_sizes = np.ones((self.num_elements)) * self.session.element_size
         self.element_phases = np.zeros(self.num_elements)
         self.element_orientations = np.random.rand(self.num_elements) * 720.0 - 360.0
+
+        self.lifetimes = np.random.rand(self.num_elements) * self.session.element_lifetime
 
     def draw(self, phase = 0):
 
         self.phase = phase
         self.frames += 1
 
-        if self.redraws <= (self.phase * self.period * self.refresh_frequency):
+        to_be_redrawn = self.lifetimes < phase
+        self.element_positions[to_be_redrawn] = np.random.rand(to_be_redrawn.sum(), 2) \
+                * np.array([self.bar_length, self.bar_width]) \
+                - np.array([self.bar_length/2.0, self.bar_width/2.0])     
+        self.lifetimes[to_be_redrawn] += np.random.rand(to_be_redrawn.sum()) * self.session.element_lifetime    
 
-            # define midpoint
-            if np.mod(self.redraws,self.session.redraws_per_TR) == 0:
-                self.midpoint = phase * self.full_width - 0.5 * self.full_width #+ self.session.x_offset']
-            # if (np.mod(self.redraws,self.session.redraws_per_TR) == 1):
-            #     self.populate_stimulus(pulse=True)
-            # else:
-            #     self.populate_stimulus(pulse=False)
+        # define midpoint
+        self.midpoint = phase * self.full_width - 0.5 * self.full_width #+ self.session.x_offset']
 
-            self.session.element_array.setSfs(self.element_sfs)
-            self.session.element_array.setSizes(self.element_sizes)
-            self.session.element_array.setColors(self.colors)
-            self.session.element_array.setOris(self.element_orientations)
-            if self.trial.parameters['orientation'] == np.pi/2:
-                draw_midpoint = self.midpoint - self.session.x_offset
-            elif self.trial.parameters['orientation'] == 3*(np.pi/2):
-                draw_midpoint = self.midpoint + self.session.x_offset
-            else:
-                draw_midpoint = self.midpoint 
-            self.session.element_array.setXYs(np.array(np.matrix(self.element_positions + np.array([0, -draw_midpoint])) * self.rotation_matrix)) 
-            log_msg = 'stimulus draw for phase %f, at %f'%(phase, self.session.clock.getTime())
-            self.trial.events.append( log_msg )
-            if self.session.tracker:
-                self.session.tracker.log( log_msg )
+        self.session.element_array.setSfs(self.element_sfs)
+        self.session.element_array.setSizes(self.element_sizes)
+        self.session.element_array.setColors(self.colors)
+        self.session.element_array.setOris(self.element_orientations)
+        if self.trial.parameters['orientation'] == np.pi/2:
+            draw_midpoint = self.midpoint - self.session.x_offset
+        elif self.trial.parameters['orientation'] == 3*(np.pi/2):
+            draw_midpoint = self.midpoint + self.session.x_offset
+        else:
+            draw_midpoint = self.midpoint 
+        self.session.element_array.setXYs(np.array(np.matrix(self.element_positions + np.array([0, -draw_midpoint])) * self.rotation_matrix)) 
             
-            self.redraws = self.redraws + 1
-
-            
-        # if fmod(self.phase * self.period * self.refresh_frequency, 1.0) > 0.5: 
         self.session.element_array.setPhases(self.element_speeds * self.phase * self.period + self.element_phases)
 
         if self.trial.parameters['stim_bool'] == 1:
             self.session.element_array.draw()
-            self.session.fixation.setColor(self.fix_gray_value)
         
-        self.session.fixation_outer_rim.draw()
-        self.session.fixation_rim.draw()
-        self.session.fixation.draw()
-
-        self.session.mask_stim.draw()
-        
+        self.session.mask_stim.draw()      
         
