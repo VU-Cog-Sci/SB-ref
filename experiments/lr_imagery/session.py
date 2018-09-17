@@ -15,12 +15,19 @@ class LR_IMSession(EyelinkSession):
 
         super(LR_IMSession, self).__init__(*args, **kwargs)
 
-        config_file = os.path.join(os.path.abspath(os.getcwd()), 'default_settings.json')
+        self.config_parameters = {}
+        for argument in ['size_fixation_deg', 'shape_ecc', 'shape_size',
+                     'shape_lw', 'n_trials', 'language']:
+            value = kwargs.pop(argument, self.config.get('stimuli', argument))
+            setattr(self, argument, value)
+            self.config_parameters.update({argument: value})
 
-        with open(config_file) as config_file:
-            config = json.load(config_file)
+        for argument in ['fixation_duration', 'inter_trial_interval_mean', 'inter_trial_interval_min',
+                     'intro_extro_duration', 'stimulus_duration']:
+            value = kwargs.pop(argument, self.config.get('timing', argument))
+            setattr(self, argument, value)
+            self.config_parameters.update({argument: value})
 
-        self.config = config
         self.create_trials()
         self.setup_stimuli()
 
@@ -33,29 +40,29 @@ class LR_IMSession(EyelinkSession):
         sides = [-1,1]
         shapes = [0,1]
         self.trial_parameters = []
-        for i in xrange(self.config['n_trials']):
+        for i in xrange(self.n_trials):
             for j, side in enumerate(sides):
                 for k, shape in enumerate(shapes):
                     this_trial_dict = {
                         'shape': shape,
                         'side': side,
-                        'iti' : self.config['inter_trial_interval_min'] + \
-                        np.random.exponential(self.config['inter_trial_interval_mean']),  
+                        'iti' : self.inter_trial_interval_min + \
+                        np.random.exponential(self.inter_trial_interval_mean),  
                         'finger_instruction': self.index_number
                         }
-                    this_trial_dict.update(self.config)
+                    this_trial_dict.update(self.config_parameters)
                     self.trial_parameters.append(this_trial_dict)
 
         random.shuffle(self.trial_parameters)
 
-        self.trial_parameters[0]['fixation_duration'] = self.config['intro_extro_duration']
+        self.trial_parameters[0]['fixation_duration'] = self.intro_extro_duration
         for tp in self.trial_parameters:
             tp['wait_duration'] = -0.001
         self.trial_parameters[0]['wait_duration'] = 1200
-        self.trial_parameters[-1]['iti'] = self.config['intro_extro_duration']
+        self.trial_parameters[-1]['iti'] = self.intro_extro_duration
 
     def setup_stimuli(self):
-        size_fixation_pix = self.deg2pix(self.config['size_fixation_deg'])
+        size_fixation_pix = self.deg2pix(self.size_fixation_deg)
 
         self.fixation = visual.GratingStim(self.screen,
                                            tex='sin',
@@ -66,21 +73,21 @@ class LR_IMSession(EyelinkSession):
                                            sf=0)
 
         self.square_stim = visual.Rect(self.screen, 
-                                width=self.deg2pix(self.config['shape_size']),
-                                height=self.deg2pix(self.config['shape_size']),
-                                lineWidth=self.deg2pix(self.config['shape_lw']), 
+                                width=self.deg2pix(self.shape_size),
+                                height=self.deg2pix(self.shape_size),
+                                lineWidth=self.deg2pix(self.shape_lw), 
                                 lineColor='white',
                                 fillColor='red')
 
         self.circle_stim = visual.Circle(self.screen, 
-                                radius=self.deg2pix(self.config['shape_size'])/2.0,
-                                lineWidth=self.deg2pix(self.config['shape_lw']), 
+                                radius=self.deg2pix(self.shape_size)/2.0,
+                                lineWidth=self.deg2pix(self.shape_lw), 
                                 lineColor='white',
                                 fillColor='green')
 
         self.shape_stims = [self.square_stim, self.circle_stim]
 
-        if self.config['language'] == 'EN':
+        if self.language == 'EN':
             this_instruction_string = """When you see a square, press the button with your %s index finger 
 If you see a circle, press nothing. 
 Waiting for the scanner to start."""
@@ -88,7 +95,7 @@ Waiting for the scanner to start."""
                 insert_string = 'LEFT'
             elif self.index_number == 1:
                 insert_string = 'RIGHT'
-        elif self.config['language'] == 'IT':
+        elif self.language == 'IT':
             this_instruction_string = """Quando vedi un quadrato, premi il pulsante con il dito indice %s
 Se vedi un cerchio, non premere nulla.
 In attesa che lo scanner inizi."""
