@@ -13,17 +13,21 @@ global:
     framerate: 60
 
   stimuli:
-    size_fixation_deg: 0.25
+    size_fixation_deg: 0.5
+    language: "EN"
 
   buttons:
-    keys: ['a', 's', 'd', 'f']
+    keys: ['b', 'y', 'e']
 
   timing:
-    fixation_time: 12
+    fixation_time: 8
     stimulus_time: 150
-
-  task:
-    language: "EN"
 
   mri:
     mri_trigger_key: 't'
+
+  eyetracker:
+    sample_rate: 1000
+    n_calib_points: 9
+    calib_size: 0.5
+    x_offset: 0

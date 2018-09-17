@@ -15,14 +15,12 @@ class MSSession(EyelinkSession):
 
         super(MSSession, self).__init__(*args, **kwargs)
 
-        # self.create_screen(full_screen=True, engine='pygaze')
-
-        config_file = os.path.join(os.path.abspath(os.getcwd()), 'default_settings.json')
-
-        with open(config_file) as config_file:
-            config = json.load(config_file)
-
-        self.config = config
+        for argument in ['size_fixation_deg', 'language']:
+            value = kwargs.pop(argument, self.config.get('stimuli', argument))
+            setattr(self, argument, value)
+        for argument in ['fixation_time', 'stimulus_time']:
+            value = kwargs.pop(argument, self.config.get('timing', argument))
+            setattr(self, argument, value)
         self.create_trials()
 
         self.stopped = False
@@ -41,7 +39,7 @@ class MSSession(EyelinkSession):
         elif self.index_number == 5:
             self.movies = [8,9]
 
-        movie_files = [os.path.join(os.path.abspath(os.getcwd()), 'imgs', 'fn_output_%s_%i_ss_pcm.avi'%(self.config['language'], m)) for m in self.movies]
+        movie_files = [os.path.join(os.path.abspath(os.getcwd()), 'imgs', 'fn_output_%s_%i_ss_pcm.avi'%(self.language, m)) for m in self.movies]
 
         self.movie_stims = [MovieStim(self.screen, filename=imf, size=self.screen.size) for imf in movie_files]
         self.trial_order = np.arange(len(self.movie_stims))
@@ -55,15 +53,19 @@ class MSSession(EyelinkSession):
 
             parameters = {'stimulus': self.trial_order[ti], 'movie':self.movies[self.trial_order[ti]]}
 
-            parameters.update(self.config)
-            
-            trial = MSTrial(ti=ti,
-                           config=self.config,
+            # parameters.update(self.config)
+            if ti == 0:
+                phase_durations = [1800, self.fixation_time, self.stimulus_time, self.fixation_time]
+            else:
+                phase_durations = [-0.001, self.fixation_time, self.stimulus_time, self.fixation_time]
+
+
+            trial = MSTrial(phase_durations=phase_durations,
                            screen=self.screen,
                            session=self,
                            parameters=parameters,
                            tracker=self.tracker)
-            trial.run()
+            trial.run(ID=ti)
 
             if self.stopped == True:
                 break
