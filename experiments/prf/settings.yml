@@ -1,7 +1,7 @@
 global:
   screen:
-    size: [1920, 1080]
-    full_screen: False
+    size: [1680, 1050]
+    full_screen: True
     background_color: [0,0,0]
     gamma_scale: [2.475,2.25,2.15]
     physical_screen_size: [69, 39]

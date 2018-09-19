@@ -1,7 +1,7 @@
 global:
   screen:
-    size: [2560, 1440]
-    full_screen: False
+    size: [1680,1050]
+    full_screen: True
     background_color: [-1, -1, -1]
     gamma_scale: [2.475,2.25,2.15]
     physical_screen_size: [58, 36]
@@ -29,5 +29,5 @@ global:
   eyetracker:
     sample_rate: 1000
     n_calib_points: 9
-    calib_size: 0.5
+    calib_size: 0.25
     x_offset: 0

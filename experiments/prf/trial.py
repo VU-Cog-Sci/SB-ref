@@ -18,7 +18,7 @@ class PRFTrial(Trial):
         
         self.stim = PRFStim(self.screen, self, self.session, orientation = self.parameters['orientation'])
         
-        this_instruction_string = '\t\t\t  Index\t\t/\tMiddle:\n\nColor\t\t-\tR\t\t/\t\tG'# self.parameters['task_instruction']
+        this_instruction_string = '\t\t\t  Index\t\t/\tMiddle:\n\nColor\t\t-\tB\t\t/\t\tW'# self.parameters['task_instruction']
         self.instruction = visual.TextStim(self.screen, text = this_instruction_string, font = 'Helvetica Neue', pos = (0, 0), italic = True, height = 30, alignHoriz = 'center')
         self.instruction.setSize((1200,50))
 
@@ -30,7 +30,7 @@ class PRFTrial(Trial):
     def draw(self):
         """docstring for draw"""
 
-        self.session.fixation.color = [self.session.fix_task_frame_values[self.session.frame_nr], -self.session.fix_task_frame_values[self.session.frame_nr], -1]
+        self.session.fixation.color = [self.session.fix_task_frame_values[self.session.frame_nr], self.session.fix_task_frame_values[self.session.frame_nr], self.session.fix_task_frame_values[self.session.frame_nr]]
 
         if self.phase == 0:
             if self.ID == 0:
