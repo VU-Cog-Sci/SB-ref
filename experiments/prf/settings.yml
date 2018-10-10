@@ -43,7 +43,7 @@ global:
 
   timing:
     PRF_ITI_in_TR: 0.5
-    TR: 1.5
+    TR: 1.6
     vertical_bar_pass_in_TR: 10
     horizontal_bar_pass_in_TR: 18
     empty_bar_pass_in_TR: 10

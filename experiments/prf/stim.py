@@ -1,6 +1,9 @@
 from __future__ import division
 from psychopy import visual, core, misc, event
-from psychopy.visual import filters
+try:
+    from psychopy.visual import filters
+except ImportError:
+    from psychopy import filters
 import numpy as np
 from scipy.signal import convolve2d
 from IPython import embed as shell
