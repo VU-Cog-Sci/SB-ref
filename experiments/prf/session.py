@@ -1,149 +1,30 @@
 from __future__ import division
-from psychopy import visual, core, misc, event, data
-import numpy as np
-# from IPython import embed as shell
-from math import *
-
-import os
-import sys
-import time
-import pickle
-import pygame
-from pygame.locals import *
 
 from exptools.core.session import EyelinkSession
+from trial import PRFTrial
 
-from trial import *
-from stim import *
+from psychopy import clock
+from psychopy.visual import ImageStim, MovieStim, GratingStim
+import numpy as np
+import os
+import exptools
+import json
+import glob
 
-import appnope
-appnope.nope()
 
 
 class PRFSession(EyelinkSession):
-    def __init__(self, subject_initials, index_number, scanner, tracker_on, **kwargs):
-        super(PRFSession, self).__init__(subject_initials=subject_initials, index_number=index_number, tracker_on=tracker_on, **kwargs)
+    def __init__(self, *args, **kwargs):
 
-        screen = self.create_screen()
-        # screen = self.create_screen( size = screen_res, full_screen =0, physical_screen_distance = 159.0, background_color = background_color, physical_screen_size = (70, 40) )
-        event.Mouse(visible=False, win=screen)
-
-        self.create_output_filename()
-        if tracker_on:
-            # self.create_tracker(auto_trigger_calibration = 1, calibration_type = 'HV9')
-            # if self.tracker_on:
-            #     self.tracker_setup()
-           # how many points do we want:
-            n_points = 9
-
-            # order should be with 5 points: center-up-down-left-right
-            # order should be with 9 points: center-up-down-left-right-leftup-rightup-leftdown-rightdown
-            # order should be with 13: center-up-down-left-right-leftup-rightup-leftdown-rightdown-midleftmidup-midrightmidup-midleftmiddown-midrightmiddown
-            # so always: up->down or left->right
-
-            # creat tracker
-            self.create_tracker(auto_trigger_calibration=0,
-                                calibration_type='HV%d' % n_points)
-
-            # it is setup to do a 9 or 5 point circular calibration, at reduced ecc
-
-            # create 4 x levels:
-            # width = self.eyelink_calib_size * DISPSIZE[1]
-            # x_start = (DISPSIZE[0]-width)/2
-            # x_end = DISPSIZE[0]-(DISPSIZE[0]-width)/2
-            # x_range = np.linspace(x_start, x_end, 5) + \
-            #     self.x_offset
-            # y_start = (DISPSIZE[1]-width)/2
-            # y_end = DISPSIZE[1]-(DISPSIZE[1]-width)/2
-            # y_range = np.linspace(y_start, y_end, 5)
-
-            # # set calibration targets
-            # cal_center = [x_range[2], y_range[2]]
-            # cal_left = [x_range[0], y_range[2]]
-            # cal_right = [x_range[4], y_range[2]]
-            # cal_up = [x_range[2], y_range[0]]
-            # cal_down = [x_range[2], y_range[4]]
-            # cal_leftup = [x_range[1], y_range[1]]
-            # cal_rightup = [x_range[3], y_range[1]]
-            # cal_leftdown = [x_range[1], y_range[3]]
-            # cal_rightdown = [x_range[3], y_range[3]]
-
-            # # create 4 x levels:
-            # width = self.eyelink_calib_size * \
-            #     0.75 * DISPSIZE[1]
-            # x_start = (DISPSIZE[0]-width)/2
-            # x_end = DISPSIZE[0]-(DISPSIZE[0]-width)/2
-            # x_range = np.linspace(x_start, x_end, 5) + \
-            #     self.x_offset
-            # y_start = (DISPSIZE[1]-width)/2
-            # y_end = DISPSIZE[1]-(DISPSIZE[1]-width)/2
-            # y_range = np.linspace(y_start, y_end, 5)
-
-            # # set calibration targets
-            # val_center = [x_range[2], y_range[2]]
-            # val_left = [x_range[0], y_range[2]]
-            # val_right = [x_range[4], y_range[2]]
-            # val_up = [x_range[2], y_range[0]]
-            # val_down = [x_range[2], y_range[4]]
-            # val_leftup = [x_range[1], y_range[1]]
-            # val_rightup = [x_range[3], y_range[1]]
-            # val_leftdown = [x_range[1], y_range[3]]
-            # val_rightdown = [x_range[3], y_range[3]]
-
-            # # get them in the right order
-            # if n_points == 5:
-            #     cal_xs = np.round(
-            #         [cal_center[0], cal_up[0], cal_down[0], cal_left[0], cal_right[0]])
-            #     cal_ys = np.round(
-            #         [cal_center[1], cal_up[1], cal_down[1], cal_left[1], cal_right[1]])
-            #     val_xs = np.round(
-            #         [val_center[0], val_up[0], val_down[0], val_left[0], val_right[0]])
-            #     val_ys = np.round(
-            #         [val_center[1], val_up[1], val_down[1], val_left[1], val_right[1]])
-            # elif n_points == 9:
-            #     cal_xs = np.round([cal_center[0], cal_up[0], cal_down[0], cal_left[0], cal_right[0],
-            #                        cal_leftup[0], cal_rightup[0], cal_leftdown[0], cal_rightdown[0]])
-            #     cal_ys = np.round([cal_center[1], cal_up[1], cal_down[1], cal_left[1], cal_right[1],
-            #                        cal_leftup[1], cal_rightup[1], cal_leftdown[1], cal_rightdown[1]])
-            #     val_xs = np.round([val_center[0], val_up[0], val_down[0], val_left[0], val_right[0],
-            #                        val_leftup[0], val_rightup[0], val_leftdown[0], val_rightdown[0]])
-            #     val_ys = np.round([val_center[1], val_up[1], val_down[1], val_left[1], val_right[1],
-            #                        val_leftup[1], val_rightup[1], val_leftdown[1], val_rightdown[1]])
-            # #xs = np.round(np.linspace(x_edge,DISPSIZE[0]-x_edge,n_points))
-            # #ys = np.round([self.ywidth/3*[1,2][pi%2] for pi in range(n_points)])
-
-            # # put the points in format that eyelink wants them, which is
-            # # calibration_targets / validation_targets: 'x1,y1 x2,y2 ... xz,yz'
-            # calibration_targets = ' '.join(
-            #     ['%d,%d' % (cal_xs[pi], cal_ys[pi]) for pi in range(n_points)])
-            # # just copy calibration targets as validation for now:
-            # #validation_targets = calibration_targets
-            # validation_targets = ' '.join(
-            #     ['%d,%d' % (val_xs[pi], val_ys[pi]) for pi in range(n_points)])
-
-            # # point_indices: '0, 1, ... n'
-            # point_indices = ', '.join(['%d' % pi for pi in range(n_points)])
-
-            # # and send these targets to the custom calibration function:
-            # self.custom_calibration(calibration_targets=calibration_targets,
-            #                         validation_targets=validation_targets, point_indices=point_indices,
-            #                         n_points=n_points, randomize_order=True, repeat_first_target=True,)
-            # reapply settings:
-            self.tracker_setup()
-        else:
-            self.create_tracker(tracker_on=False)
+        super(PRFSession, self).__init__(*args, **kwargs)
 
         self.response_button_signs = dict(zip(self.config.get('buttons', 'keys'), range(len(self.config.get('buttons', 'keys')))))
 
-        self.scanner = scanner
-        # trials can be set up independently of the staircases that support their parameters
-        self.prepare_trials(**kwargs)
-
-    def prepare_trials(self, **kwargs):
-        """docstring for prepare_trials(self):"""
-
-        self.directions = np.linspace(0, 2.0 * pi, 8, endpoint=False)
-        # Set arguments from config file or kwargs
+         # Set arguments from config file or kwargs
+        for argument in ['PRF_ITI_in_TR', 'TR', 'task_rate', 'task_rate_offset',
+                         'vertical_bar_pass_in_TR', 'horizontal_bar_pass_in_TR', 'empty_bar_pass_in_TR']:
+            value = kwargs.pop(argument, self.config.get('timing', argument))
+            setattr(self, argument, value)
         for argument in ['mask_type', 'vertical_stim_size', 'horizontal_stim_size',
                          'bar_width_ratio', 'num_elements', 'color_ratio', 'element_lifetime',
                          'stim_present_booleans', 'stim_direction_indices',
@@ -152,14 +33,21 @@ class PRFSession(EyelinkSession):
             value = kwargs.pop(argument, self.config.get('stimuli', argument))
             setattr(self, argument, value)
 
+        # trials can be set up independently of the staircases that support their parameters
+        self.create_trials(**kwargs)
+        self.stopped = False
+
+
+    def create_trials(self, **kwargs):
+        """docstring for create_trials(self):"""
+
+        self.directions = np.linspace(0, 2.0 * np.pi, 8, endpoint=False)
+        # Set arguments from config file or kwargs
+
         if self.mask_type == 0:
             self.horizontal_stim_size = self.size[1]/self.size[0]
 
-         # Set arguments from config file or kwargs
-        for argument in ['PRF_ITI_in_TR', 'TR', 'task_rate', 'task_rate_offset',
-                         'vertical_bar_pass_in_TR', 'horizontal_bar_pass_in_TR', 'empty_bar_pass_in_TR']:
-            value = kwargs.pop(argument, self.config.get('timing', argument))
-            setattr(self, argument, value)
+
         # orientations, bar moves towards:
         # 0: S      3: NW   6: E
         # 1: SW     4: N    7: SE
@@ -192,16 +80,15 @@ class PRFSession(EyelinkSession):
             self.bar_pass_durations[i],
             self.PRF_ITI_in_TR * self.TR] for i in range(len(self.stim_present_booleans))])    # ITI
 
-
         self.total_duration = np.sum(np.array(self.phase_durations))
         self.phase_durations[0,0] = 1800
 
         # fixation point
-        self.fixation_outer_rim = visual.GratingStim(self.screen, mask='raisedCos', tex=None, size=self.deg2pix(self.fixation_outer_rim_size),
+        self.fixation_outer_rim = GratingStim(self.screen, mask='raisedCos', tex=None, size=self.deg2pix(self.fixation_outer_rim_size),
                                                    pos=np.array((self.x_offset, 0.0)), color=self.background_color, maskParams={'fringeWidth': 0.4})
-        self.fixation_rim = visual.GratingStim(self.screen, mask='raisedCos', tex=None, size=self.deg2pix(self.fixation_rim_size),
+        self.fixation_rim = GratingStim(self.screen, mask='raisedCos', tex=None, size=self.deg2pix(self.fixation_rim_size),
                                              pos=np.array((self.x_offset, 0.0)), color=(-1.0, -1.0, -1.0), maskParams={'fringeWidth': 0.4})
-        self.fixation = visual.GratingStim(self.screen, mask='raisedCos', tex=None, size=self.deg2pix(self.fixation_size),
+        self.fixation = GratingStim(self.screen, mask='raisedCos', tex=None, size=self.deg2pix(self.fixation_size),
                                          pos=np.array((self.x_offset, 0.0)), color=self.background_color, opacity=1.0, maskParams={'fringeWidth': 0.4})
 
         # mask
@@ -222,12 +109,12 @@ class PRFSession(EyelinkSession):
                 mask[:y_edge, :] = 1
             import scipy
             mask = scipy.ndimage.filters.gaussian_filter(mask, 5)
-            self.mask_stim = visual.GratingStim(self.screen, mask=mask, tex=None, size=[self.screen_pix_size[0], self.screen_pix_size[1]],
+            self.mask_stim = GratingStim(self.screen, mask=mask, tex=None, size=[self.screen_pix_size[0], self.screen_pix_size[1]],
                                               pos=np.array((self.x_offset, 0.0)), color=self.screen.background_color)
         elif self.mask_type == 0:
             mask = filters.makeMask(matrixSize=self.screen_pix_size[0], shape='raisedCosine', radius=self.vertical_stim_size *
                                     self.screen_pix_size[1]/self.screen_pix_size[0]/2, center=(0.0, 0.0), range=[1, -1], fringeWidth=0.1)
-            self.mask_stim = visual.GratingStim(self.screen, mask=mask, tex=None, 
+            self.mask_stim = GratingStim(self.screen, mask=mask, tex=None, 
                 size=[self.screen_pix_size[0]*2, self.screen_pix_size[0]*2], 
                 pos=np.array((self.x_offset, 0.0)), 
                 color=self.screen.background_color)
@@ -235,8 +122,7 @@ class PRFSession(EyelinkSession):
         # fixation task timing
         self.fix_task_frame_values = self._get_frame_values(framerate=self.framerate, 
                                 trial_duration=self.total_duration, 
-                                min_value=1.0,
-                                exp_scale=1.0,
+    
                                 safety_margin=3000.0)
 
 
@@ -253,7 +139,7 @@ class PRFSession(EyelinkSession):
             # these_phase_durations = self.phase_durations.copy()
             these_phase_durations = self.phase_durations[i]
 
-            this_trial = PRFTrial(this_trial_parameters, phase_durations=these_phase_durations,
+            this_trial = PRFTrial(parameters=this_trial_parameters, phase_durations=these_phase_durations,
                                   session=self, screen=self.screen, tracker=self.tracker)
 
             # run the prepared trial

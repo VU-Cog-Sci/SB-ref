@@ -28,16 +28,18 @@ class MSSession(EyelinkSession):
     def create_trials(self):
         """creates trials by loading a list of jpg files from the img/ folder"""
 
-        if self.index_number == 1:
-            self.movies = [0,1]
-        elif self.index_number == 2:
-            self.movies = [2,3]
-        elif self.index_number == 3:
-            self.movies = [4,5]        
-        elif self.index_number == 4:
-            self.movies = [6,7]        
-        elif self.index_number == 5:
-            self.movies = [8,9]
+        # if self.index_number == 1:
+        #     self.movies = [0,1]
+        # elif self.index_number == 2:
+        #     self.movies = [2,3]
+        # elif self.index_number == 3:
+        #     self.movies = [4,5]        
+        # elif self.index_number == 4:
+        #     self.movies = [6,7]        
+        # elif self.index_number == 5:
+        #     self.movies = [8,9]
+
+        self.movies = [int(self.index_number-1)]
 
         movie_files = [os.path.join(os.path.abspath(os.getcwd()), 'imgs', 'fn_output_%s_%i_ss_pcm.avi'%(self.language, m)) for m in self.movies]
 

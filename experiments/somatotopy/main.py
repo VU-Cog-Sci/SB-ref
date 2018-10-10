@@ -18,7 +18,7 @@ def main():
     run = int(sys.argv[2])
     appnope.nope()
 
-    ts = MSSession(subject_initials=initials, index_number=run, tracker_on=False)
+    ts = MSSession(subject_initials=initials, index_number=run, tracker_on=True)
     ts.run()
 
 if __name__ == '__main__':

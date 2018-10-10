@@ -1,4 +1,6 @@
 from __future__ import division
+from exptools.core.trial import Trial
+
 from psychopy import visual, core, misc, event
 import numpy as np
 from numpy.random import random, shuffle #we only need these two commands from this lib
@@ -10,7 +12,6 @@ import random, sys
 # sys.path.append( os.environ['EXPERIMENT_HOME'] )
 
 from stim import PRFStim
-from exptools.core.trial import Trial
 
 class PRFTrial(Trial):
     def __init__(self, parameters = {}, phase_durations = [], session = None, screen = None, tracker = None):

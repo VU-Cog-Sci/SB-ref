@@ -8,11 +8,12 @@ import numpy as np
 
 class MSTrial(Trial):
 
-    def __init__(self, parameters = {}, phase_durations = [], session = None, screen = None, tracker = None):
+    def __init__(self, ID=None, parameters = {}, phase_durations = [], session = None, screen = None, tracker = None):
 
         super(
             MSTrial,
             self).__init__(
+            ID=ID,
             phase_durations=phase_durations,
             session=session,
             screen=screen,

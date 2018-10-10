@@ -4,8 +4,8 @@ global:
     full_screen: True
     background_color: [-1, -1, -1]
     gamma_scale: [2.475,2.25,2.15]
-    physical_screen_size: [58, 36]
-    physical_screen_distance: 25
+    physical_screen_size: [69, 39]
+    physical_screen_distance: 225
     max_lums: [24.52, 78.8, 10.19]
     wait_blanking: True
     mouse_visible: False
