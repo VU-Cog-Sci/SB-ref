@@ -149,10 +149,10 @@ class PRFSession(EyelinkSession):
         self.close()
 
     def _get_frame_values(self,
-                          framerate,
-                          trial_duration,
-                          min_value,
-                          exp_scale,
+                          framerate=60,
+                          trial_duration=3000,
+                          min_value=1,
+                          exp_scale=1,
                           values=[-1, 1],
                           safety_margin=None):
 

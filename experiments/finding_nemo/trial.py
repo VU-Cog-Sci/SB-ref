@@ -13,7 +13,6 @@ class MSTrial(Trial):
         super(
             MSTrial,
             self).__init__(
-            ID=ID,
             phase_durations=phase_durations,
             session=session,
             screen=screen,

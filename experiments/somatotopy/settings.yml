@@ -2,6 +2,7 @@ global:
   screen:
     size: [1680,1050]
     full_screen: True
+    foreground_color: [-1,-1,-1]
     background_color: [-0.25,-0.25,-0.25]
     gamma_scale: [2.475,2.25,2.15]
     physical_screen_size: [69, 39]
@@ -9,7 +10,7 @@ global:
     max_lums: [24.52, 78.8, 10.19]
     wait_blanking: True
     mouse_visible: False
-    screen_nr: 2
+    screen_nr: 0
     framerate: 60
 
   stimuli:
