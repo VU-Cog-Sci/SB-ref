@@ -37,6 +37,8 @@ class PRFSession(EyelinkSession):
         self.create_trials(**kwargs)
         self.stopped = False
 
+        self.transition_list = []
+
 
     def create_trials(self, **kwargs):
         """docstring for create_trials(self):"""
@@ -147,6 +149,10 @@ class PRFSession(EyelinkSession):
             if self.stopped == True:
                 break
         self.close()
+
+    def close(self):
+        np.savetxt(self.output_file + '_trans.tsv', np.array(self.transition_list), delimiter='\t', fmt='%4.4f')
+
 
     def _get_frame_values(self,
                           framerate=60,

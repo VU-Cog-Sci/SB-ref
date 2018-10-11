@@ -30,8 +30,10 @@ class PRFTrial(Trial):
         
     def draw(self):
         """docstring for draw"""
-
+        old_color = self.session.fixation.color[0]
         self.session.fixation.color = [self.session.fix_task_frame_values[self.session.frame_nr], self.session.fix_task_frame_values[self.session.frame_nr], self.session.fix_task_frame_values[self.session.frame_nr]]
+        if (old_color != self.session.fixation.color[0]) and hasattr(self.session, 'scanner_start_time'):
+            self.session.transition_list.append([self.session.clock.getTime() - self.session.scanner_start_time, self.session.fixation.color[0]])
 
         if self.phase == 0:
             if self.ID == 0:
