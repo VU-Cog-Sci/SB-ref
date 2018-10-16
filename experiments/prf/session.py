@@ -152,7 +152,7 @@ class PRFSession(EyelinkSession):
 
     def close(self):
         np.savetxt(self.output_file + '_trans.tsv', np.array(self.transition_list), delimiter='\t', fmt='%4.4f')
-
+        super(PRFSession, self).close()
 
     def _get_frame_values(self,
                           framerate=60,

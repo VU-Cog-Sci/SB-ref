@@ -2,8 +2,8 @@ global:
   screen:
     size: [1680, 1050]
     full_screen: True
-    background_color: [0,0,0]
-    foreground_color: [-1,-1,-1]
+    background_color: [0.25,0.25,0.25]
+    foreground_color: [1,1,1]
     gamma_scale: [2.475,2.25,2.15]
     physical_screen_size: [69, 39]
     physical_screen_distance: 225
