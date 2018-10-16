@@ -53,7 +53,7 @@ class LR_IMTrial(Trial):
                     print 'run canceled by user'
 
                 elif ev in ('b','r','t'):
-                    if (self.phase == 0) and (self.ID == 0):
+                    if (self.phase == 0) and (self.ID == 0) and ev == 't':
                         self.phase_forward()                    
                     elif self.phase == 3 and ev in ('b','r'):
                         self.parameters['answer'] = ['b','r'].index(ev)

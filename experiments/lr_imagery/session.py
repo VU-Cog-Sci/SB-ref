@@ -37,6 +37,13 @@ class LR_IMSession(EyelinkSession):
     def create_trials(self):
         """creates trials by creating a restricted random walk through the display from trial to trial"""
 
+        nr_trials = self.n_trials * 4   # nr of trials is four times the yml definition
+        all_trial_itis = np.r_[np.ones(nr_trials/2)*0, np.ones(nr_trials/4)*0.5, np.ones(nr_trials/8), np.ones(nr_trials/16)*2, np.ones(nr_trials/16)*4]
+        all_trial_itis = all_trial_itis / all_trial_itis.mean() 
+        all_trial_itis *= self.inter_trial_interval_mean
+        all_trial_itis += self.inter_trial_interval_min 
+        np.random.shuffle(all_trial_itis)
+
         sides = [-1,1]
         shapes = [0,1]
         self.trial_parameters = []
@@ -46,8 +53,7 @@ class LR_IMSession(EyelinkSession):
                     this_trial_dict = {
                         'shape': shape,
                         'side': side,
-                        'iti' : self.inter_trial_interval_min + \
-                        np.random.exponential(self.inter_trial_interval_mean),  
+                        'iti' : all_trial_itis[len(self.trial_parameters)],  
                         'finger_instruction': self.index_number
                         }
                     this_trial_dict.update(self.config_parameters)
@@ -59,7 +65,7 @@ class LR_IMSession(EyelinkSession):
         for tp in self.trial_parameters:
             tp['wait_duration'] = -0.001
         self.trial_parameters[0]['wait_duration'] = 1200
-        self.trial_parameters[-1]['iti'] = self.intro_extro_duration
+        self.trial_parameters[-1]['iti'] = self.intro_extro_duration + self.trial_parameters[-1]['iti']
 
     def setup_stimuli(self):
         size_fixation_pix = self.deg2pix(self.size_fixation_deg)
