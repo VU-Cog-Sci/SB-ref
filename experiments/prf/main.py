@@ -9,7 +9,7 @@ def main():
 
     appnope.nope()
 
-    ts = PRFSession(subject_initials=initials, index_number=index_number, tracker_on=False)
+    ts = PRFSession(subject_initials=initials, index_number=index_number, tracker_on=True)
     ts.run()
 
 if __name__ == '__main__':
