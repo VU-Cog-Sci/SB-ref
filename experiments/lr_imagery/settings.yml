@@ -14,13 +14,13 @@ global:
     framerate: 60
 
   stimuli:
-    size_fixation_deg: 0.5
+    size_fixation_deg: 0.15
     shape_ecc: 4
     shape_size: 1.5
-    shape_lw: 0.25
+    shape_lw: 0.0125
 
     n_trials: 20
-    language: 'IT'
+    language: 'EN'
 
   buttons:
     keys: ['a', 's', 'd', 'f']

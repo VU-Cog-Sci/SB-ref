@@ -77,34 +77,47 @@ class LR_IMSession(EyelinkSession):
                                 height=self.deg2pix(self.shape_size),
                                 lineWidth=self.deg2pix(self.shape_lw), 
                                 lineColor='white',
-                                fillColor='red')
+                                fillColor='black')
 
         self.circle_stim = visual.Circle(self.screen, 
                                 radius=self.deg2pix(self.shape_size)/2.0,
                                 lineWidth=self.deg2pix(self.shape_lw), 
                                 lineColor='white',
-                                fillColor='green')
+                                fillColor='black')
 
         self.shape_stims = [self.square_stim, self.circle_stim]
 
         if self.language == 'EN':
-            this_instruction_string = """When you see a square, press the button with your %s index finger 
-If you see a circle, press nothing. 
+            this_instruction_string = """When you see a {target}, press the button with your {insert_string} index finger 
+If you see a {distractor}, press nothing. 
 Waiting for the scanner to start."""
-            if self.index_number == -1:
+            if self.index_number < 3:
                 insert_string = 'LEFT'
-            elif self.index_number == 1:
+            elif self.index_number >= 3:
                 insert_string = 'RIGHT'
+            if self.index_number % 2 == 0:
+                target = 'SQUARE'
+                distractor = 'CIRCLE'
+            else:
+                target = 'CIRCLE'
+                distractor = 'SQUARE'           
         elif self.language == 'IT':
-            this_instruction_string = """Quando vedi un quadrato, premi il pulsante con il dito indice %s
-Se vedi un cerchio, non premere nulla.
+            this_instruction_string = """Quando vedi un {target}quadrato, premi il pulsante con il dito indice %s
+Se vedi un {distractor}cerchio, non premere nulla.
 In attesa che lo scanner inizi."""
-            if self.index_number == -1:
+            if self.index_number < 3:
                 insert_string = 'SINISTRO'
-            elif self.index_number == 1:
+            elif self.index_number >= 3:
                 insert_string = 'DESTRO'
+            if self.index_number % 2 == 0:
+                target = 'QUADRATO'
+                distractor = 'CERCHIO'
+            else:
+                target = 'CERCHIO'
+                distractor = 'QUADRATO'    
+
         self.instruction = visual.TextStim(self.screen, 
-            text = this_instruction_string%insert_string, 
+            text = this_instruction_string.format(insert_string=insert_string, target=target, distractor=distractor), 
             font = 'Helvetica Neue',
             pos = (0, 0),
             italic = True, 
