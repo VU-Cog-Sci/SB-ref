@@ -1,0 +1,42 @@
+global:
+  screen:
+    size: [1920, 1080]
+    full_screen: False
+    background_color: [0,0,0]
+    foreground_color: [-0.75,-0.75,-0.75]
+    gamma_scale: [2.475,2.25,2.15]
+    physical_screen_size: [69, 39]
+    physical_screen_distance: 225
+    max_lums: [24.52, 78.8, 10.19]
+    wait_blanking: True
+    mouse_visible: False
+    screen_nr: 2
+    framerate: 60
+
+  stimuli:
+    size_fixation_deg: 0.15
+    shape_ecc: 4
+    shape_size: 1.5
+    shape_lw: 0.0125
+
+    n_trials: 16
+    language: 'EN'
+
+  buttons:
+    keys: ['a', 's', 'd', 'f']
+
+  mri:
+    mri_trigger_key: 't'
+
+  eyetracker:
+    sample_rate: 1000
+    n_calib_points: 9
+    calib_size: 0.5
+    x_offset: 0    
+
+  timing:
+    fixation_duration: 0.75
+    inter_trial_interval_mean: 1
+    inter_trial_interval_min: 2
+    intro_extro_duration: 12
+    stimulus_duration: 0.125
