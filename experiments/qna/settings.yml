@@ -2,8 +2,8 @@ global:
   screen:
     size: [1680,1050]
     full_screen: True
-    background_color: [-0.75, -0.75, -0.75]
-    foreground_color: [1,1,1]
+    background_color: [0.5, 0.5, 0.5]
+    foreground_color: [-1,-1,-1]
     gamma_scale: [2.475,2.25,2.15]
     physical_screen_size: [69, 39]
     physical_screen_distance: 225
@@ -14,15 +14,15 @@ global:
     framerate: 60
 
   stimuli:
-    size_fixation_deg: 0.0125
+    size_fixation_deg: 0.125
     language: "EN"
 
   buttons:
     keys: ['b', 'y', 'e']
 
   timing:
-    fixation_time: 1
-    stimulus_time: 12
+    fixation_time: 12
+    stimulus_time: 24
 
   mri:
     mri_trigger_key: 't'

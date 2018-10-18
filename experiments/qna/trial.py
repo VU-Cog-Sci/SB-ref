@@ -20,28 +20,20 @@ class QNATrial(Trial):
             tracker=tracker)
 
         self.sound_stim = self.session.sound_stims[self.parameters['stimulus']]
-        size_fixation_pix = self.session.deg2pix(self.session.size_fixation_deg)
-
-        self.fixation = visual.GratingStim(self.screen,
-                                           tex='sin',
-                                           mask='raisedCos',
-                                           size=size_fixation_pix,
-                                           texRes=512,
-                                           color='white',
-                                           sf=0,
-                                           maskParams={'fringeWidth': 0.4})
 
         self.sound_played = False
 
     def draw(self, *args, **kwargs):
 
-        if self.phase in  (0,1,2,3):
-            self.fixation.draw()
-        elif self.phase == 2:
-            if not self.sound_played:
+        self.session.fixation.draw()
+
+        if self.phase == 2:
+            if not self.sound_played and self.session.index_number != 0:
                 self.sound_stim.play()
                 self.sound_played = True
-                print('sound playing')
+
+        if (self.phase == 0) and (self.ID == 0):
+            self.session.instruction.draw()
 
         super(QNATrial, self).draw()
 
@@ -54,7 +46,6 @@ class QNATrial(Trial):
                         [-99, self.session.clock.getTime() - self.start_time])
                     self.stopped = True
                     self.session.stopped = True
-                    print 'run canceled by user'
                 if ev in ['space', ' ', 't']:
                     if (self.phase == 0) and (self.ID == 0):
                         self.phase_forward()

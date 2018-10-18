@@ -7,6 +7,8 @@ import os
 import exptools
 import json
 import glob
+import scipy.io as io
+from psychopy import logging, visual, event
 
 
 class QNASession(EyelinkSession):
@@ -21,6 +23,31 @@ class QNASession(EyelinkSession):
         for argument in ['fixation_time', 'stimulus_time']:
             value = kwargs.pop(argument, self.config.get('timing', argument))
             setattr(self, argument, value)
+
+        self.fixation = visual.GratingStim(self.screen,
+                                           tex='sin',
+                                           mask='raisedCos',
+                                           size=self.deg2pix(self.size_fixation_deg),
+                                           texRes=512,
+                                           color=self.foreground_color,
+                                           sf=0,
+                                           maskParams={'fringeWidth': 0.4})
+
+        if self.index_number != 0:
+            instruction_text = 'Please follow the spoken instructions,\n and fixate during the entire scan. \nWaiting for Scanner'
+        else:
+            instruction_text = 'Please fixate during the entire scan. \nWaiting for Scanner'
+
+        self.instruction = visual.TextStim(self.screen, 
+            text = instruction_text, 
+            font = 'Helvetica Neue',
+            pos = (0, self.deg2pix(2)),
+            italic = True, 
+            height = 20, 
+            alignHoriz = 'center',
+            color=(-1,-1,-1))
+        self.instruction.setSize((1200,50))
+
         self.create_trials()
 
         self.stopped = False
@@ -31,15 +58,13 @@ class QNASession(EyelinkSession):
         if self.index_number == 1:
             self.sound_indices = [1,2,3,4]
         elif self.index_number == 2:
-            self.sound_indices = [5,6,7,8]
+            self.sound_indices = [5,6,7,9]
         elif self.index_number == 3:
             self.sound_indices = [1,2,3,4]
         elif self.index_number == 4:
-            self.sound_indices = [5,6,7,8]
-
+            self.sound_indices = [5,6,7,9]
 
         sound_files = [os.path.join(os.path.abspath(os.getcwd()), 'sounds', 'wav', 'Q%i_english.wav'%s) for s in self.sound_indices]
-
         self.sound_stims = [sound.Sound(isf) for isf in sound_files]
         self.trial_order = np.arange(len(self.sound_stims))
 
