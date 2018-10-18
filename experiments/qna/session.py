@@ -80,6 +80,8 @@ class QNASession(EyelinkSession):
             # parameters.update(self.config)
             if ti == 0:
                 phase_durations = [1800, self.fixation_time, self.stimulus_time, self.fixation_time]
+            elif ti == len(self.sound_stims)-1:
+                phase_durations = [-0.001, self.fixation_time, self.stimulus_time, self.fixation_time*3]
             else:
                 phase_durations = [-0.001, self.fixation_time, self.stimulus_time, self.fixation_time]
 

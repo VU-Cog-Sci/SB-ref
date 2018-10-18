@@ -37,13 +37,6 @@ class LR_IMSession(EyelinkSession):
     def create_trials(self):
         """creates trials by creating a restricted random walk through the display from trial to trial"""
 
-        nr_trials = self.n_trials * 4   # nr of trials is four times the yml definition
-        all_trial_itis = np.r_[np.ones(nr_trials/2)*0, np.ones(nr_trials/4)*0.5, np.ones(nr_trials/8), np.ones(nr_trials/16)*2, np.ones(nr_trials/16)*4]
-        all_trial_itis = all_trial_itis / all_trial_itis.mean() 
-        all_trial_itis *= self.inter_trial_interval_mean
-        all_trial_itis += self.inter_trial_interval_min 
-        np.random.shuffle(all_trial_itis)
-
         sides = [-1,1]
         shapes = [0,1]
         self.trial_parameters = []
@@ -53,7 +46,7 @@ class LR_IMSession(EyelinkSession):
                     this_trial_dict = {
                         'shape': shape,
                         'side': side,
-                        'iti' : all_trial_itis[len(self.trial_parameters)],  
+                        'iti' : self.intro_extro_duration,  
                         'finger_instruction': self.index_number
                         }
                     this_trial_dict.update(self.config_parameters)
@@ -94,13 +87,15 @@ class LR_IMSession(EyelinkSession):
         self.shape_stims = [self.square_stim, self.circle_stim]
 
         if self.language == 'EN':
-            this_instruction_string = """When you see a {target}, press the button with your {insert_string} index finger 
-If you see a {distractor}, press nothing. 
+            this_instruction_string = """When you see a {target}, imagine {insert_string} 
+When you see a {distractor}, imagine {non_insert_string}. 
 Waiting for the scanner to start."""
             if self.index_number < 3:
-                insert_string = 'LEFT'
+                insert_string = 'PLAYING TENNIS'
+                non_insert_string = 'WALKING AROUND YOUR HOUSE'
             elif self.index_number >= 3:
-                insert_string = 'RIGHT'
+                insert_string = 'WALKING AROUND YOUR HOUSE'
+                non_insert_string = 'PLAYING TENNIS'
             if self.index_number % 2 == 0:
                 target = 'SQUARE'
                 distractor = 'CIRCLE'
@@ -108,22 +103,23 @@ Waiting for the scanner to start."""
                 target = 'CIRCLE'
                 distractor = 'SQUARE'           
         elif self.language == 'IT':
-            this_instruction_string = """Quando vedi un {target}quadrato, premi il pulsante con il dito indice %s
-Se vedi un {distractor}cerchio, non premere nulla.
-In attesa che lo scanner inizi."""
-            if self.index_number < 3:
-                insert_string = 'SINISTRO'
-            elif self.index_number >= 3:
-                insert_string = 'DESTRO'
-            if self.index_number % 2 == 0:
-                target = 'QUADRATO'
-                distractor = 'CERCHIO'
-            else:
-                target = 'CERCHIO'
-                distractor = 'QUADRATO'    
+            raise NotImplementedError
+#             this_instruction_string = """Quando vedi un {target}quadrato, premi il pulsante con il dito indice %s
+# Se vedi un {distractor}cerchio, non premere nulla.
+# In attesa che lo scanner inizi."""
+#             if self.index_number < 3:
+#                 insert_string = 'SINISTRO'
+#             elif self.index_number >= 3:
+#                 insert_string = 'DESTRO'
+#             if self.index_number % 2 == 0:
+#                 target = 'QUADRATO'
+#                 distractor = 'CERCHIO'
+#             else:
+#                 target = 'CERCHIO'
+#                 distractor = 'QUADRATO'    
 
         self.instruction = visual.TextStim(self.screen, 
-            text = this_instruction_string.format(insert_string=insert_string, target=target, distractor=distractor), 
+            text = this_instruction_string.format(insert_string=insert_string, non_insert_string=non_insert_string, target=target, distractor=distractor), 
             font = 'Helvetica Neue',
             pos = (0, 0),
             italic = True, 

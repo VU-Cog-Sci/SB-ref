@@ -19,7 +19,7 @@ global:
     shape_size: 1.5
     shape_lw: 0.0125
 
-    n_trials: 16
+    n_trials: 4
     language: 'EN'
 
   buttons:
@@ -36,7 +36,7 @@ global:
 
   timing:
     fixation_duration: 0.75
-    inter_trial_interval_mean: 1
-    inter_trial_interval_min: 2
+    inter_trial_interval_mean: 0
+    inter_trial_interval_min: 16
     intro_extro_duration: 12
     stimulus_duration: 0.125

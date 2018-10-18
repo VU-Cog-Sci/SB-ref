@@ -38,6 +38,10 @@ class LR_IMTrial(Trial):
             self.session.shape_stims[self.parameters['shape']].setPos((x_position,0))
             self.session.shape_stims[self.parameters['shape']].draw()
 
+        self.session.fixation.color = 'white'
+        if self.phase == 1:
+            self.session.fixation.color = 'black'
+
         self.session.fixation.draw()
 
         super(LR_IMTrial, self).draw()
