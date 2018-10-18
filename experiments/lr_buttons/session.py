@@ -67,6 +67,8 @@ class LR_IMSession(EyelinkSession):
         self.trial_parameters[0]['wait_duration'] = 1200
         self.trial_parameters[-1]['iti'] = self.intro_extro_duration + self.trial_parameters[-1]['iti']
 
+        print('total time after T: ' + str(np.array([[tp['fixation_duration']+tp['iti']+tp['stimulus_duration']] for tp in self.trial_parameters]).sum()))
+
     def setup_stimuli(self):
         size_fixation_pix = self.deg2pix(self.size_fixation_deg)
         self.fixation = visual.GratingStim(self.screen,

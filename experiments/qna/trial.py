@@ -25,8 +25,6 @@ class QNATrial(Trial):
 
     def draw(self, *args, **kwargs):
 
-        self.session.fixation.draw()
-
         if self.phase == 2:
             if not self.sound_played and self.session.index_number != 0:
                 self.sound_stim.play()
@@ -34,6 +32,12 @@ class QNATrial(Trial):
 
         if (self.phase == 0) and (self.ID == 0):
             self.session.instruction.draw()
+
+        self.session.fixation.color = 'white'
+        if self.phase == 1:
+            self.session.fixation.color = 'black'
+
+        self.session.fixation.draw()
 
         super(QNATrial, self).draw()
 

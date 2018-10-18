@@ -19,7 +19,7 @@ global:
     shape_size: 1.5
     shape_lw: 0.0125
 
-    n_trials: 16
+    n_trials: 12
     language: 'EN'
 
   buttons:

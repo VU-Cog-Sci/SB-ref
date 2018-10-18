@@ -60,6 +60,8 @@ class LR_IMSession(EyelinkSession):
         self.trial_parameters[0]['wait_duration'] = 1200
         self.trial_parameters[-1]['iti'] = self.intro_extro_duration + self.trial_parameters[-1]['iti']
 
+        print('total time after T: ' + str(np.array([[tp['fixation_duration']+tp['iti']+tp['stimulus_duration']] for tp in self.trial_parameters]).sum()))
+
     def setup_stimuli(self):
         size_fixation_pix = self.deg2pix(self.size_fixation_deg)
         self.fixation = visual.GratingStim(self.screen,
@@ -87,8 +89,8 @@ class LR_IMSession(EyelinkSession):
         self.shape_stims = [self.square_stim, self.circle_stim]
 
         if self.language == 'EN':
-            this_instruction_string = """When you see a {target}, imagine {insert_string} 
-When you see a {distractor}, imagine {non_insert_string}. 
+            this_instruction_string = """When you see a {target}, imagine \n{insert_string} 
+When you see a {distractor}, imagine \n{non_insert_string} 
 Waiting for the scanner to start."""
             if self.index_number < 3:
                 insert_string = 'PLAYING TENNIS'
