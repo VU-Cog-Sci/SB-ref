@@ -8,8 +8,10 @@ global:
     physical_screen_size: [69, 39]
     physical_screen_distance: 225
     max_lums: [24.52, 78.8, 10.19]
+    min_lums: [0, 0, 0]
     wait_blanking: True
     mouse_visible: False
+    linearize_gamma: True
     screen_nr: 0
     framerate: 60
 

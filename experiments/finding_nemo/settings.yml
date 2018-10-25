@@ -5,9 +5,11 @@ global:
     background_color: [-0.75, -0.75, -0.75]
     foreground_color: [1,1,1]
     gamma_scale: [2.475,2.25,2.15]
+    linearize_gamma: True
     physical_screen_size: [69, 39]
     physical_screen_distance: 225
     max_lums: [24.52, 78.8, 10.19]
+    min_lums: [0, 0, 0]
     wait_blanking: True
     mouse_visible: False
     screen_nr: 2
