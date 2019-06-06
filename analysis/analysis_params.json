@@ -1,8 +1,11 @@
 {
+    "sourcedata_dir":"/home/shared/2018/visual/SB-prep/SB-ref/sourcedata/",
     "fmriprep_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/fmriprep/",
     "freesurfer_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/freesurfer/",
     "pRF_outdir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/pRF_fit/",
     "imgs_dir":"/home/verissimo/SB-ref/analysis/imgs/",
+    "soma_outdir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/soma_fit/",
+    "cortex_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/cortex/",
     "screenRes":[1920,1080],
     "TR": 1.6,
     "fit_model": "gauss_sg",
@@ -20,6 +23,6 @@
     "sg_filt_polyorder": 3,
     "sg_filt_deriv": 0,
     "grid_steps": 20,
-    "N_PROCS":8
-    
+    "N_PROCS":8,
+    "rsq_threshold": 0.15
     }    

@@ -56,7 +56,7 @@ def screenshot2DM(filenames,scale,screen,outfile):
     
     im_gr_resc = np.zeros((len(filenames),int(screen[1]*scale),int(screen[0]*scale)))
     
-    for i, png in enumerate(png_filename): #rescaled and grayscaled images
+    for i, png in enumerate(filenames): #rescaled and grayscaled images
         im_gr_resc[i,:,:] = rescale(color.rgb2gray(imageio.imread(png)), scale)
     
     img_bin = np.zeros(im_gr_resc.shape) #binary image, according to triangle threshold
