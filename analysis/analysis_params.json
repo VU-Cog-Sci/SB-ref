@@ -1,0 +1,25 @@
+{
+    "fmriprep_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/fmriprep/",
+    "freesurfer_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/freesurfer/",
+    "pRF_outdir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/pRF_fit/",
+    "imgs_dir":"/home/verissimo/SB-ref/analysis/imgs/",
+    "screenRes":[1920,1080],
+    "TR": 1.6,
+    "fit_model": "gauss_sg",
+    "min_eccen": 0.25, 
+    "max_eccen": 10, 
+    "min_size": 0.5,
+    "max_size": 10,
+    "min_n": 0.05,
+    "max_n": 1.1,
+    "screen_distance" : 135,
+    "screen_width" : 70,
+    "rsq_threshold": 0.10,
+    "cov_threshold": 0.30,
+    "sg_filt_window_length": 211,
+    "sg_filt_polyorder": 3,
+    "sg_filt_deriv": 0,
+    "grid_steps": 20,
+    "N_PROCS":8
+    
+    }    
