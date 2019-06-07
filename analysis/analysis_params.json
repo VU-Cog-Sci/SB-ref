@@ -24,5 +24,31 @@
     "sg_filt_deriv": 0,
     "grid_steps": 20,
     "N_PROCS":8,
-    "rsq_threshold": 0.15
-    }    
+    "rsq_threshold": 0.15,
+    "nuisance_columns": [
+            "csf", 
+            "white_matter", 
+            "global_signal", 
+            "std_dvars",
+            "dvars",
+            "framewise_displacement",
+            "t_comp_cor_00",
+            "t_comp_cor_01",
+            "t_comp_cor_02",
+            "t_comp_cor_03",
+            "t_comp_cor_04",
+            "t_comp_cor_05",
+            "a_comp_cor_00",
+            "a_comp_cor_01",
+            "a_comp_cor_02",
+            "a_comp_cor_03",
+            "a_comp_cor_04",
+            "a_comp_cor_05",
+            "trans_x",
+            "trans_y",
+            "trans_z",
+            "rot_x",
+            "rot_x",
+            "rot_z"
+        ]
+    }       
