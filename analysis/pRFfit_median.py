@@ -78,8 +78,13 @@ prf_dm = np.moveaxis(prf_dm, 0, -1) #swap axis for popeye (x,y,time)
 
 # define model params
 fit_model = analysis_params["fit_model"]
+
 # exception for these 2 subjects, TR was different
-TR = 1.5 if 'sub-01_ses-01' or 'sub-03_ses-01' in med_gii[0] else params["TR"]
+for string in ['sub-01_ses-01', 'sub-03_ses-01']:
+    if re.search(string, filename[0]):
+        TR = 1.5
+    else:
+        TR = analysis_params["TR"]
 
 # Fit: define search grids
 x_grid_bound = (-analysis_params["max_eccen"], analysis_params["max_eccen"])
