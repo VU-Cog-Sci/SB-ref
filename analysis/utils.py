@@ -65,3 +65,67 @@ def screenshot2DM(filenames,scale,screen,outfile):
     
     # save as numpy array
     np.save(outfile, img_bin.astype(np.uint8))
+
+
+def highpass_gii(filenames,polyorder,deriv,window,outpth):
+    
+    import os
+    from nilearn import surface
+    from scipy.signal import savgol_filter
+    
+    filenames_sg = []
+    filenames.sort() #to make sure their in right order
+    
+    for run in range(len(filenames)//2): # for every run (2 hemi per run)
+
+        run_files = [x for _,x in enumerate(filename) if 'run-0'+str(run+1) in os.path.split(x)[-1]]
+
+        data_both = []
+        for _,hemi in enumerate(run_files):
+            data_both.append(surface.load_surf_data(hemi).T) #load surface data
+
+        data_both = np.hstack(data_both) #stack then filter
+        print('filtering run %s' %run_files)
+        data_both -= savgol_filter(data_both, window, polyorder, axis=1,deriv=deriv)
+        
+        filenames_sg.append(data_both)
+    
+    return np.array(filenames_sg)
+
+def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
+    
+    import os
+    import pandas as pd
+    from spynoza.filtering.nodes import savgol_filter_confounds
+    from sklearn.decomposition import PCA
+
+    all_confs = []
+    filt_conf_dir = []
+    confounds.sort()
+
+    for _,val in enumerate(confounds):
+        # high pass confounds
+        confounds_SG = savgol_filter_confounds(val, polyorder=polyorder, deriv=deriv, window_length=window, tr=tr)
+
+        confs = pd.read_csv(confounds_SG, sep='\t', na_values='n/a')
+        confs = confs[nuisances]
+
+        #choose the minimum number of principal components such that at least 95% of the variance is retained.
+        #pca = PCA(0.95,whiten=True) 
+        pca = PCA(n_components=2,whiten=True) #had to chose 2 because above formula messes up len of regressors 
+        pca_confs = pca.fit_transform(np.nan_to_num(confs))
+        print('%d components selected for run' %pca.n_components_)
+
+        # make list of dataframes 
+        all_confs.append(pd.DataFrame(pca_confs, columns=['comp_{n}'.format(n=n) for n in range(pca.n_components_)]))
+
+        # move file to median directory
+        outfile = os.path.join(outpth,os.path.basename(confounds_SG))
+        print('filtered confounds saved in %s' %outfile)
+
+        filt_conf_dir.append(outfile)                      
+        os.rename(confounds_SG, outfile)
+
+    return filt_conf_dir
+
+    
