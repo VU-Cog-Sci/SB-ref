@@ -129,6 +129,7 @@ for index, (contrast_id, contrast_val) in enumerate(all_contrasts.items()):
         if design_matrix.columns[i] in contrast_val:
             contrast[i] = 1
     
+    print('contrast %s is %s' %(contrast_id,contrast))
     # compute contrast-related statistics
     contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
 
@@ -154,7 +155,8 @@ for j,lbl in enumerate(bhand_label):
                 contrast[i] = 1
             elif lbl in design_matrix.columns[i]: # -1 to other fingers of same hand
                 contrast[i] = -1/4.0
-                
+        
+        print('contrast %s %s is %s' %(label,lbl,contrast))       
         # compute contrast-related statistics
         contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
 
@@ -176,7 +178,8 @@ for j in range(len(rl_limb)):
         elif 'l'+rl_limb[j] in design_matrix.columns[i]:
             contrast[i] = -1
            
-
+    
+    print('contrast %s is %s' %('z_right-left_'+rl_limb[j],contrast))
     # compute contrast-related statistics
     contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
 
