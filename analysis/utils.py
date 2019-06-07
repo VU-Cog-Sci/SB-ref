@@ -1,5 +1,25 @@
 #useful functions to use in other scripts
 
+import re
+import nibabel as nb
+import numpy as np
+import os
+
+import imageio
+from skimage import color
+import cv2
+from skimage.transform import rescale
+from skimage.filters import threshold_triangle
+
+from nilearn import surface
+from scipy.signal import savgol_filter
+
+import pandas as pd
+from spynoza.filtering.nodes import savgol_filter_confounds
+from sklearn.decomposition import PCA
+
+
+
 def median_gii(files,outdir):
     
     ##################################################
@@ -10,10 +30,6 @@ def median_gii(files,outdir):
     #        median_file - absolute output filename
     ##################################################
     
-    import re
-    import nibabel as nb
-    import numpy as np
-    import os
     
     img = []
     for i,filename in enumerate(files):
@@ -46,13 +62,6 @@ def screenshot2DM(filenames,scale,screen,outfile):
     #        DM - absolute output design matrix filename
     ##################################################
     
-    import imageio
-    from skimage import color
-    import numpy as np
-    import cv2
-    from skimage.transform import rescale
-    from skimage.filters import threshold_triangle
-    import os
     
     im_gr_resc = np.zeros((len(filenames),int(screen[1]*scale),int(screen[0]*scale)))
     
@@ -69,16 +78,13 @@ def screenshot2DM(filenames,scale,screen,outfile):
 
 def highpass_gii(filenames,polyorder,deriv,window,outpth):
     
-    import os
-    from nilearn import surface
-    from scipy.signal import savgol_filter
     
     filenames_sg = []
     filenames.sort() #to make sure their in right order
     
     for run in range(len(filenames)//2): # for every run (2 hemi per run)
 
-        run_files = [x for _,x in enumerate(filename) if 'run-0'+str(run+1) in os.path.split(x)[-1]]
+        run_files = [x for _,x in enumerate(filenames) if 'run-0'+str(run+1) in os.path.split(x)[-1]]
 
         data_both = []
         for _,hemi in enumerate(run_files):
@@ -94,10 +100,6 @@ def highpass_gii(filenames,polyorder,deriv,window,outpth):
 
 def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
     
-    import os
-    import pandas as pd
-    from spynoza.filtering.nodes import savgol_filter_confounds
-    from sklearn.decomposition import PCA
 
     all_confs = []
     filt_conf_dir = []
