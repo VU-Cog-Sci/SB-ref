@@ -10,6 +10,7 @@ Do SOMA contrasts and save outputs
 
 import os, json
 import sys, glob
+import re 
 
 import numpy as np
 import pandas as pd
@@ -51,9 +52,13 @@ events.sort()
 
 
 # high pass filter all runs
-
 # exception for these 2 subjects, TR was different
-TR = 1.5 if 'sub-01_ses-01' or 'sub-03_ses-01' in filename[0] else params["TR"]
+for string in ['sub-01_ses-01', 'sub-03_ses-01']:
+    if re.search(string, filename[0]):
+        TR = 1.5
+    else:
+        TR = analysis_params["TR"]
+
 # soma out path
 soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj))
 
