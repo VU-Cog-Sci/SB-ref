@@ -92,7 +92,7 @@ def highpass_gii(filenames,polyorder,deriv,window,outpth):
 
         data_both = np.hstack(data_both) #stack then filter
         print('filtering run %s' %run_files)
-        data_both -= savgol_filter(data_both, window, polyorder, axis=1,deriv=deriv)
+        data_both -= savgol_filter(data_both, window, polyorder, axis=0,deriv=deriv)
         
         filenames_sg.append(data_both)
     
