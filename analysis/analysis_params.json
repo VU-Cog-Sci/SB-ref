@@ -15,11 +15,11 @@
     "max_size": 10,
     "min_n": 0.05,
     "max_n": 1.1,
-    "screen_distance" : 135,
+    "screen_distance" : 225,
     "screen_width" : 70,
-    "rsq_threshold": 0.10,
+    "rsq_threshold": 0.15,
     "cov_threshold": 0.30,
-    "sg_filt_window_length": 211,
+    "sg_filt_window_length": 121,
     "sg_filt_polyorder": 3,
     "sg_filt_deriv": 0,
     "grid_steps": 20,
@@ -51,4 +51,4 @@
             "rot_x",
             "rot_z"
         ]
-    }       
+    } 
