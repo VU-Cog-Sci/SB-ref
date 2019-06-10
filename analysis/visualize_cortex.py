@@ -157,4 +157,131 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['rsq'], recache=False,with_colorbar=True,with_curvature=True)
 
 
+## SOMATOTOPY ##
+
+z_threshold = analysis_params['z_threshold']
+
+soma_path = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
+
+## group different body areas
+face_zscore = np.load(os.path.join(soma_path,'z_face_contrast.npy'))
+upper_zscore = np.load(os.path.join(soma_path,'z_upper_limb_contrast.npy'))
+lower_zscore = np.load(os.path.join(soma_path,'z_lower_limb_contrast.npy'))
+
+# threshold them
+data_threshed_face=np.zeros(face_zscore.shape) # set at 0 whatever is outside thresh
+data_threshed_upper=np.zeros(upper_zscore.shape) # set at 0 whatever is outside thresh
+data_threshed_lower=np.zeros(lower_zscore.shape) # set at 0 whatever is outside thresh
+
+for i in range(len(face_zscore)):
+    if face_zscore[i] < -z_threshold or face_zscore[i] > z_threshold:
+        data_threshed_face[i]=face_zscore[i]
+        
+    if upper_zscore[i] < -z_threshold or upper_zscore[i] > z_threshold:
+        data_threshed_upper[i]=upper_zscore[i]
+        
+    if lower_zscore[i] < -z_threshold or lower_zscore[i] > z_threshold:
+        data_threshed_lower[i]=lower_zscore[i]
+
+
+# combine 3 body part maps, threshold values
+
+soma_labels = np.zeros(face_zscore.shape) # set at 0 whatever is outside thresh
+soma_zval = np.zeros(face_zscore.shape) # set at 0 whatever is outside thresh
+
+for i in range(len(soma_labels)):#all_soma_1D)):
+    
+    zvals = [face_zscore[i],upper_zscore[i],lower_zscore[i]]
+    max_zvals = max(zvals)
+    
+    if max_zvals>z_threshold: #if bigger than thresh
+        soma_zval[i] = max_zvals #take max value for voxel, that will be the label shown
+
+        if np.argmax(zvals) == 0:
+            soma_labels[i] = 0.1 #0.3 #0.2 #face = red
+        elif np.argmax(zvals) == 1:
+            soma_labels[i] = 0.5 #upper = orange
+        elif np.argmax(zvals) == 2:
+            soma_labels[i] = 0.9 # 0.7 #0.8 #lower = yellow
+
+
+## Right vs left
+RLupper_zscore = np.load(os.path.join(soma_path,'z_right-left_hand_contrast.npy'))
+RLlower_zscore = np.load(os.path.join(soma_path,'z_right-left_leg_contrast.npy'))
+
+# threshold left vs right, to only show relevant vertex
+
+data_threshed_RLhand=np.zeros(RLupper_zscore.shape) # set at 0 whatever is outside thresh
+data_threshed_RLleg=np.zeros(RLlower_zscore.shape)
+
+for i in range(len(RLupper_zscore)):
+    if RLupper_zscore[i] < -z_threshold or RLupper_zscore[i] > z_threshold:
+        data_threshed_RLhand[i]=RLupper_zscore[i]
+    
+    if RLlower_zscore[i] < -z_threshold or RLlower_zscore[i] > z_threshold:
+        data_threshed_RLleg[i]=RLlower_zscore[i]
+
+
+## create flatmaps for different parameters and save png
+
+# vertex for face vs all others
+images['v_face'] = cortex.Vertex(data_threshed_face.T, 'fsaverage',
+                           vmin=-5, vmax=5,
+                           cmap='BuBkRd')
+
+# vertex for upper limb vs all others
+images['v_upper'] = cortex.Vertex(data_threshed_upper.T, 'fsaverage',
+                           vmin=-5, vmax=5,
+                           cmap='BuBkRd')
+
+# vertex for down limb vs all others
+images['v_lower'] = cortex.Vertex(data_threshed_lower.T, 'fsaverage',
+                           vmin=-5, vmax=5,
+                           cmap='BuBkRd')
+
+# all somas combined
+images['v_combined'] = cortex.Vertex2D(soma_labels.T, soma_zval.T, 'fsaverage',
+                           vmin=0, vmax=1,
+                           vmin2=-1, vmax2=5, cmap='autumnblack_alpha_2D')#BROYG_2D')#'my_autumn')
+
+# vertex for right vs left hand
+images['rl_upper'] = cortex.Vertex(data_threshed_RLhand.T, 'fsaverage',
+                           vmin=-5, vmax=5,
+                           cmap='bwr')
+
+# vertex for right vs left leg
+images['rl_lower'] = cortex.Vertex(data_threshed_RLleg.T, 'fsaverage',
+                           vmin=-5, vmax=5,
+                           cmap='bwr')
+
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_faceVSall.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_face'], recache=False,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_upperVSall.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_upper'], recache=False,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_lowerVSall.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_lower'], recache=False,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_FULcombined.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_combined'], recache=False,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_rightVSleftHAND.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=False,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_rightVSleftLEG.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['rl_lower'], recache=False,with_colorbar=True,with_curvature=True)
 
