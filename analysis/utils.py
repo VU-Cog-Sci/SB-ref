@@ -143,22 +143,22 @@ def zthresh(zfile_in,threshold,side='above'):
 #        zfile_out - array with threshed z scores
 ##################################################
 
-data_threshed = np.zeros(zfile_in.shape) # set at 0 whatever is outside thresh
+    data_threshed = np.zeros(zfile_in.shape) # set at 0 whatever is outside thresh
 
-for i,value in enumerate(zfile_in):
-    if side == 'above':
-        if value > threshold:
-            data_threshed[i]=value
-    elif side == 'below':
-        if value < -threshold:
-            data_threshed[i]=value
-    elif side == 'both':
-        if value < -threshold or value > threshold:
-            data_threshed[i]=value
+    for i,value in enumerate(zfile_in):
+        if side == 'above':
+            if value > threshold:
+                data_threshed[i]=value
+        elif side == 'below':
+            if value < -threshold:
+                data_threshed[i]=value
+        elif side == 'both':
+            if value < -threshold or value > threshold:
+                data_threshed[i]=value
 
-zfile_out = data_threshed
+    zfile_out = data_threshed
 
-return zfile_out  
+    return zfile_out  
 
 
 def winner_takes_all(zfiles,labels,threshold,side='above'):
