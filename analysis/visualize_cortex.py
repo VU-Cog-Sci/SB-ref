@@ -13,6 +13,7 @@ import sys, glob
 import numpy as np
 import cortex
 import matplotlib.colors as colors
+from utils import *
 
 
 # define participant number and open json parameter file
