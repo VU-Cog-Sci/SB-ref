@@ -25,7 +25,7 @@
     "grid_steps": 20,
     "N_PROCS":8,
     "rsq_threshold": 0.15,
-    "z_threshold": 3.1,
+    "z_threshold": 2,
     "nuisance_columns": [
             "csf", 
             "white_matter", 
