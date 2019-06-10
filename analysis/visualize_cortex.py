@@ -233,7 +233,7 @@ images['v_lower'] = cortex.Vertex(data_threshed_lower.T, 'fsaverage',
 # all somas combined
 images['v_combined'] = cortex.Vertex2D(soma_labels.T, soma_zval.T, 'fsaverage',
                            vmin=0, vmax=1,
-                           vmin2=-1, vmax2=5, cmap='autumnblack_alpha_2D')#BROYG_2D')#'my_autumn')
+                           vmin2=z_threshold, vmax2=5, cmap='autumn_alpha')#BROYG_2D')#'my_autumn')
 
 # vertex for right vs left hand
 images['rl_upper'] = cortex.Vertex(data_threshed_RLhand.T, 'fsaverage',
