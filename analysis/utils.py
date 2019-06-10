@@ -130,4 +130,71 @@ def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
 
     return filt_conf_dir
 
+  
+def zthresh(zfile_in,threshold,side='above'):
+
+##################################################
+#    inputs:
+#        zfile_in - array with z scores
+#        threshold - value to threshold the zscores
+#        side - 'above'/'below'/'both', indicating if output values will be 
+#               above mean (positive zscores), below mean (negative zscores) or both
+#    outputs:
+#        zfile_out - array with threshed z scores
+##################################################
+
+data_threshed = np.zeros(zfile_in.shape) # set at 0 whatever is outside thresh
+
+for i,value in enumerate(zfile_in):
+    if side == 'above':
+        if value > threshold:
+            data_threshed[i]=value
+    elif side == 'below':
+        if value < -threshold:
+            data_threshed[i]=value
+    elif side == 'both':
+        if value < -threshold or value > threshold:
+            data_threshed[i]=value
+
+zfile_out = data_threshed
+
+return zfile_out  
+
+
+def winner_takes_all(zfiles,labels,threshold,side='above'):
     
+    ##################################################
+    #    inputs:
+    #        zfiles - numpy array of zfiles for each condition
+    #        labels - dictionary of labels to give to each condition
+    #        threshold - value to threshold the zscores
+    #        side - 'above'/'below'/'both', indicating if output values will be 
+    #               above mean (positive zscores), below mean (negative zscores) or both
+    #    outputs:
+    #        all_zval - array with threshed z scores
+    #        all_labels - array with corresponding labels
+    ##################################################
+        
+    all_labels = np.zeros(zfiles[0].shape)
+    all_zval = np.zeros(zfiles[0].shape)
+    
+    lbl = np.linspace(0,1,num=len(labels), endpoint=True)
+    
+    for i in range(len(all_labels)):
+        if side == 'above': #only save values above mean
+            
+            zvals = [file[i] for _,file in enumerate(zfiles)] #zscore for each condition in that vertex
+            max_zvals = max(zvals) #choose max one
+    
+            if max_zvals > threshold: #if bigger than thresh
+                all_zval[i] = max_zvals #take max value for position, that will be the label shown
+            
+                for j,val in enumerate(lbl):
+                    if np.argmax(zvals) == j: #if max zscore index = index of label
+                        all_labels[i] = val #give that label
+    
+    return all_labels, all_zval
+    
+
+
+
