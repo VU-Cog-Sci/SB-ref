@@ -60,7 +60,7 @@ for string in ['sub-01_ses-01', 'sub-03_ses-01']:
         TR = analysis_params["TR"]
 
 # soma out path
-soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj))
+soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
 
 # savgol filter giis and confounds
 filt_gii = highpass_gii(filename,analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
