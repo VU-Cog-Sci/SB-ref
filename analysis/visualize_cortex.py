@@ -124,12 +124,6 @@ images['rsq'] = cortex.Vertex2D(rsq.T, alpha, 'fsaverage',
 #                     vmin=0, vmax=np.max(rsq), cmap='Reds')
 
 
-ds = cortex.Dataset(**images)
-#cortex.webshow(ds, recache=True)
-# Creates a static webGL MRI viewer in your filesystem
-#web_path =os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj))
-#cortex.webgl.make_static(outpath=web_path, data=ds) #, recache=True)#,template = 'cortex.html'){'polar':vrgba,'ecc':vecc}
-
 # create flatmaps for different parameters and save png
 
 flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps')
@@ -163,63 +157,59 @@ z_threshold = analysis_params['z_threshold']
 
 soma_path = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
 
+all_contrasts = {'face':['eyes','eyebrows','tongue','mouth'],
+                'upper_limb':['lhand_fing1','lhand_fing2','lhand_fing3','lhand_fing4','lhand_fing5',
+                 'rhand_fing1','rhand_fing2','rhand_fing3','rhand_fing4','rhand_fing5'],
+                 'lower_limb':['lleg','rleg']
+                 }
+
+
 ## group different body areas
 face_zscore = np.load(os.path.join(soma_path,'z_face_contrast.npy'))
 upper_zscore = np.load(os.path.join(soma_path,'z_upper_limb_contrast.npy'))
 lower_zscore = np.load(os.path.join(soma_path,'z_lower_limb_contrast.npy'))
 
 # threshold them
-data_threshed_face=np.zeros(face_zscore.shape) # set at 0 whatever is outside thresh
-data_threshed_upper=np.zeros(upper_zscore.shape) # set at 0 whatever is outside thresh
-data_threshed_lower=np.zeros(lower_zscore.shape) # set at 0 whatever is outside thresh
-
-for i in range(len(face_zscore)):
-    if face_zscore[i] < -z_threshold or face_zscore[i] > z_threshold:
-        data_threshed_face[i]=face_zscore[i]
-        
-    if upper_zscore[i] < -z_threshold or upper_zscore[i] > z_threshold:
-        data_threshed_upper[i]=upper_zscore[i]
-        
-    if lower_zscore[i] < -z_threshold or lower_zscore[i] > z_threshold:
-        data_threshed_lower[i]=lower_zscore[i]
-
+data_threshed_face = zthresh(face_zscore,z_threshold,side='both')
+data_threshed_upper = zthresh(upper_zscore,z_threshold,side='both')
+data_threshed_lower = zthresh(lower_zscore,z_threshold,side='both')
 
 # combine 3 body part maps, threshold values
+combined_zvals = np.array((face_zscore,upper_zscore,lower_zscore))
 
-soma_labels = np.zeros(face_zscore.shape) # set at 0 whatever is outside thresh
-soma_zval = np.zeros(face_zscore.shape) # set at 0 whatever is outside thresh
-
-for i in range(len(soma_labels)):#all_soma_1D)):
-    
-    zvals = [face_zscore[i],upper_zscore[i],lower_zscore[i]]
-    max_zvals = max(zvals)
-    
-    if max_zvals>z_threshold: #if bigger than thresh
-        soma_zval[i] = max_zvals #take max value for voxel, that will be the label shown
-
-        if np.argmax(zvals) == 0:
-            soma_labels[i] = 0.1 #0.3 #0.2 #face = red
-        elif np.argmax(zvals) == 1:
-            soma_labels[i] = 0.5 #upper = orange
-        elif np.argmax(zvals) == 2:
-            soma_labels[i] = 0.9 # 0.7 #0.8 #lower = yellow
-
+soma_labels, soma_zval = winner_takes_all(combined_zvals,all_contrasts,z_threshold,side='above')
 
 ## Right vs left
 RLupper_zscore = np.load(os.path.join(soma_path,'z_right-left_hand_contrast.npy'))
 RLlower_zscore = np.load(os.path.join(soma_path,'z_right-left_leg_contrast.npy'))
 
 # threshold left vs right, to only show relevant vertex
+data_threshed_RLhand=zthresh(RLupper_zscore,z_threshold,side='both')
+data_threshed_RLleg=zthresh(RLlower_zscore,z_threshold,side='both')
 
-data_threshed_RLhand=np.zeros(RLupper_zscore.shape) # set at 0 whatever is outside thresh
-data_threshed_RLleg=np.zeros(RLlower_zscore.shape)
+# all fingers in hand combined
+LHfing_zscore = [] # load and append each finger z score in left hand list
+RHfing_zscore = [] # load and append each finger z score in right hand list
 
-for i in range(len(RLupper_zscore)):
-    if RLupper_zscore[i] < -z_threshold or RLupper_zscore[i] > z_threshold:
-        data_threshed_RLhand[i]=RLupper_zscore[i]
+
+print('Loading data for all fingers and appending in list')
+
+for i in range(len(all_contrasts['upper_limb'])//2):
     
-    if RLlower_zscore[i] < -z_threshold or RLlower_zscore[i] > z_threshold:
-        data_threshed_RLleg[i]=RLlower_zscore[i]
+    Ldata = np.load(os.path.join(soma_path,'z_%s-all_lhand_contrast.npy' %(all_contrasts['upper_limb'][i])))
+    Rdata = np.load(os.path.join(soma_path,'z_%s-all_rhand_contrast.npy' %(all_contrasts['upper_limb'][i+5])))
+   
+    LHfing_zscore.append(Ldata)  
+    RHfing_zscore.append(Rdata)
+
+LHfing_zscore = np.array(LHfing_zscore)
+RHfing_zscore = np.array(RHfing_zscore)
+
+LH_labels, LH_zval = winner_takes_all(LHfing_zscore,
+                                      all_contrasts['upper_limb'][:5],z_threshold,side='above')
+
+RH_labels, RH_zval = winner_takes_all(RHfing_zscore,
+                                      all_contrasts['upper_limb'][5:],z_threshold,side='above')
 
 
 ## create flatmaps for different parameters and save png
@@ -254,6 +244,16 @@ images['rl_lower'] = cortex.Vertex(data_threshed_RLleg.T, 'fsaverage',
                            vmin=-5, vmax=5,
                            cmap='bwr')
 
+# all finger right hand combined
+images['v_Rfingers'] = cortex.Vertex2D(RH_labels.T, RH_zval.T, 'fsaverage',
+                           vmin=0, vmax=1,
+                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+
+# all finger left hand combined
+images['v_Lfingers'] = cortex.Vertex2D(LH_labels.T, LH_zval.T, 'fsaverage',
+                           vmin=0, vmax=1,
+                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_fsaverage_faceVSall.png')
@@ -284,4 +284,23 @@ _ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=False,with_c
 filename = os.path.join(flatmap_out,'flatmap_fsaverage_rightVSleftLEG.png')
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['rl_lower'], recache=False,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_RHfing.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=False,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_fsaverage_LHfing.png')
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=False,with_colorbar=True,with_curvature=True)
+
+
+ds = cortex.Dataset(**images)
+#cortex.webshow(ds, recache=True)
+# Creates a static webGL MRI viewer in your filesystem
+#web_path =os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj))
+#cortex.webgl.make_static(outpath=web_path, data=ds) #, recache=True)#,template = 'cortex.html'){'polar':vrgba,'ecc':vecc}
+
+
 
