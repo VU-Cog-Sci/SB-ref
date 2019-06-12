@@ -126,12 +126,7 @@ labels, estimates = run_glm(median_data, design_matrix.values)
 
 print('Computing contrasts')
 
-all_contrasts = {'upper_limb':['lhand_fing1','lhand_fing2','lhand_fing3','lhand_fing4','lhand_fing5',
-             'rhand_fing1','rhand_fing2','rhand_fing3','rhand_fing4','rhand_fing5'],
-             'lower_limb':['lleg','rleg'],
-             'face':['eyes','eyebrows','tongue','mouth']}
-
-for index, (contrast_id, contrast_val) in enumerate(all_contrasts.items()):
+for index, (contrast_id, contrast_val) in enumerate(analysis_params['all_contrasts'].items()):
     contrast = np.zeros(len(design_matrix.columns)) # array of zeros with len = num predictors
     for i in range(len(contrast)):
         if design_matrix.columns[i] in contrast_val:
@@ -152,7 +147,7 @@ for index, (contrast_id, contrast_val) in enumerate(all_contrasts.items()):
 bhand_label = ['lhand','rhand']
 for j,lbl in enumerate(bhand_label):
     
-    hand_label = [s for s in all_contrasts['upper_limb'] if lbl in s]
+    hand_label = [s for s in analysis_params['all_contrasts']['upper_limb'] if lbl in s]
     
     for index, label in enumerate(hand_label):
 
@@ -175,11 +170,11 @@ for j,lbl in enumerate(bhand_label):
         np.save(zscore_file,z_map)
 
 # compare face part with the other face parts
-for j,lbl in enumerate(all_contrasts['face']):
+for j,lbl in enumerate(analysis_params['all_contrasts']['face']):
 
     contrast = np.zeros(len(design_matrix.columns)) # array of zeros with len = num predictors
     # array with other face parts to contrast with one face part
-    other_lbl = [val for _,val in enumerate(all_contrasts['face']) if val!=lbl]
+    other_lbl = [val for _,val in enumerate(analysis_params['all_contrasts']['face']) if val!=lbl]
     print('contrasting %s against %s' %(lbl,other_lbl))
     for i in range(len(contrast)):
         if design_matrix.columns[i]==lbl: 
