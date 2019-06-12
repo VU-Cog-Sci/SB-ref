@@ -132,24 +132,24 @@ if not os.path.exists(flatmap_out): # check if path for outputs exist
         os.makedirs(flatmap_out)       # if not create it
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_polar_angle.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['polar'], recache=False,with_colorbar=False,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_eccentricity.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-eccentricity.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['ecc'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['ecc'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_size.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-size.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['size'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['size'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_rsquared.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-rsquared.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rsq'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorbar=True,with_curvature=True)
 
 
 ## SOMATOTOPY ##
@@ -213,6 +213,28 @@ RH_labels, RH_zval = winner_takes_all(RHfing_zscore,
                                       all_contrasts['upper_limb'][5:],z_threshold,side='above')
 
 
+## define ROI for each hand, to plot finger z score maps in relevant areas
+
+# by using Left vs Right hand maps
+LH_roiLR = np.zeros(data_threshed_RLhand.shape) # set at 0 whatever is outside thresh
+RH_roiLR = np.zeros(data_threshed_RLhand.shape) # set at 0 whatever is outside thresh
+
+for i,zsc in enumerate(data_threshed_RLhand): # loop over thresholded RvsL hand zscores
+    if zsc < 0: # negative z-scores = left hand
+        LH_roiLR[i]=LH_zval[i]
+    elif zsc > 0: # positive z-scores = right hand
+        RH_roiLR[i]=RH_zval[i]
+
+# by using upper limb map
+LH_roiU = np.zeros(data_threshed_upper.shape) # set at 0 whatever is outside thresh
+RH_roiU = np.zeros(data_threshed_upper.shape) # set at 0 whatever is outside thresh   
+
+for i,zsc in enumerate(data_threshed_upper):
+    if zsc > 0: # ROI only accounts for positive z score areas
+        LH_roiU[i]=LH_zval[i]
+        RH_roiU[i]=RH_zval[i]
+    
+
 ## create flatmaps for different parameters and save png
 
 # vertex for face vs all others
@@ -225,7 +247,7 @@ images['v_upper'] = cortex.Vertex(data_threshed_upper.T, 'fsaverage',
                            vmin=-5, vmax=5,
                            cmap='BuBkRd')
 
-# vertex for down limb vs all others
+# vertex for lower limb vs all others
 images['v_lower'] = cortex.Vertex(data_threshed_lower.T, 'fsaverage',
                            vmin=-5, vmax=5,
                            cmap='BuBkRd')
@@ -255,46 +277,90 @@ images['v_Lfingers'] = cortex.Vertex2D(LH_labels.T, LH_zval.T, 'fsaverage',
                            vmin=0, vmax=1,
                            vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
 
+# all fingers left hand combined ONLY in left hand region 
+# (as defined by LvsR hand contrast values)
+images['v_LfingersROILR'] = cortex.Vertex2D(LH_labels.T, LH_roiLR.T, 'fsaverage',
+                           vmin=0, vmax=1,
+                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+
+# all fingers right hand combined ONLY in right hand region 
+# (as defined by LvsR hand contrast values)
+images['v_RfingersROILR'] = cortex.Vertex2D(RH_labels.T, RH_roiLR.T, 'fsaverage',
+                           vmin=0, vmax=1,
+                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+
+# all fingers left hand combined ONLY in hand region 
+# (as defined by upper limb contrast values)
+images['v_LfingersROIU'] = cortex.Vertex2D(LH_labels.T, LH_roiU.T, 'fsaverage',
+                           vmin=0, vmax=1,
+                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+
+# all fingers right hand combined ONLY in hand region 
+# (as defined by upper limb contrast values)
+images['v_RfingersROIU'] = cortex.Vertex2D(RH_labels.T, RH_roiU.T, 'fsaverage',
+                           vmin=0, vmax=1,
+                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_faceVSall.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-faceVSall.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_face'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_face'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_upperVSall.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-upperVSall.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_upper'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_upper'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_lowerVSall.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-lowerVSall.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_lower'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_lower'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_FULcombined.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-FULcombined.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_combined'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_combined'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_rightVSleftHAND.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-rightVSleftHAND.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_rightVSleftLEG.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-rightVSleftLEG.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rl_lower'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['rl_lower'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_RHfing.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_fsaverage_LHfing.png')
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=False,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_ROI-LvsRH.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_RfingersROILR'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_ROI-LvsRH.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_LfingersROILR'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_ROI-upperVsall.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_LfingersROIU'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_ROI-upperVsall.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_RfingersROIU'], recache=True,with_colorbar=True,with_curvature=True)
 
 
 ds = cortex.Dataset(**images)
