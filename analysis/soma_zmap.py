@@ -173,7 +173,30 @@ for j,lbl in enumerate(bhand_label):
 
         zscore_file = os.path.join(soma_out,'z_%s-all_%s_contrast.npy' %(label,lbl))
         np.save(zscore_file,z_map)
+
+# compare face part with the other face parts
+for j,lbl in enumerate(all_contrasts['face']):
+
+    contrast = np.zeros(len(design_matrix.columns)) # array of zeros with len = num predictors
+    # array with other face parts to contrast with one face part
+    other_lbl = [val for _,val in enumerate(all_contrasts['face']) if val!=lbl]
+    print('contrasting %s against %s' %(lbl,other_lbl))
+    for i in range(len(contrast)):
+        if design_matrix.columns[i]==lbl: 
+            contrast[i] = 1
+        elif design_matrix.columns[i] in other_lbl: # -1 to other fingers of same hand
+            contrast[i] = -1/3.0
+
+    print('contrast %s is %s' %(lbl,contrast))
     
+    # compute contrast-related statistics
+    contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
+
+    z_map = contrast_val.z_score()
+    z_map = np.array(z_map)
+
+    zscore_file = os.path.join(soma_out,'z_%s-other_face_areas_contrast.npy' %(lbl))
+    np.save(zscore_file,z_map)    
 
 #compare left vs right
 rl_limb = ['hand','leg']
