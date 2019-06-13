@@ -82,21 +82,25 @@ def highpass_gii(filenames,polyorder,deriv,window,outpth):
     filenames_sg = []
     filenames.sort() #to make sure their in right order
     
-    for run in range(len(filenames)//2): # for every run (2 hemi per run)
+    for run in range(4):#filenames)//2): # for every run (2 hemi per run)
 
         run_files = [x for _,x in enumerate(filenames) if 'run-0'+str(run+1) in os.path.split(x)[-1]]
-
-        data_both = []
-        for _,hemi in enumerate(run_files):
-            data_both.append(surface.load_surf_data(hemi).T) #load surface data
-
-        data_both = np.hstack(data_both) #stack then filter
-        print('filtering run %s' %run_files)
-        data_both -= savgol_filter(data_both, window, polyorder, axis=0,deriv=deriv)
         
-        filenames_sg.append(data_both)
-    
+        if not run_files:
+            print('no soma files for run-0%s' %str(run+1))
+        else:
+            data_both = []
+            for _,hemi in enumerate(run_files):
+                data_both.append(surface.load_surf_data(hemi).T) #load surface data
+
+            data_both = np.hstack(data_both) #stack then filter
+            print('filtering run %s' %run_files)
+            data_both -= savgol_filter(data_both, window, polyorder, axis=0,deriv=deriv)
+
+            filenames_sg.append(data_both)
+
     return np.array(filenames_sg)
+    
 
 def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
     
