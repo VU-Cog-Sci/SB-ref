@@ -121,99 +121,99 @@ design_matrix = make_first_level_design_matrix(frame_times,
 # Setup and fit GLM, estimates contains the parameter estimates
 labels, estimates = run_glm(median_data, design_matrix.values)
 
+print('Computing simple contrasts')
 
-# Compute z-score of contrasts
+zmaps_all = {} # save all computed z_maps, don't need to load again
 
-print('Computing contrasts')
-
-for index, (contrast_id, contrast_val) in enumerate(analysis_params['all_contrasts'].items()):
-    contrast = np.zeros(len(design_matrix.columns)) # array of zeros with len = num predictors
-    for i in range(len(contrast)):
-        if design_matrix.columns[i] in contrast_val:
-            contrast[i] = 1
-    
-    print('contrast %s is %s' %(contrast_id,contrast))
+for _,region in enumerate(analysis_params['all_contrasts']):
+      
+    print('contrast for %s ' %region)
+    contrast = make_contrast(design_matrix.columns,[analysis_params['all_contrasts'][str(region)]],[1],num_cond=1)
     # compute contrast-related statistics
     contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
 
     z_map = contrast_val.z_score()
     z_map = np.array(z_map)
-
-    zscore_file = os.path.join(soma_out,'z_%s_contrast.npy' %contrast_id)
+    zmaps_all[str(region)]=z_map
+    
+    zscore_file = os.path.join(soma_out,'z_%s_contrast.npy' %region)
     np.save(zscore_file,z_map)
 
+z_threshold = analysis_params['z_threshold']
+
+print('Using z-score of %d as threshold for localizer' %z_threshold)
+
+# compute masked data for R+L hands and for face
+# to be used in more detailed contrasts
+data_upmask = mask_data(median_data,zmaps_all['upper_limb'],z_threshold)
+data_facemask = mask_data(median_data,zmaps_all['face'],z_threshold)
+data_lowmask = mask_data(median_data,zmaps_all['lower_limb'],z_threshold)
+
+# Setup and fit GLM for masked data, estimates contains the parameter estimates
+labels_upmask, estimates_upmask = run_glm(data_upmask, design_matrix.values)
+labels_facemask, estimates_facemask = run_glm(data_facemask, design_matrix.values)
+labels_lowmask, estimates_lowmask = run_glm(data_lowmask, design_matrix.values)
+
+print('Right vs Left contrasts')
+
+limbs = [['hand',analysis_params['all_contrasts']['upper_limb']],['leg',analysis_params['all_contrasts']['lower_limb']]]
+         
+for _,key in enumerate(limbs):
+    print('For %s' %key[0])
+    
+    rtask = [s for s in key[1] if 'r'+key[0] in s]
+    ltask = [s for s in key[1] if 'l'+key[0] in s]
+    tasks = [rtask,ltask] # list with right and left elements
+    
+    contrast = make_contrast(design_matrix.columns,tasks,[1,-1],num_cond=2)
+    # compute contrast-related statistics
+    contrast_val = compute_contrast(labels_upmask, estimates_upmask, contrast, contrast_type='t') 
+
+    z_map = contrast_val.z_score()
+    z_map = np.array(z_map)
+
+    zscore_file = os.path.join(soma_out,'z_right-left_'+key[0]+'_contrast.npy')
+    np.save(zscore_file,z_map)  
 
 # compare each finger with the others of same hand
+print('Contrast one finger vs all others of same hand')
+
 bhand_label = ['lhand','rhand']
+
 for j,lbl in enumerate(bhand_label):
     
-    hand_label = [s for s in analysis_params['all_contrasts']['upper_limb'] if lbl in s]
+    print('For %s' %lbl)
     
-    for index, label in enumerate(hand_label):
-
-        contrast = np.zeros(len(design_matrix.columns)) # array of zeros with len = num predictors
+    hand_label = [s for s in analysis_params['all_contrasts']['upper_limb'] if lbl in s] #list of all fingers in one hand  
+    otherfings = leave_one_out_lists(hand_label) # list of lists with other fingers to contrast 
     
-        for i in range(len(contrast)):
-            if design_matrix.columns[i]==label: 
-                contrast[i] = 1
-            elif lbl in design_matrix.columns[i]: # -1 to other fingers of same hand
-                contrast[i] = -1/4.0
-        
-        print('contrast %s %s is %s' %(label,lbl,contrast))       
+    for i,fing in enumerate(hand_label):
+        contrast = make_contrast(design_matrix.columns,[[fing],otherfings[i]],[1,-1/4.0],num_cond=2)
         # compute contrast-related statistics
-        contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
+        contrast_val = compute_contrast(labels_upmask, estimates_upmask, contrast, contrast_type='t') 
 
         z_map = contrast_val.z_score()
         z_map = np.array(z_map)
 
-        zscore_file = os.path.join(soma_out,'z_%s-all_%s_contrast.npy' %(label,lbl))
+        zscore_file = os.path.join(soma_out,'z_%s-all_%s_contrast.npy' %(fing,lbl))
         np.save(zscore_file,z_map)
-
-# compare face part with the other face parts
-for j,lbl in enumerate(analysis_params['all_contrasts']['face']):
-
-    contrast = np.zeros(len(design_matrix.columns)) # array of zeros with len = num predictors
-    # array with other face parts to contrast with one face part
-    other_lbl = [val for _,val in enumerate(analysis_params['all_contrasts']['face']) if val!=lbl]
-    print('contrasting %s against %s' %(lbl,other_lbl))
-    for i in range(len(contrast)):
-        if design_matrix.columns[i]==lbl: 
-            contrast[i] = 1
-        elif design_matrix.columns[i] in other_lbl: # -1 to other fingers of same hand
-            contrast[i] = -1/3.0
-
-    print('contrast %s is %s' %(lbl,contrast))
+ 
+# compare each finger with the others of same hand
+print('Contrast one face part vs all others within face')
     
+face = analysis_params['all_contrasts']['face']
+otherface = leave_one_out_lists(face) # list of lists with other fingers to contrast 
+
+for i,part in enumerate(face):
+    contrast = make_contrast(design_matrix.columns,[[part],otherface[i]],[1,-1/3.0],num_cond=2)
     # compute contrast-related statistics
-    contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
+    contrast_val = compute_contrast(labels_facemask, estimates_facemask, contrast, contrast_type='t') 
 
     z_map = contrast_val.z_score()
     z_map = np.array(z_map)
 
-    zscore_file = os.path.join(soma_out,'z_%s-other_face_areas_contrast.npy' %(lbl))
-    np.save(zscore_file,z_map)    
-
-#compare left vs right
-rl_limb = ['hand','leg']
-
-for j in range(len(rl_limb)):
-    contrast = np.zeros(len(design_matrix.columns)) # array of zeros with len = num predictors
-    for i in range(len(contrast)):
-        if 'r'+rl_limb[j] in design_matrix.columns[i]:
-            contrast[i] = 1
-        elif 'l'+rl_limb[j] in design_matrix.columns[i]:
-            contrast[i] = -1
-           
-    
-    print('contrast %s is %s' %('z_right-left_'+rl_limb[j],contrast))
-    # compute contrast-related statistics
-    contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
-
-    z_map = contrast_val.z_score()
-    z_map = np.array(z_map)
-
-    zscore_file = os.path.join(soma_out,'z_right-left_'+rl_limb[j]+'_contrast.npy')
-    np.save(zscore_file,z_map)
+    zscore_file = os.path.join(soma_out,'z_%s-other_face_areas_contrast.npy' %(part))
+    np.save(zscore_file,z_map)        
 
 print('Success!')
 
