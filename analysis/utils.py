@@ -200,5 +200,78 @@ def winner_takes_all(zfiles,labels,threshold,side='above'):
     return all_labels, all_zval
     
 
+def mask_data(data,zscores,threshold):
+    ##################################################
+    #    inputs:
+    #        data1 - "original" data array (t,vertex)
+    #        zscores - ROI zscore map, used to mask data1 (vertex,)
+    #        threshold - value to threshold the zscores
+    #    outputs:
+    #        maskdata - data array, masked 
+    ##################################################
+    maskdata = data.copy()
+    for pos,vxl in enumerate(zscores):
+        if vxl < threshold:
+           maskdata[:,pos]=np.nan 
+    
+    return maskdata
+
+
+def make_contrast(dm_col,tasks,contrast_val=[1],num_cond=1):
+    ##################################################
+    #    inputs:
+    #        dm_col - design matrix columns (all possible task names in list)
+    #        tasks - list with list of tasks to give contrast value
+    #                if num_cond=1 : [tasks]
+    #                if num_cond=2 : [tasks1,tasks2], contrast will be tasks1 - tasks2 
+    #        contrast_val - list with values for contrast
+    #                if num_cond=1 : [value]
+    #                if num_cond=2 : [value1,value2], contrast will be tasks1 - tasks2 
+    #        num_cond - if one task vs the rest (1), or if comparing 2 tasks (2)
+    #    outputs:
+    #        contrast - contrast array
+    ##################################################
+    
+    contrast = np.zeros(len(dm_col))
+
+    if num_cond == 1: # if only one contrast value to give ("task vs rest")
+        
+        for j,name in enumerate(tasks[0]):
+            for i in range(len(contrast)):
+                if dm_col[i] == name:
+                    contrast[i] = contrast_val[0]    
+                    
+    elif num_cond == 2: # if comparing 2 conditions (task1 - task2)
+        
+        for k,lbl in enumerate(tasks):
+            idx = []
+            for i,val in enumerate(lbl):
+                idx.extend(np.where([1 if val == label else 0 for _,label in enumerate(dm_col)])[0])
+
+            val = contrast_val[0] if k==0 else contrast_val[1] # value to give contrast
+
+            for j in range(len(idx)):
+                for i in range(len(dm_col)):
+                    if i==idx[j]:
+                        contrast[i]=val
+       
+    print('contrast for %s is %s'%(tasks,contrast))
+    return contrast
+
+def leave_one_out_lists(input_list):
+    ##################################################
+    #    inputs:
+    #        input_list - list of item
+    #
+    #    outputs:
+    #        out_lists - list of lists, with each element
+    #                  of the input_list left out of the returned lists once, in order.
+    ##################################################
+
+    out_lists = []
+    for x in input_list:
+        out_lists.append([y for y in input_list if y != x])
+
+    return out_lists
 
 
