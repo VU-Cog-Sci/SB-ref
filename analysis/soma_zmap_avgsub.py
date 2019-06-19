@@ -1,317 +1,240 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
 Created on Th Jun 6 11:13:11 2019
-
 @author: inesverissimo
 
-visualize median subject in vertex space
+Do SOMA contrasts and save outputs
+for median subject
 """
 
 import os, json
 import sys, glob
+import re 
+
 import numpy as np
-import cortex
-import matplotlib.colors as colors
-from utils import *
+import pandas as pd
 
 
-# open json parameter file
+from nilearn.signal import clean
+from nistats.design_matrix import make_first_level_design_matrix
+from nistats.first_level_model import run_glm
+from nistats.contrasts import compute_contrast
 
-with open('analysis_params.json','r') as json_file:	
-        analysis_params = json.load(json_file)	
+from utils import * #import script to use relevante functions
+
+with open('analysis_params.json','r') as json_file: 
+        analysis_params = json.load(json_file)  
     
+
+allsubdir = glob.glob(os.path.join(analysis_params['fmriprep_dir'],'sub-*/'))
+allsubdir.sort()
+alleventdir = glob.glob(os.path.join(analysis_params['sourcedata_dir'],'sub-*/'))
+alleventdir.sort()
+
+for idx,subdir in enumerate(allsubdir):
+    
+    print('functional files from %s'%allsubdir[idx])
+    print('event files from %s'%alleventdir[idx])
+    
+    # define paths and list of files
+    filepath = glob.glob(os.path.join(subdir,'*','func/*'))
+    eventpath = glob.glob(os.path.join(alleventdir[idx],'*','func/*'))
+
+    # list of functional files
+    filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith('.func.gii')]
+    filename.sort()
+    # list of confounds
+    confounds = [run for run in filepath if 'soma' in run and run.endswith('_desc-confounds_regressors.tsv')]
+    confounds.sort()
+    # list of stimulus onsets
+    events = [run for run in eventpath if 'soma' in run and run.endswith('events.tsv')]
+    events.sort()
+
+
+    # high pass filter all runs
+    # exception for these 2 subjects, TR was different
+    for string in ['sub-01_ses-01', 'sub-03_ses-01']:
+        if re.search(string, filename[0]):
+            TR = 1.5
+        else:
+            TR = analysis_params["TR"]
+
+    # soma out path
+    soma_out = os.path.join(analysis_params['soma_outdir'],'sub-median','run-median')
+    
+
+    if not os.path.exists(soma_out): # check if path to save median run exist
+        os.makedirs(soma_out) 
+
+    # savgol filter giis and confounds
+    filt_gii = highpass_gii(filename,analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
+             analysis_params['sg_filt_window_length'],soma_out)
+
+    filt_conf = highpass_confounds(confounds,analysis_params['nuisance_columns'],analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
+                       analysis_params['sg_filt_window_length'],TR,soma_out)
+
+
+    # regress the confounds from signal
+    data = []
+
+    for jdx,file in enumerate(filt_conf):
+        confs = pd.read_csv(file, sep='\t', na_values='n/a')
+        d = clean(filt_gii[jdx], confounds=confs.values, standardize=False)
+
+        data.append(d)
+
+    data = np.array(data) # cleaned data
+
+    # compute median soma file
+    median_data = np.median(data,axis=0)
+    
+    if idx == 0:
+        median_sub = median_data[np.newaxis,:,:]
+    else:
+        median_sub = np.vstack((median_sub,median_data[np.newaxis,:,:]))
+
+
+# all subjects in one array, use this to compute contrasts
+median_data_all = np.median(median_sub,axis=0)
+
+# Append all events in same dataframe
+print('Loading events')
+
+all_events = []
+for _,val in enumerate(events):
+    
+    events_pd = pd.read_csv(val,sep = '\t')
+
+    new_events = []
+    
+    for ev in events_pd.iterrows():
+        row = ev[1]   
+        if row['trial_type'][0] == 'b': # if both hand/leg then add right and left events with same timings
+            new_events.append([row['onset'],row['duration'],'l'+row['trial_type'][1:]])
+            new_events.append([row['onset'],row['duration'],'r'+row['trial_type'][1:]])
+        else:
+            new_events.append([row['onset'],row['duration'],row['trial_type']])
+   
+    df = pd.DataFrame(new_events, columns=['onset','duration','trial_type'])  #make sure only relevant columns present
+    all_events.append(df)
+
+
+# specifying the timing of fMRI frames
+frame_times = TR * (np.arange(median_data_all.shape[0]))
+
+# Create the design matrix, hrf model containing Glover model 
+design_matrix = make_first_level_design_matrix(frame_times,
+                                               events=all_events[0],
+                                               hrf_model='glover'
+                                               )
+
+# Setup and fit GLM, estimates contains the parameter estimates
+labels, estimates = run_glm(median_data_all, design_matrix.values)
+
+
+print('Computing simple contrasts')
+
+zmaps_all = {} # save all computed z_maps, don't need to load again
+
+for _,region in enumerate(analysis_params['all_contrasts']):
+      
+    print('contrast for %s ' %region)
+    contrast = make_contrast(design_matrix.columns,[analysis_params['all_contrasts'][str(region)]],[1],num_cond=1)
+    # compute contrast-related statistics
+    contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
+
+    z_map = contrast_val.z_score()
+    z_map = np.array(z_map)
+    zmaps_all[str(region)]=z_map
+    
+    zscore_file = os.path.join(soma_out,'z_%s_contrast.npy' %region)
+    np.save(zscore_file,z_map)
+
 z_threshold = analysis_params['z_threshold']
 
-# load and compute median contrast
-contrast_dir = [os.path.join(analysis_params['soma_outdir'], f) for f in os.listdir(analysis_params['soma_outdir'])]
-contrast_dir.sort()
+print('Using z-score of %d as threshold for localizer' %z_threshold)
 
-for idx,sub in enumerate(contrast_dir):
-    sub_dir = os.path.join(sub,'run-median')
+# compute masked data for R+L hands and for face
+# to be used in more detailed contrasts
+data_upmask = mask_data(median_data,zmaps_all['upper_limb'],z_threshold)
+data_facemask = mask_data(median_data,zmaps_all['face'],z_threshold)
+data_lowmask = mask_data(median_data,zmaps_all['lower_limb'],z_threshold)
+
+# Setup and fit GLM for masked data, estimates contains the parameter estimates
+labels_upmask, estimates_upmask = run_glm(data_upmask, design_matrix.values)
+labels_facemask, estimates_facemask = run_glm(data_facemask, design_matrix.values)
+labels_lowmask, estimates_lowmask = run_glm(data_lowmask, design_matrix.values)
+
+print('Right vs Left contrasts')
+
+limbs = [['hand',analysis_params['all_contrasts']['upper_limb']],['leg',analysis_params['all_contrasts']['lower_limb']]]
+         
+for _,key in enumerate(limbs):
+    print('For %s' %key[0])
     
-    if idx == 0:
-        ## group different body areas
-        face_zscore = np.load(os.path.join(sub_dir,'z_face_contrast.npy'))
-        upper_zscore = np.load(os.path.join(sub_dir,'z_upper_limb_contrast.npy'))
-        lower_zscore = np.load(os.path.join(sub_dir,'z_lower_limb_contrast.npy'))
-        
-        ## Right vs left        
-        RLupper_zscore = np.load(os.path.join(sub_dir,'z_right-left_hand_contrast.npy'))
-        RLlower_zscore = np.load(os.path.join(sub_dir,'z_right-left_leg_contrast.npy'))
-        
-    else:
-        face_zscore = np.vstack((face_zscore,np.load(os.path.join(sub_dir,'z_face_contrast.npy'))))
-        upper_zscore = np.vstack((upper_zscore,np.load(os.path.join(sub_dir,'z_upper_limb_contrast.npy'))))
-        lower_zscore = np.vstack((lower_zscore,np.load(os.path.join(sub_dir,'z_lower_limb_contrast.npy'))))
-        
-        RLupper_zscore = np.vstack((RLupper_zscore,np.load(os.path.join(sub_dir,'z_right-left_hand_contrast.npy'))))
-        RLlower_zscore = np.vstack((RLlower_zscore,np.load(os.path.join(sub_dir,'z_right-left_leg_contrast.npy'))))
-        
-face_median_zscore = np.median(face_zscore,axis=0)
-upper_median_zscore = np.median(upper_zscore,axis=0)
-lower_median_zscore = np.median(lower_zscore,axis=0)
-
-RLupper_median_zscore = np.median(RLupper_zscore,axis=0)
-RLlower_median_zscore = np.median(RLlower_zscore,axis=0)
-
-# threshold them
-data_threshed_median_face = zthresh(face_median_zscore,z_threshold,side='both')
-data_threshed_median_upper = zthresh(upper_median_zscore,z_threshold,side='both')
-data_threshed_median_lower = zthresh(lower_median_zscore,z_threshold,side='both')
-
-data_threshed_median_RLhand=zthresh(RLupper_median_zscore,z_threshold,side='both')
-data_threshed_median_RLleg=zthresh(RLlower_median_zscore,z_threshold,side='both')
-
-
-# combine 3 body part maps, threshold values
-combined_median_zvals = np.array((face_median_zscore,upper_median_zscore,lower_median_zscore))
-
-soma_median_labels, soma_median_zval = winner_takes_all(combined_median_zvals,analysis_params['all_contrasts'],z_threshold,side='above')
-
-# now do same for fingers 
-for idx,sub in enumerate(contrast_dir):
-    sub_dir = os.path.join(sub,'run-median')
+    rtask = [s for s in key[1] if 'r'+key[0] in s]
+    ltask = [s for s in key[1] if 'l'+key[0] in s]
+    tasks = [rtask,ltask] # list with right and left elements
     
-    if idx == 0:
-        # all fingers in hand combined
-        LHfing_zscore = [] # load and append each finger z score in left hand list
-        RHfing_zscore = [] # load and append each finger z score in right hand list
-
-        for i in range(len(analysis_params['all_contrasts']['upper_limb'])//2):
-
-            Ldata = np.load(os.path.join(sub_dir,'z_%s-all_lhand_contrast.npy' %(analysis_params['all_contrasts']['upper_limb'][i])))
-            Rdata = np.load(os.path.join(sub_dir,'z_%s-all_rhand_contrast.npy' %(analysis_params['all_contrasts']['upper_limb'][i+5])))
-
-            LHfing_zscore.append(Ldata)  
-            RHfing_zscore.append(Rdata)
-
-        LHfing_zscore = np.array(LHfing_zscore)
-        LHfing_zscore_newax = LHfing_zscore[:,:, np.newaxis]
-        RHfing_zscore = np.array(RHfing_zscore)
-        RHfing_zscore_newax = RHfing_zscore[:,:, np.newaxis]
-        
+    contrast = make_contrast(design_matrix.columns,tasks,[1,-1],num_cond=2)
+    # compute contrast-related statistics
+    if key[0]=='leg':
+        masklbl = labels_lowmask
+        maskestm = estimates_lowmask
     else:
+        masklbl = labels_upmask
+        maskestm = estimates_upmask
         
-        LHfing_zscore = [] # load and append each finger z score in left hand list
-        RHfing_zscore = [] # load and append each finger z score in right hand list
+    contrast_val = compute_contrast(masklbl, maskestm, contrast, contrast_type='t') 
 
-        for i in range(len(analysis_params['all_contrasts']['upper_limb'])//2):
+    z_map = contrast_val.z_score()
+    z_map = np.array(z_map)
 
-            Ldata = np.load(os.path.join(sub_dir,'z_%s-all_lhand_contrast.npy' %(analysis_params['all_contrasts']['upper_limb'][i])))
-            Rdata = np.load(os.path.join(sub_dir,'z_%s-all_rhand_contrast.npy' %(analysis_params['all_contrasts']['upper_limb'][i+5])))
+    zscore_file = os.path.join(soma_out,'z_right-left_'+key[0]+'_contrast.npy')
+    np.save(zscore_file,z_map)  
 
-            LHfing_zscore.append(Ldata)  
-            RHfing_zscore.append(Rdata)
+# compare each finger with the others of same hand
+print('Contrast one finger vs all others of same hand')
 
-        LHfing_zscore = np.array(LHfing_zscore)
-        RHfing_zscore = np.array(RHfing_zscore)
-        
-        LHfing_zscore_newax = np.concatenate((LHfing_zscore_newax,LHfing_zscore[:,:, np.newaxis]),axis=2)
-        RHfing_zscore_newax = np.concatenate((RHfing_zscore_newax,RHfing_zscore[:,:, np.newaxis]),axis=2)
-        
-        
-LHfing_median_zscore = np.median(LHfing_zscore_newax,axis=2)
-RHfing_median_zscore = np.median(RHfing_zscore_newax,axis=2)
+bhand_label = ['lhand','rhand']
 
-
-LH_median_labels, LH_median_zval = winner_takes_all(LHfing_median_zscore,
-                                      analysis_params['all_contrasts']['upper_limb'][:5],z_threshold,side='above')
-
-RH_median_labels, RH_median_zval = winner_takes_all(RHfing_median_zscore,
-                                      analysis_params['all_contrasts']['upper_limb'][5:],z_threshold,side='above')
-
-
-## define ROI for each hand, to plot finger z score maps in relevant areas
-
-# by using Left vs Right hand maps
-LH_median_roiLR = np.zeros(data_threshed_median_RLhand.shape) # set at 0 whatever is outside thresh
-RH_median_roiLR = np.zeros(data_threshed_median_RLhand.shape) # set at 0 whatever is outside thresh
-
-for i,zsc in enumerate(data_threshed_median_RLhand): # loop over thresholded RvsL hand zscores
-    if zsc < 0: # negative z-scores = left hand
-        LH_median_roiLR[i]=LH_median_zval[i]
-    elif zsc > 0: # positive z-scores = right hand
-        RH_median_roiLR[i]=RH_median_zval[i]
-
-
-# now do same for face  
-
-for idx,sub in enumerate(contrast_dir):
-    sub_dir = os.path.join(sub,'run-median')
+for j,lbl in enumerate(bhand_label):
     
-    if idx == 0:
-        allface_zscore = [] # load and append each face part z score in list
+    print('For %s' %lbl)
+    
+    hand_label = [s for s in analysis_params['all_contrasts']['upper_limb'] if lbl in s] #list of all fingers in one hand  
+    otherfings = leave_one_out_lists(hand_label) # list of lists with other fingers to contrast 
+    
+    for i,fing in enumerate(hand_label):
+        contrast = make_contrast(design_matrix.columns,[[fing],otherfings[i]],[1,-1/4.0],num_cond=2)
+        # compute contrast-related statistics
+        contrast_val = compute_contrast(labels_upmask, estimates_upmask, contrast, contrast_type='t') 
 
-        for _,name in enumerate(analysis_params['all_contrasts']['face']):
+        z_map = contrast_val.z_score()
+        z_map = np.array(z_map)
 
-            facedata = np.load(os.path.join(sub_dir,'z_%s-other_face_areas_contrast.npy' %(name)))   
-            allface_zscore.append(facedata)  
-
-        allface_zscore = np.array(allface_zscore)
-        allface_zscore_newax = allface_zscore[:,:, np.newaxis]
-        
-    else:
-        
-        allface_zscore = [] # load and append each face part z score in list
-
-        for _,name in enumerate(analysis_params['all_contrasts']['face']):
-
-            facedata = np.load(os.path.join(sub_dir,'z_%s-other_face_areas_contrast.npy' %(name)))   
-            allface_zscore.append(facedata)  
-
-        allface_zscore = np.array(allface_zscore)
+        zscore_file = os.path.join(soma_out,'z_%s-all_%s_contrast.npy' %(fing,lbl))
+        np.save(zscore_file,z_map)
  
-        allface_zscore_newax = np.concatenate((allface_zscore_newax,allface_zscore[:,:, np.newaxis]),axis=2)
-        
-        
-allface_median_zscore = np.median(allface_zscore_newax,axis=2)
+# compare each finger with the others of same hand
+print('Contrast one face part vs all others within face')
+    
+face = analysis_params['all_contrasts']['face']
+otherface = leave_one_out_lists(face) # list of lists with other fingers to contrast 
 
-# combine them all in same array, winner takes all
-allface_median_labels, allface_median_zval = winner_takes_all(allface_median_zscore,
-                                      analysis_params['all_contrasts']['face'],z_threshold,side='above')
+for i,part in enumerate(face):
+    contrast = make_contrast(design_matrix.columns,[[part],otherface[i]],[1,-1/3.0],num_cond=2)
+    # compute contrast-related statistics
+    contrast_val = compute_contrast(labels_facemask, estimates_facemask, contrast, contrast_type='t') 
 
-# define ROI by using face map, 
-# to plot face part z score maps in relevant areas
-face_median_roiF = np.zeros(data_threshed_median_face.shape) # set at 0 whatever is outside thresh   
+    z_map = contrast_val.z_score()
+    z_map = np.array(z_map)
 
-for i,zsc in enumerate(data_threshed_median_face):
-    if zsc > 0: # ROI only accounts for positive z score areas
-        face_median_roiF[i]=allface_median_zval[i]
+    zscore_file = os.path.join(soma_out,'z_%s-other_face_areas_contrast.npy' %(part))
+    np.save(zscore_file,z_map)        
 
-
-
-## create flatmaps for different parameters and save png
-images = {}
-
-# vertex for face vs all others
-images['v_median_face'] = cortex.Vertex(data_threshed_median_face.T, 'fsaverage',
-                           vmin=-5, vmax=5,
-                           cmap='BuBkRd')
-
-# vertex for upper limb vs all others
-images['v_median_upper'] = cortex.Vertex(data_threshed_median_upper.T, 'fsaverage',
-                           vmin=-5, vmax=5,
-                           cmap='BuBkRd')
-
-# vertex for lower limb vs all others
-images['v_median_lower'] = cortex.Vertex(data_threshed_median_lower.T, 'fsaverage',
-                           vmin=-5, vmax=5,
-                           cmap='BuBkRd')
-
-# all somas combined
-images['v_median_combined'] = cortex.Vertex2D(soma_median_labels.T, soma_median_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='autumn_alpha')#BROYG_2D')#'my_autumn')
-
-# vertex for right vs left hand
-images['rl_median_upper'] = cortex.Vertex(data_threshed_median_RLhand.T, 'fsaverage',
-                           vmin=-5, vmax=5,
-                           cmap='bwr')
-
-# vertex for right vs left leg
-images['rl_median_lower'] = cortex.Vertex(data_threshed_median_RLleg.T, 'fsaverage',
-                           vmin=-5, vmax=5,
-                           cmap='bwr')
-
-# all finger right hand combined
-images['v_median_Rfingers'] = cortex.Vertex2D(RH_median_labels.T, RH_median_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
-
-# all finger left hand combined
-images['v_median_Lfingers'] = cortex.Vertex2D(LH_median_labels.T, LH_median_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
-
-# all fingers left hand combined ONLY in left hand region 
-# (as defined by LvsR hand contrast values)
-images['v_median_LfingersROILR'] = cortex.Vertex2D(LH_median_labels.T, LH_median_roiLR.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
-
-# all fingers right hand combined ONLY in right hand region 
-# (as defined by LvsR hand contrast values)
-images['v_median_RfingersROILR'] = cortex.Vertex2D(RH_median_labels.T, RH_median_roiLR.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
-
-# 'eyebrows', 'eyes', 'tongue', 'mouth', combined
-images['v_median_facecombined'] = cortex.Vertex2D(allface_median_labels.T, allface_median_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG4col_2D') #costum colormap added to database
-
-images['v_median_facecombinedROIF'] = cortex.Vertex2D(allface_median_labels.T, face_median_roiF.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG4col_2D')#BROYG_2D')#'my_autumn')
-
-
-
-flatmap_median_out = os.path.join(analysis_params['cortex_dir'],'sub-median','flatmaps')
-if not os.path.exists(flatmap_median_out): # check if path for outputs exist
-        os.makedirs(flatmap_median_out)       # if not create it
-
-
-# Save this flatmap
-
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-faceVSall.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_face'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-upperVSall.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_upper'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-lowerVSall.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_lower'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-FULcombined.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_combined'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-rightVSleftHAND.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rl_median_upper'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-rightVSleftLEG.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rl_median_lower'], recache=True,with_colorbar=True,with_curvature=True)
-
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_Rfingers'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_Lfingers'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_ROI-LvsRH.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_RfingersROILR'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_ROI-LvsRH.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_LfingersROILR'], recache=True,with_colorbar=True,with_curvature=True)
-
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_facecombined'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_median_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined_ROI-faceVsall.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_median_facecombinedROIF'], recache=True,with_colorbar=True,with_curvature=True)
+print('Success!')
 
