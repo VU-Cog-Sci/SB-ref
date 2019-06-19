@@ -167,7 +167,14 @@ for _,key in enumerate(limbs):
     
     contrast = make_contrast(design_matrix.columns,tasks,[1,-1],num_cond=2)
     # compute contrast-related statistics
-    contrast_val = compute_contrast(labels_upmask, estimates_upmask, contrast, contrast_type='t') 
+    if key[0]=='leg':
+        masklbl = labels_lowmask
+        maskestm = estimates_lowmask
+    else:
+        masklbl = labels_upmask
+        maskestm = estimates_upmask
+        
+    contrast_val = compute_contrast(masklbl, maskestm, contrast, contrast_type='t') 
 
     z_map = contrast_val.z_score()
     z_map = np.array(z_map)
