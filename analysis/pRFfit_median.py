@@ -73,7 +73,7 @@ if not os.path.exists(dm_filename): #if not exists
         print('computed %s' %(dm_filename))
 
 prf_dm = np.load(dm_filename)
-prf_dm = np.moveaxis(prf_dm, 0, -1) #swap axis for popeye (x,y,time)
+prf_dm = prf_dm.T #swap axis for popeye (x,y,time)
     
 
 # define model params

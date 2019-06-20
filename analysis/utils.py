@@ -18,6 +18,7 @@ import pandas as pd
 from spynoza.filtering.nodes import savgol_filter_confounds
 from sklearn.decomposition import PCA
 
+from PIL import Image
 
 
 def median_gii(files,outdir):
@@ -49,7 +50,6 @@ def median_gii(files,outdir):
     return median_file
 
 
-
 def screenshot2DM(filenames,scale,screen,outfile):
     
     ##################################################
@@ -61,12 +61,14 @@ def screenshot2DM(filenames,scale,screen,outfile):
     #    outputs:
     #        DM - absolute output design matrix filename
     ##################################################
-    
-    
+        
     im_gr_resc = np.zeros((len(filenames),int(screen[1]*scale),int(screen[0]*scale)))
     
     for i, png in enumerate(filenames): #rescaled and grayscaled images
-        im_gr_resc[i,:,:] = rescale(color.rgb2gray(imageio.imread(png)), scale)
+        image = Image.open(png).convert('RGB')
+        image = image.resize((screen[0],screen[1]), Image.ANTIALIAS) 
+        
+        im_gr_resc[i,:,:] = rescale(color.rgb2gray(np.asarray(image)), scale)
     
     img_bin = np.zeros(im_gr_resc.shape) #binary image, according to triangle threshold
     for i in range(len(im_gr_resc)):
@@ -74,7 +76,7 @@ def screenshot2DM(filenames,scale,screen,outfile):
     
     # save as numpy array
     np.save(outfile, img_bin.astype(np.uint8))
-
+    
 
 def highpass_gii(filenames,polyorder,deriv,window,outpth):
     
