@@ -277,3 +277,24 @@ def leave_one_out_lists(input_list):
     return out_lists
 
 
+def convert_session(sj,ses,indir,outdir,pupil_hp,pupil_lp):
+    if type(sj) == int:
+        sj, ses = str(sj).zfill(2), str(ses).zfill(2)
+    globstr = os.path.join(indir, 'sub-{sj}/ses-{ses}/eyetrack/sub-{sj}_ses-{ses}_task-*_run-*_eyetrack.edf'.format(sj=sj, ses=ses))
+    edf_files = glob.glob(globstr);edf_files.sort() #list of absolute paths to all edf files in that session for that subject
+    
+    #single hdf5 file that contains all eye data for the runs of that session
+    hdf_file = os.path.join(outdir, 'sub-{sj}/ses-{ses}/eyetrack.h5'.format(sj=sj, ses=ses))
+    
+    if not os.path.exists(os.path.split(hdf_file)[0]): # check if path to save hdf5 files exists
+        os.makedirs(os.path.split(hdf_file)[0])      # if not create it
+        
+        ho = hedfpy.HDFEyeOperator(hdf_file)
+        for ef in edf_files:
+            alias = os.path.splitext(os.path.split(ef)[1])[0] #name of data for that run
+            ho.add_edf_file(ef)
+            ho.edf_message_data_to_hdf(alias = alias) #write messages ex_events to hdf5
+            ho.edf_gaze_data_to_hdf(alias = alias, pupil_hp = pupil_hp, pupil_lp = pupil_lp) #add raw and preprocessed data to hdf5   
+            
+    else:
+        print('%s already exists, skipping' %hdf_file)
