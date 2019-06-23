@@ -7,7 +7,7 @@
     "soma_outdir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/soma_fit/",
     "cortex_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/cortex/",
     "eyetrack_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/eyetrack/",
-    "plot_dir": "/home/verissimo/SB-ref/analysis/plots/",
+    "somaplot_dir": "/home/shared/2018/visual/SB-prep/SB-ref/derivatives/soma_imgs/",
     "screenRes":[1680, 1050],
     "TR": 1.6,
     "low_pass_pupil_f": 6.0,
