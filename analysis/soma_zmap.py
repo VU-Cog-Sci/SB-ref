@@ -134,7 +134,7 @@ for index,region in enumerate(reg_keys):
     # list of other contrasts
     other_contr = np.append(analysis_params['all_contrasts'][loo_keys[index][0]],analysis_params['all_contrasts'][loo_keys[index][1]])
     
-    contrast = make_contrast(design_matrix.columns,[analysis_params['all_contrasts'][str(region)],other_contr],[1,-1/len(other_contr)],num_cond=2)
+    contrast = make_contrast(design_matrix.columns,[analysis_params['all_contrasts'][str(region)],other_contr],[1,-len(analysis_params['all_contrasts'][str(region)])/len(other_contr)],num_cond=2)
     
     # compute contrast-related statistics
     contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
