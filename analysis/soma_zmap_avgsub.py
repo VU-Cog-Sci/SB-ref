@@ -139,10 +139,17 @@ print('Computing simple contrasts')
 
 zmaps_all = {} # save all computed z_maps, don't need to load again
 
-for _,region in enumerate(analysis_params['all_contrasts']):
+reg_keys = list(analysis_params['all_contrasts'].keys()); reg_keys.sort() # list of key names (of different body regions)
+loo_keys = leave_one_out_lists(reg_keys) # loo for keys 
+
+for index,region in enumerate(reg_keys):
       
     print('contrast for %s ' %region)
-    contrast = make_contrast(design_matrix.columns,[analysis_params['all_contrasts'][str(region)]],[1],num_cond=1)
+    # list of other contrasts
+    other_contr = np.append(analysis_params['all_contrasts'][loo_keys[index][0]],analysis_params['all_contrasts'][loo_keys[index][1]])
+    
+    contrast = make_contrast(design_matrix.columns,[analysis_params['all_contrasts'][str(region)],other_contr],[1,-1/len(other_contr)],num_cond=2)
+    
     # compute contrast-related statistics
     contrast_val = compute_contrast(labels, estimates, contrast, contrast_type='t') 
 
