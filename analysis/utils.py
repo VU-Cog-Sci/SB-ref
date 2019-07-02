@@ -137,7 +137,7 @@ def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
     return filt_conf_dir
 
   
-def zthresh(zfile_in,threshold,side='above'):
+def zthresh(zfile_in,threshold=0,side='above'):
 
 ##################################################
 #    inputs:
@@ -167,7 +167,7 @@ def zthresh(zfile_in,threshold,side='above'):
     return zfile_out  
 
 
-def winner_takes_all(zfiles,labels,threshold,side='above'):
+def winner_takes_all(zfiles,labels,threshold=0,side='above'):
     
     ##################################################
     #    inputs:
@@ -202,19 +202,30 @@ def winner_takes_all(zfiles,labels,threshold,side='above'):
     return all_labels, all_zval
     
 
-def mask_data(data,zscores,threshold):
+def mask_data(data,zscores,threshold=0,side='above'):
     ##################################################
     #    inputs:
     #        data1 - "original" data array (t,vertex)
     #        zscores - ROI zscore map, used to mask data1 (vertex,)
     #        threshold - value to threshold the zscores
+    #        side - 'above'/'below'/'both', indicating if output values will be 
+    #               above mean (positive zscores), below mean (negative zscores) or both
     #    outputs:
     #        maskdata - data array, masked 
     ##################################################
     maskdata = data.copy()
+    
     for pos,vxl in enumerate(zscores):
-        if vxl < threshold:
-           maskdata[:,pos]=np.nan 
+
+        if side == 'above':
+            if vxl < threshold:
+                maskdata[:,pos]=np.nan 
+        elif side == 'below':
+            if vxl > -threshold:
+                maskdata[:,pos]=np.nan 
+        elif side == 'both':
+            if vxl > -threshold or vxl < threshold:
+                maskdata[:,pos]=np.nan 
     
     return maskdata
 
