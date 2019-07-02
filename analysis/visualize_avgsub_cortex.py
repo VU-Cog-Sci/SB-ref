@@ -168,22 +168,22 @@ upper_zscore = np.load(os.path.join(soma_path,'z_upper_limb_contrast.npy'))
 lower_zscore = np.load(os.path.join(soma_path,'z_lower_limb_contrast.npy'))
 
 # threshold them
-data_threshed_face = zthresh(face_zscore,z_threshold,side='both')
-data_threshed_upper = zthresh(upper_zscore,z_threshold,side='both')
-data_threshed_lower = zthresh(lower_zscore,z_threshold,side='both')
+data_threshed_face = zthresh(face_zscore,threshold=z_threshold,side='both')
+data_threshed_upper = zthresh(upper_zscore,threshold=z_threshold,side='both')
+data_threshed_lower = zthresh(lower_zscore,threshold=z_threshold,side='both')
 
 # combine 3 body part maps, threshold values
 combined_zvals = np.array((face_zscore,upper_zscore,lower_zscore))
 
-soma_labels, soma_zval = winner_takes_all(combined_zvals,analysis_params['all_contrasts'],z_threshold,side='above')
+soma_labels, soma_zval = winner_takes_all(combined_zvals,analysis_params['all_contrasts'],threshold=z_threshold,side='above')
 
 ## Right vs left
 RLupper_zscore = np.load(os.path.join(soma_path,'z_right-left_hand_contrast.npy'))
 RLlower_zscore = np.load(os.path.join(soma_path,'z_right-left_leg_contrast.npy'))
 
 # threshold left vs right, to only show relevant vertex
-data_threshed_RLhand=zthresh(RLupper_zscore,z_threshold,side='both')
-data_threshed_RLleg=zthresh(RLlower_zscore,z_threshold,side='both')
+data_threshed_RLhand=zthresh(RLupper_zscore,side='both')
+data_threshed_RLleg=zthresh(RLlower_zscore,side='both')
 
 # all fingers in hand combined
 LHfing_zscore = [] # load and append each finger z score in left hand list
@@ -204,10 +204,10 @@ LHfing_zscore = np.array(LHfing_zscore)
 RHfing_zscore = np.array(RHfing_zscore)
 
 LH_labels, LH_zval = winner_takes_all(LHfing_zscore,
-                                      analysis_params['all_contrasts']['upper_limb'][:5],z_threshold,side='above')
+                                      analysis_params['all_contrasts']['upper_limb'][:5],side='above')
 
 RH_labels, RH_zval = winner_takes_all(RHfing_zscore,
-                                      analysis_params['all_contrasts']['upper_limb'][5:],z_threshold,side='above')
+                                      analysis_params['all_contrasts']['upper_limb'][5:],side='above')
 
 
 ## define ROI for each hand, to plot finger z score maps in relevant areas
@@ -221,16 +221,6 @@ for i,zsc in enumerate(data_threshed_RLhand): # loop over thresholded RvsL hand 
         LH_roiLR[i]=LH_zval[i]
     elif zsc > 0: # positive z-scores = right hand
         RH_roiLR[i]=RH_zval[i]
-
-# by using upper limb map
-LH_roiU = np.zeros(data_threshed_upper.shape) # set at 0 whatever is outside thresh
-RH_roiU = np.zeros(data_threshed_upper.shape) # set at 0 whatever is outside thresh   
-
-for i,zsc in enumerate(data_threshed_upper):
-    if zsc > 0: # ROI only accounts for positive z score areas
-        LH_roiU[i]=LH_zval[i]
-        RH_roiU[i]=RH_zval[i]
-    
 
 # all individual face regions combined
 
@@ -247,7 +237,7 @@ allface_zscore = np.array(allface_zscore)
 
 # combine them all in same array, winner takes all
 allface_labels, allface_zval = winner_takes_all(allface_zscore,
-                                      analysis_params['all_contrasts']['face'],z_threshold,side='above')
+                                      analysis_params['all_contrasts']['face'],side='above')
 
 # define ROI by using face map, 
 # to plot face part z score maps in relevant areas
@@ -257,7 +247,6 @@ for i,zsc in enumerate(data_threshed_face):
     if zsc > 0: # ROI only accounts for positive z score areas
         face_roiF[i]=allface_zval[i]
     
-
 
 ## create flatmaps for different parameters and save png
 
@@ -291,15 +280,6 @@ images['rl_lower'] = cortex.Vertex(data_threshed_RLleg.T, 'fsaverage',
                            vmin=-5, vmax=5,
                            cmap='bwr')
 
-# all finger right hand combined
-images['v_Rfingers'] = cortex.Vertex2D(RH_labels.T, RH_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
-
-# all finger left hand combined
-images['v_Lfingers'] = cortex.Vertex2D(LH_labels.T, LH_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
 
 # all fingers left hand combined ONLY in left hand region 
 # (as defined by LvsR hand contrast values)
@@ -310,18 +290,6 @@ images['v_LfingersROILR'] = cortex.Vertex2D(LH_labels.T, LH_roiLR.T, 'fsaverage'
 # all fingers right hand combined ONLY in right hand region 
 # (as defined by LvsR hand contrast values)
 images['v_RfingersROILR'] = cortex.Vertex2D(RH_labels.T, RH_roiLR.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
-
-# all fingers left hand combined ONLY in hand region 
-# (as defined by upper limb contrast values)
-images['v_LfingersROIU'] = cortex.Vertex2D(LH_labels.T, LH_roiU.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
-
-# all fingers right hand combined ONLY in hand region 
-# (as defined by upper limb contrast values)
-images['v_RfingersROIU'] = cortex.Vertex2D(RH_labels.T, RH_roiU.T, 'fsaverage',
                            vmin=0, vmax=1,
                            vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
 
@@ -366,16 +334,6 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['rl_lower'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_ROI-LvsRH.png' %z_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_RfingersROILR'], recache=True,with_colorbar=True,with_curvature=True)
@@ -384,16 +342,6 @@ _ = cortex.quickflat.make_png(filename, images['v_RfingersROILR'], recache=True,
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_ROI-LvsRH.png' %z_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_LfingersROILR'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_ROI-upperVsall.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_LfingersROIU'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_ROI-upperVsall.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_RfingersROIU'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined.png' %z_threshold)

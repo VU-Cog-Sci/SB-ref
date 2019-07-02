@@ -166,9 +166,9 @@ print('Using z-score of %d as threshold for localizer' %z_threshold)
 
 # compute masked data for R+L hands and for face
 # to be used in more detailed contrasts
-data_upmask = mask_data(median_data,zmaps_all['upper_limb'],z_threshold)
-data_facemask = mask_data(median_data,zmaps_all['face'],z_threshold)
-data_lowmask = mask_data(median_data,zmaps_all['lower_limb'],z_threshold)
+data_upmask = mask_data(median_data,zmaps_all['upper_limb'],threshold=z_threshold,side='above')
+data_facemask = mask_data(median_data,zmaps_all['face'],threshold=z_threshold,side='above')
+data_lowmask = mask_data(median_data,zmaps_all['lower_limb'],threshold=z_threshold,side='above')
 
 # Setup and fit GLM for masked data, estimates contains the parameter estimates
 labels_upmask, estimates_upmask = run_glm(data_upmask, design_matrix.values)
@@ -199,6 +199,7 @@ for _,key in enumerate(limbs):
 
     z_map = contrast_val.z_score()
     z_map = np.array(z_map)
+    zmaps_all['RL_'+key[0]]=z_map
 
     zscore_file = os.path.join(soma_out,'z_right-left_'+key[0]+'_contrast.npy')
     np.save(zscore_file,z_map)  
@@ -211,6 +212,14 @@ bhand_label = ['lhand','rhand']
 for j,lbl in enumerate(bhand_label):
     
     print('For %s' %lbl)
+
+    if lbl == 'lhand': # estou aqui, pensar melhor nisto
+        data_RLmask = mask_data(median_data,zmaps_all['RL_hand'],side='below')
+    elif lbl == 'rhand':
+        data_RLmask = mask_data(median_data,zmaps_all['RL_hand'],side='above')
+
+    labels_RLmask, estimates_RLmask = run_glm(data_RLmask, design_matrix.values)
+
     
     hand_label = [s for s in analysis_params['all_contrasts']['upper_limb'] if lbl in s] #list of all fingers in one hand  
     otherfings = leave_one_out_lists(hand_label) # list of lists with other fingers to contrast 
@@ -218,7 +227,7 @@ for j,lbl in enumerate(bhand_label):
     for i,fing in enumerate(hand_label):
         contrast = make_contrast(design_matrix.columns,[[fing],otherfings[i]],[1,-1/4.0],num_cond=2)
         # compute contrast-related statistics
-        contrast_val = compute_contrast(labels_upmask, estimates_upmask, contrast, contrast_type='t') 
+        contrast_val = compute_contrast(labels_RLmask, estimates_RLmask, contrast, contrast_type='t') 
 
         z_map = contrast_val.z_score()
         z_map = np.array(z_map)
@@ -226,7 +235,7 @@ for j,lbl in enumerate(bhand_label):
         zscore_file = os.path.join(soma_out,'z_%s-all_%s_contrast.npy' %(fing,lbl))
         np.save(zscore_file,z_map)
  
-# compare each finger with the others of same hand
+# compare each face region with the others of same face
 print('Contrast one face part vs all others within face')
     
 face = analysis_params['all_contrasts']['face']
