@@ -218,13 +218,13 @@ def mask_data(data,zscores,threshold=0,side='above'):
     for pos,vxl in enumerate(zscores):
 
         if side == 'above':
-            if vxl < threshold:
+            if vxl < threshold or np.isnan(vxl):
                 maskdata[:,pos]=np.nan 
         elif side == 'below':
-            if vxl > -threshold:
+            if vxl > -threshold or np.isnan(vxl):
                 maskdata[:,pos]=np.nan 
         elif side == 'both':
-            if vxl > -threshold or vxl < threshold:
+            if vxl > -threshold or vxl < threshold or np.isnan(vxl):
                 maskdata[:,pos]=np.nan 
     
     return maskdata
