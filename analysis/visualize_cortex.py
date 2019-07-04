@@ -201,11 +201,11 @@ for i in range(len(analysis_params['all_contrasts']['upper_limb'])//2):
 LHfing_zscore = np.array(LHfing_zscore)
 RHfing_zscore = np.array(RHfing_zscore)
 
-LH_labels, LH_zval = winner_takes_all(LHfing_zscore,
-                                      analysis_params['all_contrasts']['upper_limb'][:5],side='above')
-
-RH_labels, RH_zval = winner_takes_all(RHfing_zscore,
-                                      analysis_params['all_contrasts']['upper_limb'][5:],side='above')
+# compute center of mass and appropriate z-scores for each hand
+print('Computing center of mass for left hand fingers')
+LH_COM , LH_avgzval = zsc_2_COM(LHfing_zscore)
+print('Computing center of mass for right hand fingers')
+RH_COM , RH_avgzval = zsc_2_COM(RHfing_zscore)
 
 
 # all individual face regions combined
@@ -221,19 +221,23 @@ for _,name in enumerate(analysis_params['all_contrasts']['face']):
 
 allface_zscore = np.array(allface_zscore)
 
-# combine them all in same array, winner takes all
-allface_labels, allface_zval = winner_takes_all(allface_zscore,
-                                      analysis_params['all_contrasts']['face'],side='above')
+# combine them all in same array
 
-# define ROI by using face map, 
-# to plot face part z score maps in relevant areas
-face_roiF = np.zeros(data_threshed_face.shape) # set at 0 whatever is outside thresh   
+print('Computing center of mass for face elements %s' %(analysis_params['all_contrasts']['face']))
+allface_COM , allface_avgzval = zsc_2_COM(allface_zscore)
 
-for i,zsc in enumerate(data_threshed_face):
-    if zsc > 0: # ROI only accounts for positive z score areas
-        face_roiF[i]=allface_zval[i]
-    
-
+## make colormap for elements
+colors = [(0, 0, 1),
+          (0.27451,  0.94118 , 0.94118),
+          (0, 1, 0),
+          (1, 1, 0),
+          (1, 0.5, 0),
+          (1, 0, 0),
+          #(0.56078,0,1),
+          (0.29412,  0, 0.50980)]  # B -> G -> Y -> O-> R -> #L -> P
+n_bins = 100  # Discretizes the interpolation into bins
+cmap_name = 'cm_rainbow'
+cm = LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
 
 ## create flatmaps for different parameters and save png
 
@@ -269,24 +273,20 @@ images['rl_lower'] = cortex.Vertex(data_threshed_RLleg.T, 'fsaverage',
 
 # all fingers left hand combined ONLY in left hand region 
 # (as defined by LvsR hand contrast values)
-images['v_Lfingers'] = cortex.Vertex2D(LH_labels.T, LH_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+images['v_Lfingers'] = cortex.Vertex(LH_COM.T, 'fsaverage',
+                           vmin=1, vmax=5,
+                           cmap=cm)#'J4')#costum colormap added to database
 
 # all fingers right hand combined ONLY in right hand region 
 # (as defined by LvsR hand contrast values)
-images['v_Rfingers'] = cortex.Vertex2D(RH_labels.T, RH_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG_2D')#BROYG_2D')#'my_autumn')
+images['v_Rfingers'] = cortex.Vertex(RH_COM.T, 'fsaverage',
+                           vmin=1, vmax=5,
+                           cmap=cm)#'J4')#costum colormap added to database
 
 # 'eyebrows', 'eyes', 'tongue', 'mouth', combined
-images['v_facecombined'] = cortex.Vertex2D(allface_labels.T, allface_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG4col_2D') #costum colormap added to database
-
-images['v_facecombinedROIF'] = cortex.Vertex2D(allface_labels.T, face_roiF.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='BROYG4col_2D')#BROYG_2D')#'my_autumn')
+images['v_facecombined'] = cortex.Vertex(allface_COM.T, 'fsaverage',
+                           vmin=1, vmax=4,
+                           cmap=cm)#'J4') #costum colormap added to database
 
 
 # Save this flatmap
@@ -333,12 +333,6 @@ _ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=True,with_
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined.png' %z_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=True,with_colorbar=True,with_curvature=True)
-
-# Save this flatmap
-filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined_ROI-faceVsall.png' %z_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_facecombinedROIF'], recache=True,with_colorbar=True,with_curvature=True)
-
 
 ds = cortex.Dataset(**images)
 #cortex.webshow(ds, recache=True)
