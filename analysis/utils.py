@@ -287,3 +287,36 @@ def leave_one_out_lists(input_list):
 
     return out_lists
 
+
+def zsc_2_COM(zdata):
+    
+##################################################
+#    inputs:
+#        zdata - array with z scores (elements,vertices)
+#    outputs:
+#        center_of_mass - array with COM for each vertex
+#        avg_zval - array with average z-scores for each vertex
+##################################################
+    center_of_mass = []
+    avg_zval = []
+    for vrtx in range(zdata.shape[1]):
+        elemz = zdata[...,vrtx] # save z-scores for all elements (ex:5 fing) of 1 vertex in array
+
+        elemz_thresh = np.zeros(elemz.shape) # set to 0 negative z-scores, to ensure COM within element range
+        f_zval = []
+        for f,fval in enumerate(elemz):
+            if fval > 0:
+                elemz_thresh[f]=fval
+                f_zval.append(fval)
+
+        elem_num = np.linspace(1,zdata.shape[0],num=zdata.shape[0])
+        center_of_mass.append(sum(np.multiply(elem_num,elemz_thresh))/sum(elemz_thresh))
+        avg_zval.append(np.average(f_zval))
+
+    center_of_mass = np.array(center_of_mass)
+    avg_zval = np.array(avg_zval)
+
+    
+    return center_of_mass,avg_zval
+
+    
