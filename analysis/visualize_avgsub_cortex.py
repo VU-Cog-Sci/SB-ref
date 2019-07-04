@@ -232,7 +232,7 @@ allface_COM , allface_avgzval = zsc_2_COM(allface_zscore)
 
 
 ## make colormap for elements
-colors = [(0, 0, 1),
+my_colors = [(0, 0, 1),
           (0.27451,  0.94118 , 0.94118),
           (0, 1, 0),
           (1, 1, 0),
@@ -242,7 +242,7 @@ colors = [(0, 0, 1),
           (0.29412,  0, 0.50980)]  # B -> G -> Y -> O-> R -> #L -> P
 n_bins = 100  # Discretizes the interpolation into bins
 cmap_name = 'cm_rainbow'
-cm = LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
+cm = LinearSegmentedColormap.from_list(cmap_name, my_colors, N=n_bins)
 
 
 ## create flatmaps for different parameters and save png
