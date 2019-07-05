@@ -20,6 +20,12 @@ from sklearn.decomposition import PCA
 
 from PIL import Image
 
+from scipy.misc import imsave
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+
+import cortex
+
 
 def median_gii(files,outdir):
     
@@ -309,7 +315,7 @@ def zsc_2_COM(zdata):
                 elemz_thresh[f]=fval
                 f_zval.append(fval)
 
-        elem_num = np.linspace(1,zdata.shape[0],num=zdata.shape[0])
+        elem_num = np.linspace(0,zdata.shape[0]-1,num=zdata.shape[0])
         center_of_mass.append(sum(np.multiply(elem_num,elemz_thresh))/sum(elemz_thresh))
         avg_zval.append(np.average(f_zval))
 
@@ -320,3 +326,25 @@ def zsc_2_COM(zdata):
     return center_of_mass,avg_zval
 
     
+def create_my_colormaps(mapname='mycolormap_HSV_alpha.png'):
+   
+    hue, alpha = np.meshgrid(np.linspace(
+        0.7,0, 80, endpoint=False), 1-np.linspace(0, 1, 80)) #values chosen to make it visible
+    print(hue.shape)
+    hsv = np.zeros(list(hue.shape)+[3])
+    print(hsv.shape)
+    # convert angles to colors, using correlations as weights
+    hsv[..., 0] = hue  # angs_discrete  # angs_n
+    # np.sqrt(rsq) #np.ones_like(rsq)  # np.sqrt(rsq)
+    hsv[..., 1] = np.ones_like(alpha)
+    # np.nan_to_num(rsq ** -3) # np.ones_like(rsq)#n
+    hsv[..., 2] = np.ones_like(alpha)
+
+    rgb = colors.hsv_to_rgb(hsv)
+    rgba = np.vstack((rgb.T, alpha[..., np.newaxis].T)).T
+    #plt.imshow(rgba)
+    hsv_fn = os.path.join(os.path.split(cortex.database.default_filestore)[
+                          0], 'colormaps', mapname)
+    imsave(hsv_fn, rgba)
+        
+
