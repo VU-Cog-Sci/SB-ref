@@ -9,6 +9,8 @@ import cortex
 import matplotlib.colors as colors
 from utils import *
 from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.cm as matcm
+import matplotlib.pyplot as plt
 
 
 with open('analysis_params.json','r') as json_file:	
@@ -232,18 +234,27 @@ allface_COM , allface_avgzval = zsc_2_COM(allface_zscore)
 
 
 ## make colormap for elements
+# same as the alpha colormap, then I can save both
 my_colors = [(0, 0, 1),
           (0.27451,  0.94118 , 0.94118),
           (0, 1, 0),
           (1, 1, 0),
-          (1, 0.5, 0),
-          (1, 0, 0),
+          #(1, 0.5, 0),
+          (1, 0, 0)
           #(0.56078,0,1),
-          (0.29412,  0, 0.50980)]  # B -> G -> Y -> O-> R -> #L -> P
+          #(0.29412,  0, 0.50980)
+            ]  # B -> G -> Y -> #O-> R -> #L -> #P
 n_bins = 100  # Discretizes the interpolation into bins
-cmap_name = 'cm_rainbow'
-cm = LinearSegmentedColormap.from_list(cmap_name, my_colors, N=n_bins)
+cmap_name = 'my_rainbow'
+my_cm = LinearSegmentedColormap.from_list(cmap_name, my_colors, N=n_bins)
+matcm.register_cmap(name=cmap_name, cmap=my_cm) # register it in matplotlib lib
 
+create_my_colormaps(mapname='mycolormap_HSV_alpha.png')
+
+# normalize z-scores to plot in flatmaps (due to bug in vmin and max range)
+norm_LHavgval = (LH_avgzval - np.nanmin(LH_avgzval))/(np.nanmax(LH_avgzval)-np.nanmin(LH_avgzval))
+norm_RHavgval = (RH_avgzval - np.nanmin(RH_avgzval))/(np.nanmax(RH_avgzval)-np.nanmin(RH_avgzval))
+norm_allfaceavgval = (allface_avgzval - np.nanmin(allface_avgzval))/(np.nanmax(allface_avgzval)-np.nanmin(allface_avgzval))
 
 ## create flatmaps for different parameters and save png
 
@@ -280,19 +291,35 @@ images['rl_lower'] = cortex.Vertex(data_threshed_RLleg.T, 'fsaverage',
 # all fingers left hand combined ONLY in left hand region 
 # (as defined by LvsR hand contrast values)
 images['v_Lfingers'] = cortex.Vertex(LH_COM.T, 'fsaverage',
-                           vmin=1, vmax=5,
-                           cmap=cm)#'J4')#costum colormap added to database
+                           vmin=0, vmax=4,
+                           cmap=my_cm)#'J4')#costum colormap added to database
 
 # all fingers right hand combined ONLY in right hand region 
 # (as defined by LvsR hand contrast values)
 images['v_Rfingers'] = cortex.Vertex(RH_COM.T, 'fsaverage',
-                           vmin=1, vmax=5,
-                           cmap=cm)#'J4')#costum colormap added to database
+                           vmin=0, vmax=4,
+                           cmap=my_cm)#'J4')#costum colormap added to database
 
 # 'eyebrows', 'eyes', 'tongue', 'mouth', combined
 images['v_facecombined'] = cortex.Vertex(allface_COM.T, 'fsaverage',
-                           vmin=1, vmax=4,
-                           cmap=cm)#'J4') #costum colormap added to database
+                           vmin=0, vmax=3,
+                           cmap=my_cm)#'J4') #costum colormap added to database
+
+# same flatmaps but with alpha val related to z-scores
+images['v_Lfingers_alpha'] = cortex.Vertex2D(LH_COM.T,(norm_LHavgval*4).T, 'fsaverage',
+                           vmin=0, vmax=4,
+                           vmin2=0, vmax2=1,
+                           cmap='mycolormap_HSV_alpha')
+
+images['v_Rfingers_alpha'] = cortex.Vertex2D(RH_COM.T,(norm_RHavgval*4).T, 'fsaverage',
+                           vmin=0, vmax=4,
+                           vmin2=0, vmax2=1,
+                           cmap='mycolormap_HSV_alpha')
+
+images['v_facecombined_alpha'] = cortex.Vertex2D(allface_COM.T,(norm_allfaceavgval*3).T, 'fsaverage',
+                           vmin=0, vmax=3,
+                           vmin2=0, vmax2=1,
+                           cmap='mycolormap_HSV_alpha')
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-faceVSall.png' %z_threshold)
@@ -338,6 +365,21 @@ _ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=True,with_
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined.png' %z_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_alpha.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Rfingers_alpha'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_alpha.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Lfingers_alpha'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined_alpha.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_facecombined_alpha'], recache=True,with_colorbar=True,with_curvature=True)
 
 
 ds = cortex.Dataset(**images)
