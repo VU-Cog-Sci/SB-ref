@@ -155,7 +155,7 @@ def zthresh(zfile_in,threshold=0,side='above'):
 #        zfile_out - array with threshed z scores
 ##################################################
 
-    data_threshed = np.zeros(zfile_in.shape) # set at 0 whatever is outside thresh
+    data_threshed = np.zeros(zfile_in.shape);data_threshed[:]=np.nan # set at nan whatever is outside thresh
 
     for i,value in enumerate(zfile_in):
         if side == 'above':
