@@ -174,9 +174,10 @@ data_threshed_upper = zthresh(upper_zscore,threshold=z_threshold,side='both')
 data_threshed_lower = zthresh(lower_zscore,threshold=z_threshold,side='both')
 
 # combine 3 body part maps, threshold values
-combined_zvals = np.array((face_zscore,upper_zscore,lower_zscore))
+combined_zvals = np.array((data_threshed_face,data_threshed_upper,data_threshed_lower))
 
-soma_labels, soma_zval = winner_takes_all(combined_zvals,analysis_params['all_contrasts'],threshold=z_threshold,side='above')
+print('Computing center of mass for different regions combined')
+soma_labels, soma_zval = zsc_2_COM(combined_zvals)
 
 ## Right vs left
 RLupper_zscore = np.load(os.path.join(soma_path,'z_right-left_hand_contrast.npy'))
@@ -229,7 +230,8 @@ allface_zscore = np.array(allface_zscore)
 print('Computing center of mass for face elements %s' %(analysis_params['all_contrasts']['face']))
 allface_COM , allface_avgzval = zsc_2_COM(allface_zscore)
 
-## make colormap for elements
+## make colormap for elements ########
+
 # same as the alpha colormap, then I can save both
 my_colors = [(0, 0, 1),
           (0.27451,  0.94118 , 0.94118),
@@ -245,7 +247,37 @@ cmap_name = 'my_rainbow'
 my_cm = LinearSegmentedColormap.from_list(cmap_name, my_colors, N=n_bins)
 matcm.register_cmap(name=cmap_name, cmap=my_cm) # register it in matplotlib lib
 
+RBalpha_dict = {'red':  ((0.0, 0.0, 0.0),
+                   (0.25, 0.0, 0.0),
+                   (0.5, 0.8, 1.0),
+                   (0.75, 1.0, 1.0),
+                   (1.0, 0.4, 1.0)),
+
+         'green': ((0.0, 0.0, 0.0),
+                   (0.25, 0.0, 0.0),
+                   (0.5, 0.9, 0.9),
+                   (0.75, 0.0, 0.0),
+                   (1.0, 0.0, 0.0)),
+
+         'blue':  ((0.0, 0.0, 0.4),
+                   (0.25, 1.0, 1.0),
+                   (0.5, 1.0, 0.8),
+                   (0.75, 0.0, 0.0),
+                   (1.0, 0.0, 0.0)),
+          
+          'alpha': ((0.0, 1.0, 1.0),
+                   (0.25,1.0, 1.0),
+                    (0.5, 0.3, 0.3),
+                   (0.75,1.0, 1.0),
+                    (1.0, 1.0, 1.0))
+        }
+
+blue_red = LinearSegmentedColormap('BlueRed_alpha', RBalpha_dict, N=n_bins)
+matcm.register_cmap(name='BlueRed_alpha', cmap=blue_red) # register it in matplotlib lib
+
 create_my_colormaps(mapname='mycolormap_HSV_alpha.png')
+
+
 
 # normalize z-scores to plot in flatmaps (due to bug in vmin and max range)
 norm_LHavgval = (LH_avgzval - np.nanmin(LH_avgzval))/(np.nanmax(LH_avgzval)-np.nanmin(LH_avgzval))
@@ -256,33 +288,38 @@ norm_allfaceavgval = (allface_avgzval - np.nanmin(allface_avgzval))/(np.nanmax(a
 
 # vertex for face vs all others
 images['v_face'] = cortex.Vertex(data_threshed_face.T, 'fsaverage',
-                           vmin=-5, vmax=5,
+                           vmin=-7, vmax=7,
                            cmap='BuBkRd')
 
 # vertex for upper limb vs all others
 images['v_upper'] = cortex.Vertex(data_threshed_upper.T, 'fsaverage',
-                           vmin=-5, vmax=5,
+                           vmin=-7, vmax=7,
                            cmap='BuBkRd')
 
 # vertex for lower limb vs all others
 images['v_lower'] = cortex.Vertex(data_threshed_lower.T, 'fsaverage',
-                           vmin=-5, vmax=5,
+                           vmin=-7, vmax=7,
                            cmap='BuBkRd')
 
+
 # all somas combined
-images['v_combined'] = cortex.Vertex2D(soma_labels.T, soma_zval.T, 'fsaverage',
-                           vmin=0, vmax=1,
-                           vmin2=z_threshold, vmax2=5, cmap='autumn_alpha')#BROYG_2D')#'my_autumn')
+images['v_combined'] = cortex.Vertex(soma_labels.T, 'fsaverage',
+                           vmin=0, vmax=2,
+                           cmap='autumn')#'J4') #costum colormap added to database
+
+images['v_combined_alpha'] = cortex.Vertex2D(soma_labels.T, soma_zval.T, 'fsaverage',
+                           vmin=0, vmax=2,
+                           vmin2=min(soma_zval), vmax2=10, cmap='autumn_alpha')#BROYG_2D')#'my_autumn')
 
 # vertex for right vs left hand
 images['rl_upper'] = cortex.Vertex(data_threshed_RLhand.T, 'fsaverage',
                            vmin=-5, vmax=5,
-                           cmap='bwr')
+                           cmap=blue_red)
 
 # vertex for right vs left leg
 images['rl_lower'] = cortex.Vertex(data_threshed_RLleg.T, 'fsaverage',
                            vmin=-5, vmax=5,
-                           cmap='bwr')
+                           cmap=blue_red)
 
 # all fingers left hand combined ONLY in left hand region 
 # (as defined by LvsR hand contrast values)
@@ -337,6 +374,11 @@ _ = cortex.quickflat.make_png(filename, images['v_lower'], recache=True,with_col
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-FULcombined.png' %z_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_combined'], recache=True,with_colorbar=True,with_curvature=True)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-FULcombined_alpha.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_combined_alpha'], recache=True,with_colorbar=True,with_curvature=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-rightVSleftHAND.png' %z_threshold)
