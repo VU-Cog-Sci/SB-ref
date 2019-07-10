@@ -342,7 +342,7 @@ images['v_Rfingers_alpha'] = cortex.Vertex2D(RH_COM.T,RH_avgzval.T, 'fsaverage',
                            vmin2=0, vmax2=2,
                            cmap='mycolormap_HSV_alpha')
 
-images['v_facecombined_alpha'] = cortex.Vertex2D(allface_COM.T,allface_avgval.T, 'fsaverage',
+images['v_facecombined_alpha'] = cortex.Vertex2D(allface_COM.T,allface_avgzval.T, 'fsaverage',
                            vmin=0, vmax=3,
                            vmin2=0, vmax2=2,
                            cmap='mycolormap_HSV_alpha')
