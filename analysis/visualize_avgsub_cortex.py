@@ -283,13 +283,6 @@ matcm.register_cmap(name='BlueRed_alpha', cmap=blue_red) # register it in matplo
 
 create_my_colormaps(mapname='mycolormap_HSV_alpha.png')
 
-
-
-# normalize z-scores to plot in flatmaps (due to bug in vmin and max range)
-norm_LHavgval = (LH_avgzval - np.nanmin(LH_avgzval))/(np.nanmax(LH_avgzval)-np.nanmin(LH_avgzval))
-norm_RHavgval = (RH_avgzval - np.nanmin(RH_avgzval))/(np.nanmax(RH_avgzval)-np.nanmin(RH_avgzval))
-norm_allfaceavgval = (allface_avgzval - np.nanmin(allface_avgzval))/(np.nanmax(allface_avgzval)-np.nanmin(allface_avgzval))
-
 ## create flatmaps for different parameters and save png
 
 # vertex for face vs all others
@@ -314,7 +307,7 @@ images['v_combined'] = cortex.Vertex(soma_labels.T, 'fsaverage',
 
 images['v_combined_alpha'] = cortex.Vertex2D(soma_labels.T, soma_zval.T, 'fsaverage',
                            vmin=0, vmax=2,
-                           vmin2=min(soma_zval), vmax2=10, cmap='autumn_alpha')#BROYG_2D')#'my_autumn')
+                           vmin2=min(soma_zval), vmax2=7, cmap='autumn_alpha')#BROYG_2D')#'my_autumn')
 
 # vertex for right vs left hand
 images['rl_upper'] = cortex.Vertex(data_threshed_RLhand.T, 'fsaverage',
@@ -344,19 +337,19 @@ images['v_facecombined'] = cortex.Vertex(allface_COM.T, 'fsaverage',
                            cmap=my_cm)#'J4') #costum colormap added to database
 
 # same flatmaps but with alpha val related to z-scores
-images['v_Lfingers_alpha'] = cortex.Vertex2D(LH_COM.T,(norm_LHavgval*4).T, 'fsaverage',
+images['v_Lfingers_alpha'] = cortex.Vertex2D(LH_COM.T,LH_avgzval.T, 'fsaverage',
                            vmin=0, vmax=4,
-                           vmin2=0, vmax2=1,
+                           vmin2=0, vmax2=2,
                            cmap='mycolormap_HSV_alpha')
 
-images['v_Rfingers_alpha'] = cortex.Vertex2D(RH_COM.T,(norm_RHavgval*4).T, 'fsaverage',
+images['v_Rfingers_alpha'] = cortex.Vertex2D(RH_COM.T,RH_avgzval.T, 'fsaverage',
                            vmin=0, vmax=4,
-                           vmin2=0, vmax2=1,
+                           vmin2=0, vmax2=2,
                            cmap='mycolormap_HSV_alpha')
 
-images['v_facecombined_alpha'] = cortex.Vertex2D(allface_COM.T,(norm_allfaceavgval*3).T, 'fsaverage',
+images['v_facecombined_alpha'] = cortex.Vertex2D(allface_COM.T,allface_avgzval.T, 'fsaverage',
                            vmin=0, vmax=3,
-                           vmin2=0, vmax2=1,
+                           vmin2=0, vmax2=2,
                            cmap='mycolormap_HSV_alpha')
 
 # Save this flatmap
