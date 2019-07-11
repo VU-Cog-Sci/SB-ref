@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 with open('analysis_params.json','r') as json_file:	
         analysis_params = json.load(json_file)	
 
-rsq_threshold = analysis_params['rsq_threshold']
+rsq_threshold = 0.12#analysis_params['rsq_threshold']
 sj = 'median'
 
 flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-median'.format(sj=sj),'flatmaps')
@@ -109,7 +109,7 @@ images = {}
 images['polar'] = cortex.VertexRGB(rgb[..., 0].T, 
                                rgb[..., 1].T, 
                                rgb[..., 2].T, 
-                               subject='fsaverage') #, alpha=alpha
+                               subject='fsaverage', alpha=alpha)
 
 # vertex for rsq
 images['rsq'] = cortex.Vertex2D(med_rsq.T, alpha, 'fsaverage',
@@ -141,22 +141,22 @@ images['baseline'] = cortex.Vertex2D(med_baseline.T, med_rsq.T, 'fsaverage',
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-eccentricity.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['ecc'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['ecc'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-size.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['size'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['size'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_rsq-%0.2f_type-rsquared.png' %rsq_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
 
@@ -355,67 +355,67 @@ images['v_facecombined_alpha'] = cortex.Vertex2D(allface_COM.T,allface_avgzval.T
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-faceVSall.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_face'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_face'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-upperVSall.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_upper'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_upper'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-lowerVSall.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_lower'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_lower'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-FULcombined.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_combined'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_combined'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-FULcombined_alpha.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_combined_alpha'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_combined_alpha'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-rightVSleftHAND.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-rightVSleftLEG.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rl_lower'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['rl_lower'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_alpha.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Rfingers_alpha'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_Rfingers_alpha'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_alpha.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Lfingers_alpha'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_Lfingers_alpha'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined_alpha.png' %z_threshold)
 print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_facecombined_alpha'], recache=True,with_colorbar=True,with_curvature=True)
+_ = cortex.quickflat.make_png(filename, images['v_facecombined_alpha'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
 ds = cortex.Dataset(**images)
