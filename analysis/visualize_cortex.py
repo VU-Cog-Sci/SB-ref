@@ -31,7 +31,16 @@ else:
             analysis_params = json.load(json_file)	
     
 images = {}
-flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps')
+with_smooth = analysis_params['with_smooth']
+
+if with_smooth=='True':
+    flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps','smooth')
+    soma_path =  os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
+else:
+    flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps')
+    soma_path =  os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
+
+    
 if not os.path.exists(flatmap_out): # check if path for outputs exist
         os.makedirs(flatmap_out)       # if not create it
 
@@ -160,8 +169,6 @@ if os.path.isdir(median_path):
 ## SOMATOTOPY ##
 
 z_threshold = analysis_params['z_threshold']
-
-soma_path = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
 
 ## group different body areas
 face_zscore = np.load(os.path.join(soma_path,'z_face_contrast.npy'))
