@@ -475,3 +475,30 @@ def nparray2mgz(nparray,giifiles,outdir):
         os.system('mri_convert %s %s'%(new_gii_pth,new_mgz))
     
     return mgz_files
+
+
+def median_mgz(files,outdir):
+    
+    ##################################################
+    #    inputs:
+    #        files - list of absolute filenames to do median over
+    #        outdir - path to save new files
+    #    outputs:
+    #        median_file - absolute output filename
+    ##################################################
+    
+    
+    img = []
+    for i,filename in enumerate(files):
+        img_load = surface.load_surf_data(filename).T
+        img.append(img_load) #(runs,TRs,vertices)
+    
+    median_img = np.median(img,axis=0)
+
+    median_file = os.path.join(outdir,re.sub('run-\d{2}_','run-median_',os.path.split(files[0])[-1]))+'.npy'
+    median_file = re.sub('smooth5.mgz','smooth5',median_file)
+    np.save(median_file,median_img)
+
+    return median_file
+
+    
