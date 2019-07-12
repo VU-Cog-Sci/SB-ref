@@ -24,6 +24,8 @@ from scipy.misc import imsave
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
+from nilearn.signal import clean
+
 import cortex
 
 
@@ -84,30 +86,73 @@ def screenshot2DM(filenames,scale,screen,outfile):
     np.save(outfile, img_bin.astype(np.uint8))
     
 
-def highpass_gii(filenames,polyorder,deriv,window,outpth):
+def highpass_gii(filenames,polyorder,deriv,window,outpth,combine_hemi=False):
+
+    ##################################################
+    #    inputs:
+    #        filenames - list of absolute filenames for gii files (L and R hemi)
+    #        polyorder - order of the polynomial used to fit the samples - must be less than window_length.
+    #        deriv - order of the derivative to compute - must be a nonnegative integer
+    #        window -  length of the filter window (number of coefficients) - must be a positive odd integer
+    #        outpth - path to save new files
+    #    outputs:
+    #        filenames_sg - np array with all filtered runs appended
+    #        filepaths_sg - list with filenames
+    ##################################################
     
     
     filenames_sg = []
+    filepaths_sg = []
     filenames.sort() #to make sure their in right order
-    
-    for run in range(4):#filenames)//2): # for every run (2 hemi per run)
 
-        run_files = [x for _,x in enumerate(filenames) if 'run-0'+str(run+1) in os.path.split(x)[-1]]
+    all_runs = np.arange(1,11) #10 is max number of runs for any of the tasks (FN is the biggest one)
+
+    for run in all_runs: # for every run (2 hemi per run)
+
+        run_files = [x for _,x in enumerate(filenames) if 'run-'+str(run).zfill(2) in os.path.split(x)[-1]]
         
         if not run_files:
-            print('no soma files for run-0%s' %str(run+1))
+            print('no files for run-%s' %str(run).zfill(2))
         else:
-            data_both = []
-            for _,hemi in enumerate(run_files):
-                data_both.append(surface.load_surf_data(hemi).T) #load surface data
 
-            data_both = np.hstack(data_both) #stack then filter
-            print('filtering run %s' %run_files)
-            data_both -= savgol_filter(data_both, window, polyorder, axis=0,deriv=deriv)
+            if combine_hemi==False: # if we dont want to combine the hemi fields in one array
 
-            filenames_sg.append(data_both)
+                for _,hemi in enumerate(run_files):
 
-    return np.array(filenames_sg)
+                    data_hemi = surface.load_surf_data(hemi).T #load surface data
+                    print('filtering run %s' %hemi)
+                    data_hemi -= savgol_filter(data_hemi, window, polyorder, axis=0,deriv=deriv)
+
+                    name = os.path.splitext(os.path.splitext(os.path.split(hemi)[-1])[0])[0]
+                    name = name+'_sg'
+
+                    output = os.path.join(outpth,name)
+
+                    np.save(output,data_hemi)
+
+                    filenames_sg.append(data_hemi)
+                    filepaths_sg.append(output+'.npy')
+
+            else:
+
+                data_both = []
+                for _,hemi in enumerate(run_files):
+                    data_both.append(surface.load_surf_data(hemi).T) #load surface data
+
+                data_both = np.hstack(data_both) #stack then filter
+                print('filtering run %s' %run_files)
+                data_both -= savgol_filter(data_both, window, polyorder, axis=0,deriv=deriv)
+
+                name = os.path.splitext(os.path.splitext(os.path.split(run_files[0])[-1])[0])[0]
+                name = name.replace('hemi-L','hemi-both_sg')
+                output = os.path.join(outpth,name)
+
+                np.save(output,data_both)
+
+                filenames_sg.append(data_both)
+                filepaths_sg.append(output+'.npy')
+
+    return np.array(filenames_sg),filepaths_sg
     
 
 def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
@@ -348,3 +393,85 @@ def create_my_colormaps(mapname='mycolormap_HSV_alpha.png'):
     imsave(hsv_fn, rgba)
         
 
+def clean_confounds(npdata,confounds,outpth,combine_hemi=False):
+    
+    ##################################################
+    #    inputs:
+    #        npdata - list of absolute filenames for numpy array data
+    #        confounds - list of absolute filenames for confound tsvs
+    #        outpth - path to save new files
+    #    outputs:
+    #        new_data - np array with all filtered runs appended
+    #        new_data_pth - list with absolute filenames
+    ##################################################
+    
+    #sort to make sure lists in right order
+    npdata.sort()
+    confounds.sort()
+    new_data = []
+    new_data_pth = []
+    counter = 0
+
+
+    for idx,file in enumerate(npdata):
+        print('regressing out confounds from %s' %(file))
+        data =np.load(file) #load data for run
+
+        confs = pd.read_csv(confounds[counter], sep='\t', na_values='n/a') #load tsv
+
+        # if even index, and both hemifields in list increase counter, or if hemi already combined
+        if idx == 0:
+            counter = 0
+        elif (combine_hemi == False and idx % 2 == 0) or (combine_hemi == True): 
+            counter += 1
+
+        d = clean(data, confounds=confs.values, standardize=False) #clean it
+        
+        name = os.path.splitext(os.path.split(file)[-1])[0]+'_conf'
+        output = os.path.join(outpth,name)
+        
+        np.save(output,d)
+        print('clean data saved in %s' %(output))
+        new_data.append(d)
+        new_data_pth.append(output+'.npy')
+    
+    return new_data,new_data_pth
+
+    
+def nparray2mgz(nparray,giifiles,outdir):
+    
+    ##################################################
+    #    inputs:
+    #        nparray - list of absolute path for np arrays (all hemi and runs)
+    #        giifiles - list of absolute path for gii files (needs to be analogous to above)
+    #        outdir - output dir
+    #    outputs:
+    #        mgz_files - list of absolute path for files
+    ##################################################
+    
+    # make sure in right order
+    nparray.sort()
+    giifiles.sort()
+    mgz_files = []
+    
+    for index,file in enumerate(giifiles):
+        
+        gii_load = nb.load(file) #load original hemi gii file
+        nparr = np.load(nparray[index]) # load processed hemi np array
+        
+        darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in nparr]
+        
+        # new gii file is the processed numpy array as gii
+        new_gii = nb.gifti.gifti.GiftiImage(header=gii_load.header,
+                                           extra=gii_load.extra,
+                                           darrays=darrays)
+        new_gii_pth = os.path.join(outdir,os.path.splitext(os.path.split(nparray[index])[-1])[0]+'.func.gii')
+        nb.save(new_gii,new_gii_pth)
+        print('saved numpy array as gifti in %s' %(new_gii_pth))
+        
+        new_mgz = os.path.join(outdir,os.path.splitext(os.path.split(nparray[index])[-1])[0]+'.mgz')
+        mgz_files.append(new_mgz)
+        print('converting gifti to mgz as %s' %(new_mgz))
+        os.system('mri_convert %s %s'%(new_gii_pth,new_mgz))
+    
+    return mgz_files
