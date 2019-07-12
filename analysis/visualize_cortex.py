@@ -36,9 +36,13 @@ with_smooth = analysis_params['with_smooth']
 if with_smooth=='True':
     flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps','smooth')
     soma_path =  os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
+    # load prf estimates
+    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
 else:
     flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps')
     soma_path =  os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
+    # load prf estimates
+    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
 
     
 if not os.path.exists(flatmap_out): # check if path for outputs exist
@@ -46,12 +50,9 @@ if not os.path.exists(flatmap_out): # check if path for outputs exist
 
 ## PRF ##
 
-# load prf estimates
-median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
-
 if os.path.isdir(median_path):
 
-  estimates_list = [x for x in os.listdir(median_path) if x.endswith('.estimates.npz') ]
+  estimates_list = [x for x in os.listdir(median_path) if x.endswith('_estimates.npz') ]
   estimates_list.sort() #sort to make sure pRFs not flipped
 
   estimates = []
