@@ -13,7 +13,7 @@
     "TR": 1.6,
     "low_pass_pupil_f": 6.0,
     "high_pass_pupil_f": 0.01,
-    "fit_model": "gauss_sg",
+    "fit_model": "gauss",
     "min_eccen": 0.25, 
     "max_eccen": 10, 
     "min_size": 0.5,
@@ -30,6 +30,7 @@
     "N_PROCS":8,
     "rsq_threshold": 0.20,
     "z_threshold": 3.1,
+    "with_smooth": "True",
     "nuisance_columns": [
             "csf", 
             "white_matter", 
