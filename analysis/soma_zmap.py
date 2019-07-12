@@ -37,8 +37,8 @@ else:
             analysis_params = json.load(json_file)	
     
 
-# use smoothed data, maybe add this to json        
-with_smooth = True
+# use smoothed data?        
+with_smooth = analysis_params['with_smooth']
 
 if sj == 'median':
     allsubdir = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'soma','sub-*/'))
@@ -64,7 +64,7 @@ for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
     eventpath = glob.glob(os.path.join(alleventdir[idx],'*','func/*'))
 
     # changes depending on data used
-    if with_smooth==True:
+    if with_smooth=='True':
         # soma out path
         soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
         # list of functional files
