@@ -31,10 +31,10 @@ tasks = ['fn','soma','prf','rlb','rli','rs']
 for t,cond in enumerate(tasks):
 
 	# list of functional files
-    filename = [run for run in filepath if tasks[t] in run and 'fsaverage' in run and run.endswith('.func.gii')]
+    filename = [run for run in filepath if 'task-'+tasks[t] in run and 'fsaverage' in run and run.endswith('.func.gii')]
     filename.sort()
 	# list of confounds
-    confounds = [run for run in filepath if tasks[t] in run and run.endswith('_desc-confounds_regressors.tsv')]
+    confounds = [run for run in filepath if 'task-'+tasks[t] in run and run.endswith('_desc-confounds_regressors.tsv')]
     confounds.sort()
 
     # exception for these 2 subjects, TR was different
