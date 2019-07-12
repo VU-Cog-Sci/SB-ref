@@ -35,18 +35,28 @@ else:
     with open('analysis_params.json','r') as json_file:	
             analysis_params = json.load(json_file)	
     
-
+# use smoothed data?        
+with_smooth = analysis_params['with_smooth']
+    
 # define paths and list of files
-filepath = glob.glob(os.path.join(analysis_params['fmriprep_dir'],'sub-{sj}'.format(sj=sj),'*','func/*'))
+filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'prf','sub-{sj}'.format(sj=sj),'*'))
 
-filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('.func.gii')]
-filename.sort() #sorted filenames for preprocessed functionals
-
-# compute median run, per hemifield
-median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
-
+# changes depending on data used
+if with_smooth=='True':
+    # list of functional files
+    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('smooth5.mgz')]
+    # compute median run, per hemifield
+    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
+else:
+    # list of functional files
+    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('_sg_conf.mgz')]
+    # compute median run, per hemifield
+    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
+    
+filename.sort()
 if not os.path.exists(median_path): # check if path to save median run exist
         os.makedirs(median_path) 
+
 
 med_gii=[]
 for field in ['hemi-L','hemi-R']:
@@ -54,14 +64,15 @@ for field in ['hemi-L','hemi-R']:
     
     #if file doesn't exist
     abs_file = os.path.join(median_path,re.sub('run-\d{2}_','run-median_',os.path.split(hemi[0])[-1]))
+    abs_file = re.sub('smooth5.mgz','smooth5',abs_file)
     if not os.path.exists(abs_file): 
-        med_gii.append(median_gii(hemi,median_path)) #create it
+        med_gii.append(median_mgz(hemi,median_path)) #create it
         print('computed %s' %(med_gii))
     else:
         med_gii.append(abs_file)
         print('median file %s already exists, skipping' %(med_gii))
         
-
+        
 # create/load design matrix 
 png_filename = [os.path.join(analysis_params['imgs_dir'],png) for png in os.listdir(analysis_params['imgs_dir'])] 
 png_filename.sort()
@@ -107,12 +118,11 @@ if fit_model == 'gauss' or fit_model == 'gauss_sg':
 elif fit_model == 'css' or fit_model == 'css_sg':
     bound_grids  = (x_grid_bound, y_grid_bound, sigma_grid_bound, n_grid_bound)
     bound_fits = (x_fit_bound, y_fit_bound, sigma_fit_bound, n_fit_bound, beta_fit_bound, baseline_fit_bound)      
-
+  
 
 # load median data and fit each hemisphere at a time
 for gii_file in med_gii: 
-    gii_in = nb.load(gii_file)
-    data = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))])
+    data = np.load(gii_file)
     
     # intitialize prf analysis
     prf = PRF_fit(data = data.T,
@@ -131,32 +141,31 @@ for gii_file in med_gii:
                 sg_filter_deriv = analysis_params["sg_filt_deriv"], 
                 )
 
-    # make/load predictions
-    pred_out = gii_file.replace('.func.gii','.predictions.npy')
-    
-    if not os.path.exists(pred_out): # if file doesn't exist
-    
-        print('making predictions for %s' %pred_out) #create it
-        prf.make_predictions(out_file=pred_out)
-        
-    else:
-        print('loading predictions %s' %pred_out)
-        prf.load_grid_predictions(prediction_file=pred_out)
-        
-    prf.grid_fit() # do grid fit
-    
-    # save outputs
-    rsq_output = prf.gridsearch_r2
-    params_output = prf.gridsearch_params.T
-    
-    #in estimates file
-    estimates_out = gii_file.replace('.func.gii','.estimates.npz')
-    np.savez(estimates_out, 
-             x=params_output[...,0],
-             y=params_output[...,1],
-             size=params_output[...,2],
-             baseline=params_output[...,3],
-             betas=params_output[...,4],
-             r2=rsq_output)
-  
-        
+
+# make/load predictions
+pred_out = gii_file.replace('.npy','_predictions.npy')
+
+if not os.path.exists(pred_out): # if file doesn't exist
+
+    print('making predictions for %s' %pred_out) #create it
+    prf.make_predictions(out_file=pred_out)
+
+else:
+    print('loading predictions %s' %pred_out)
+    prf.load_grid_predictions(prediction_file=pred_out)
+
+prf.grid_fit() # do grid fit
+
+# save outputs
+rsq_output = prf.gridsearch_r2
+params_output = prf.gridsearch_params.T
+
+#in estimates file
+estimates_out = gii_file.replace('.npy','_.estimates.npz')
+np.savez(estimates_out, 
+         x=params_output[...,0],
+         y=params_output[...,1],
+         size=params_output[...,2],
+         baseline=params_output[...,3],
+         betas=params_output[...,4],
+         r2=rsq_output)
