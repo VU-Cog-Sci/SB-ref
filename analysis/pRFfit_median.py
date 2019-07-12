@@ -161,7 +161,7 @@ rsq_output = prf.gridsearch_r2
 params_output = prf.gridsearch_params.T
 
 #in estimates file
-estimates_out = gii_file.replace('.npy','_.estimates.npz')
+estimates_out = gii_file.replace('.npy','_estimates.npz')
 np.savez(estimates_out, 
          x=params_output[...,0],
          y=params_output[...,1],
