@@ -17,6 +17,7 @@ from utils import *
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.cm as matcm
 import matplotlib.pyplot as plt
+from distutils.util import strtobool
 
 
 # define participant number and open json parameter file
@@ -52,22 +53,33 @@ if not os.path.exists(flatmap_out): # check if path for outputs exist
 
 if os.path.isdir(median_path):
 
-  estimates_list = [x for x in os.listdir(median_path) if x.endswith('estimates.npz') ]
-  estimates_list.sort() #sort to make sure pRFs not flipped
+  if sj=='median':
+        
+    estimates = median_pRFestimates(analysis_params['pRF_outdir'],with_smooth=bool(strtobool(with_smooth)))
+    xx = estimates['x']
+    yy = estimates['y']
+    rsq = estimates['r2']
+    size = estimates['size']
+    beta = estimates['betas']
+    baseline = estimates['baseline']
 
-  estimates = []
-  for _,val in enumerate(estimates_list) :
-      estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
+  else:
+    estimates_list = [x for x in os.listdir(median_path) if x.endswith('estimates.npz') ]
+    estimates_list.sort() #sort to make sure pRFs not flipped
+    
+    estimates = []
+    for _,val in enumerate(estimates_list) :
+        estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
 
-      # concatenate r2 and parameteres, to later visualize whole brain
-  rsq = np.concatenate((estimates[0]['r2'],estimates[1]['r2']))
+    # concatenate r2 and parameteres, to later visualize whole brain
+    rsq = np.concatenate((estimates[0]['r2'],estimates[1]['r2']))
 
-  xx = np.concatenate((estimates[0]['x'],estimates[1]['x']))
-  yy = np.concatenate((estimates[0]['y'],estimates[1]['y']))
+    xx = np.concatenate((estimates[0]['x'],estimates[1]['x']))
+    yy = np.concatenate((estimates[0]['y'],estimates[1]['y']))
 
-  size = np.concatenate((estimates[0]['size'],estimates[1]['size']))
-  baseline = np.concatenate((estimates[0]['baseline'],estimates[1]['baseline']))
-  beta = np.concatenate((estimates[0]['betas'],estimates[1]['betas']))
+    size = np.concatenate((estimates[0]['size'],estimates[1]['size']))
+    baseline = np.concatenate((estimates[0]['baseline'],estimates[1]['baseline']))
+    beta = np.concatenate((estimates[0]['betas'],estimates[1]['betas']))
 
   # now construct polar angle and eccentricity values
   # grid fit function gives out [x,y,size,baseline,betas]
@@ -77,7 +89,7 @@ if os.path.isdir(median_path):
   polar_angle = np.angle(complex_location)
   eccentricity = np.abs(complex_location)
 
-  # normalize polar angles to have values in circle between 0 and 1 
+  # normalize polar angles to have values in circle between 0 and 1
   polar_ang_norm = (polar_angle + np.pi) / (np.pi * 2.0)
 
   # use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
