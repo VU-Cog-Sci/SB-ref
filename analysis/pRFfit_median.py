@@ -142,30 +142,30 @@ for gii_file in med_gii:
                 )
 
 
-# make/load predictions
-pred_out = gii_file.replace('.npy','_predictions.npy')
+    # make/load predictions
+    pred_out = gii_file.replace('.npy','_predictions.npy')
 
-if not os.path.exists(pred_out): # if file doesn't exist
+    if not os.path.exists(pred_out): # if file doesn't exist
 
-    print('making predictions for %s' %pred_out) #create it
-    prf.make_predictions(out_file=pred_out)
+        print('making predictions for %s' %pred_out) #create it
+        prf.make_predictions(out_file=pred_out)
 
-else:
-    print('loading predictions %s' %pred_out)
-    prf.load_grid_predictions(prediction_file=pred_out)
+    else:
+        print('loading predictions %s' %pred_out)
+        prf.load_grid_predictions(prediction_file=pred_out)
 
-prf.grid_fit() # do grid fit
+    prf.grid_fit() # do grid fit
 
-# save outputs
-rsq_output = prf.gridsearch_r2
-params_output = prf.gridsearch_params.T
+    # save outputs
+    rsq_output = prf.gridsearch_r2
+    params_output = prf.gridsearch_params.T
 
-#in estimates file
-estimates_out = gii_file.replace('.npy','_estimates.npz')
-np.savez(estimates_out, 
-         x=params_output[...,0],
-         y=params_output[...,1],
-         size=params_output[...,2],
-         baseline=params_output[...,3],
-         betas=params_output[...,4],
-         r2=rsq_output)
+    #in estimates file
+    estimates_out = gii_file.replace('.npy','_estimates.npz')
+    np.savez(estimates_out, 
+             x=params_output[...,0],
+             y=params_output[...,1],
+             size=params_output[...,2],
+             baseline=params_output[...,3],
+             betas=params_output[...,4],
+             r2=rsq_output)
