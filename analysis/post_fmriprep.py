@@ -37,17 +37,16 @@ for t,cond in enumerate(tasks):
     confounds = [run for run in filepath if 'task-'+tasks[t] in run and run.endswith('_desc-confounds_regressors.tsv')]
     confounds.sort()
 
-    # exception for these 2 subjects, TR was different
-    for string in ['sub-01_ses-01', 'sub-03_ses-01']:
-        if re.search(string, filename[0]):
-            TR = 1.5
-        else:
-            TR = analysis_params["TR"]
-
     if not filename: # if list empty
     	print('Subject %s has no files for %s' %(sj,cond))
 
     else:
+        # exception for these 2 subjects, TR was different
+        for string in ['sub-01_ses-01', 'sub-03_ses-01']:
+            if re.search(string, filename[0]):
+                TR = 1.5
+            else:
+                TR = analysis_params["TR"]
 
         # set output path for processed files
         outpath = os.path.join(analysis_params['post_fmriprep_outdir'],tasks[t],'sub-{sj}'.format(sj=sj))
