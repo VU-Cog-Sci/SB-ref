@@ -501,4 +501,69 @@ def median_mgz(files,outdir):
 
     return median_file
 
+
+def median_pRFestimates(subdir,with_smooth=True):
     
+    ####################
+    #    inputs
+    # subdir - absolute path to all subject dir (where fits are)
+    # with_smooth - boolean, use smooth data?
+    #   outputs
+    # estimates - dictionary with average estimated parameters
+    
+    allsubs = os.listdir(subdir)
+    allsubs.sort()
+    print('averaging %d subjects' %(len(allsubs)))
+    
+    sub_list = []
+    rsq = []
+    xx = []
+    yy = []
+    size = []
+    baseline = []
+    beta = []
+    
+    for idx,sub in enumerate(allsubs):
+        
+        if with_smooth==True: #if data smoothed
+            sub_list.append(os.path.join(subdir,sub,'run-median','smooth'))
+        else:
+            sub_list.append(os.path.join(subdir,sub,'run-median'))
+        
+        estimates_list = [x for x in os.listdir(sub_list[idx]) if x.endswith('estimates.npz') ]
+        estimates_list.sort() #sort to make sure pRFs not flipped
+
+        lhemi_est = np.load(os.path.join(sub_list[idx], estimates_list[0]))
+        rhemi_est = np.load(os.path.join(sub_list[idx], estimates_list[1]))
+
+        # concatenate r2 and parameteres, to later visualize whole brain (appending left and right together)
+        rsq.append(np.concatenate((lhemi_est['r2'],rhemi_est['r2'])))
+
+        xx.append(np.concatenate((lhemi_est['x'],rhemi_est['x'])))
+
+        yy.append(np.concatenate((lhemi_est['y'],rhemi_est['y'])))
+
+        size.append(np.concatenate((lhemi_est['size'],rhemi_est['size'])))
+        baseline.append(np.concatenate((lhemi_est['baseline'],rhemi_est['baseline'])))
+        beta.append(np.concatenate((lhemi_est['betas'],rhemi_est['betas'])))
+        
+    med_rsq = np.median(np.array(rsq),axis=0) # median rsq
+
+    # make rsq mask where 0 is nan (because of 0 divisions in average)
+    rsq_mask = rsq[:]
+    for i,arr in enumerate(rsq):
+        rsq_mask[i][arr==0] = np.nan
+
+    med_xx = np.average(np.array(xx),axis=0,weights=np.array(rsq_mask))
+    med_yy = np.average(np.array(yy),axis=0,weights=np.array(rsq_mask))
+
+    med_size = np.average(np.array(size),axis=0,weights=np.array(rsq_mask))
+
+    med_baseline = np.average(np.array(baseline),axis=0,weights=np.array(rsq_mask))
+    med_beta = np.average(np.array(beta),axis=0,weights=np.array(rsq_mask))    
+        
+    
+    estimates = {'subs':sub_list,'r2':med_rsq,'x':med_xx,'y':med_yy,
+                 'size':med_size,'baseline':med_baseline,'betas':med_beta}
+    
+    return estimates
