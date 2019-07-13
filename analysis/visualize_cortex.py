@@ -52,7 +52,7 @@ if not os.path.exists(flatmap_out): # check if path for outputs exist
 
 if os.path.isdir(median_path):
 
-  estimates_list = [x for x in os.listdir(median_path) if x.endswith('_estimates.npz') ]
+  estimates_list = [x for x in os.listdir(median_path) if x.endswith('estimates.npz') ]
   estimates_list.sort() #sort to make sure pRFs not flipped
 
   estimates = []
