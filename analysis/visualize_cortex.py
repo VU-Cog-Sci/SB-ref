@@ -439,4 +439,62 @@ ds = cortex.Dataset(**images)
 #cortex.webgl.make_static(outpath=web_path, data=ds) #, recache=True)#,template = 'cortex.html'){'polar':vrgba,'ecc':vecc}
 
 
+## EXTRA ### 
+
+# costume colormaps to maybe add to overlay
+# then we can plot retino+soma
+face_colors = [ (0.50196078, 0., 0.), #maroon
+          (0.8627451 , 0.07843137, 0.23529412),#crimson #(0.64705882, 0.16470588, 0.16470588), # brown
+          (0.80392157, 0.36078431, 0.36078431), # indianred
+          (1.        , 0.62745098, 0.47843137)]  # lightsalmon
+n_bins = 100  # Discretizes the interpolation into bins
+my_facecm = LinearSegmentedColormap.from_list('my_facecm', face_colors, N=n_bins)
+
+# 'eyebrows', 'eyes', 'mouth', 'tongue', combined
+images['v_facecombined_mycm'] = cortex.Vertex(allface_COM.T, 'fsaverage',
+                           vmin=0, vmax=3,
+                           cmap=my_facecm)#'J4')
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-facecombined_mycm.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_facecombined_mycm'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
+
+
+hand_colors = [ (0.19607843, 0.80392157, 0.19607843), #limegreen
+          (0.        , 0.39215686, 0.),#darkgreen 
+          (0.09803922, 0.09803922, 0.43921569), # midnightblue
+          (0.2745098 , 0.50980392, 0.70588235), # steelblue
+           (0.52941176, 0.80784314, 0.92156863)]#skyblue
+n_bins = 100  # Discretizes the interpolation into bins
+my_handcm = LinearSegmentedColormap.from_list('my_handcm', hand_colors, N=n_bins)
+
+images['v_Rfingers_mycm'] = cortex.Vertex(RH_COM.T, 'fsaverage',
+                           vmin=0, vmax=4,
+                           cmap= my_handcm)#'ocean')#costum colormap added to database
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_mycm.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Rfingers_mycm'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
+
+
+# plot only positive z-scores for feet
+pos_lower = data_threshed_lower.copy()
+pos_lower[pos_lower<0] = np.nan
+
+feet_colors = [ (0.85490196, 0.64705882, 0.1254902),(0.85490196, 0.64705882, 0.1254902)]#goldenrod
+my_feetcm = LinearSegmentedColormap.from_list('my_feetcm', feet_colors)#, N=n_bins)
+
+# vertex for lower limb vs all others
+images['v_lower_mycm'] = cortex.Vertex(pos_lower.T, 'fsaverage',
+                           vmin=-7, vmax=7,
+                           cmap=my_feetcm)
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-lowerVSall_mycm.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_lower_mycm'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
+
+
 
