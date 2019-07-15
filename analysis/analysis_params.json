@@ -30,7 +30,7 @@
     "N_PROCS":8,
     "rsq_threshold": 0.20,
     "z_threshold": 3.1,
-    "with_smooth": "True",
+    "with_smooth": "False",
     "nuisance_columns": [
             "csf", 
             "white_matter", 
