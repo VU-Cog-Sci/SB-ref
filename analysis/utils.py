@@ -567,3 +567,48 @@ def median_pRFestimates(subdir,with_smooth=True):
                  'size':med_size,'baseline':med_baseline,'betas':med_beta}
     
     return estimates
+
+
+def psc_gii(gii_file,outpth, method='median'):
+    
+    ##################################################
+    #    inputs:
+    #        gii_file - list of absolute filenames for giis to perform percent signal change
+    #        outpth - path to save new files
+    #        method - median vs mean
+    #    outputs:
+    #        new_gii_pth - list with absolute filenames for saved giis
+    ##################################################
+    
+    # gii data
+    gii_file.sort()
+    new_gii_pth = []
+    
+    for index,file in enumerate(gii_file):
+    
+        img_load = nb.load(file) #doing this to get header info etc
+        data_in = np.array([x.data for x in img_load.darrays])
+
+        if method == 'mean':
+            data_m = np.mean(data_in,axis=0)
+        elif method == 'median':
+            data_m = np.median(data_in, axis=0)
+
+        data_conv = 100.0 * (data_in - data_m)/data_m
+
+        new_name =  os.path.split(file)[-1] 
+        new_name = new_name.replace('.func.gii','_psc.func.gii')
+        full_pth = os.path.join(outpth,new_name)
+
+        
+        darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_conv]
+        new_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
+                                           extra=img_load.extra,
+                                           darrays=darrays) # need to save as gii again
+        print('saving %s' %full_pth)
+        nb.save(new_gii,full_pth) #save in correct path
+        
+        new_gii_pth.append(full_pth)
+
+    return new_gii_pth
+
