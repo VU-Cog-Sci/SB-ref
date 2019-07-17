@@ -594,7 +594,7 @@ def psc_gii(gii_file,outpth, method='median'):
         elif method == 'median':
             data_m = np.median(data_in, axis=0)
 
-        data_conv = 100.0 * (data_in - data_m)/data_m
+        data_conv = 100.0 * (data_in - data_m)/np.abs(data_m)
 
         new_name =  os.path.split(file)[-1] 
         new_name = new_name.replace('.func.gii','_psc.func.gii')
