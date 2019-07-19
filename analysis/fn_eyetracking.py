@@ -26,14 +26,10 @@ import matplotlib.pyplot as plt
 if len(sys.argv)<2:	
     raise NameError('Please add subject number (ex:1) '	
                     'as 1st argument in the command line!')	
-   	 
-elif len(sys.argv)<3:	
-    raise NameError('Please add session number (ex:1) '	
-                    'as 2nd argument in the command line!')	
 
 else:	
     sj = int(sys.argv[1])
-    ses = int(sys.argv[2])
+    ses = 1 # it's always in the first session #int(sys.argv[2])
     print('making plots for sub-%d ses-%d'%(sj,ses))
 
 
@@ -88,17 +84,16 @@ for session in [1,2]:
 
 
 
-outdir_plots = os.path.join(analysis_params['eyetrack_dir'],'fn','sub-{sj}'.format(sj=sj, ses=ses))
+outdir_plots = os.path.join(analysis_params['eyetrack_dir'],'fn','sub-{sj}'.format(sj=str(sj).zfill(2)))
 
 if not os.path.exists(outdir_plots): # check if path to save plots exists
     os.makedirs(outdir_plots)      # if not create it
 
 
-
 # do loop for all runs
 num_runs = np.arange(1,11)
 # save dict with timings for all runs
-timings_allruns = {'trl_str_end':[],'movie_str_end':[],'run':[]}
+timings_allruns = {'trl_str_end':[],'movie_str_end':[],'run':[],'gaze':[]}
 
 for run in num_runs:
     try:
@@ -143,6 +138,10 @@ for run in num_runs:
         timings_allruns['trl_str_end'].append(trl_str_end)
         timings_allruns['movie_str_end'].append([trial_phase_info['trial_phase_EL_timestamp'][1],trial_phase_info['trial_phase_EL_timestamp'][2]])
         timings_allruns['run'].append([str(run).zfill(2)])
+        timings_allruns['gaze'].append(gaze_alltrl)
+
+        # save numpy array with timing info in sub-dir
+        np.save(os.path.join(outdir_plots,'gaze_timings_run-%s.npy'%str(run).zfill(2)),timings_allruns)
 
         # plot gaze!
         plt.figure(num=None, figsize=(10, 6), dpi=100, facecolor='w', edgecolor='k')
@@ -165,8 +164,12 @@ for run in num_runs:
         plt.close()
         
         
-        # get saccade info for that period (during movie clip)        
-        saccade_info = ho.saccades_during_period(trl_str_end,alias)
+        # get saccade info for that period (during movie clip) 
+        try:        
+            saccade_info = ho.saccades_during_period(trl_str_end,alias,requested_eye='L')
+        except:
+            print('right eye was recorded')
+            saccade_info = ho.saccades_during_period(trl_str_end,alias,requested_eye='R')
         saccade_info = saccade_info
         
         trial_dur = int(trl_str_end[1]-trl_str_end[0])
@@ -176,7 +179,7 @@ for run in num_runs:
 
         for i in range(trial_dur):
             if sac==len(saccade_info):
-                print('total of %d saccade info saved, no more saccades in run %s' %(sac,str(run).zfill(2))
+                print('total of %d saccade info saved, no more saccades in run %s' %(sac,str(run).zfill(2)))
                 break
             elif i == (saccade_info[sac]['expanded_end_time']+1):
                 sac += 1
