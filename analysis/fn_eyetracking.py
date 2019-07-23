@@ -23,13 +23,18 @@ import hedfpy
 import matplotlib.pyplot as plt
 
 # define participant number and open json parameter file
-sj = 11
-ses = 1 # it's always in the first session #int(sys.argv[2])
-print('making plots for sub-%d ses-%d'%(sj,ses))
+if len(sys.argv)<2: 
+    raise NameError('Please add subject number (ex:1) ' 
+                    'as 1st argument in the command line!') 
+
+else:   
+    sj = int(sys.argv[1])
+    ses = 1 # it's always in the first session #int(sys.argv[2])
+    print('making plots for sub-%d ses-%d'%(sj,ses))
 
 
 with open('analysis_params.json','r') as json_file: 
-        analysis_params = json.load(json_file)  
+        analysis_params = json.load(json_file) 
 
 
 def convert_session(sj,ses,indir,outdir,pupil_hp,pupil_lp):
@@ -221,7 +226,7 @@ for run in num_runs:
                 y_centered = trial_arr[2][smp_idx] + screen[1]/2.0
                 amp_pix = trial_arr[0][smp_idx]
 
-                sac_endpoint = plt.Circle((x_centered, y_centered), radius=amp_pix, color='r')
+                sac_endpoint = plt.Circle((x_centered, y_centered), radius=amp_pix/2.0, color='r')
                 fig, ax = plt.subplots() # note we must use plt.subplots, not plt.subplot
                 ax.set_xlim((0, screen[0]))
                 ax.set_ylim((0, screen[1]))
