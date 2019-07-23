@@ -23,18 +23,13 @@ import hedfpy
 import matplotlib.pyplot as plt
 
 # define participant number and open json parameter file
-if len(sys.argv)<2:	
-    raise NameError('Please add subject number (ex:1) '	
-                    'as 1st argument in the command line!')	
-
-else:	
-    sj = int(sys.argv[1])
-    ses = 1 # it's always in the first session #int(sys.argv[2])
-    print('making plots for sub-%d ses-%d'%(sj,ses))
+sj = 11
+ses = 1 # it's always in the first session #int(sys.argv[2])
+print('making plots for sub-%d ses-%d'%(sj,ses))
 
 
-with open('analysis_params.json','r') as json_file:	
-        analysis_params = json.load(json_file)	
+with open('analysis_params.json','r') as json_file: 
+        analysis_params = json.load(json_file)  
 
 
 def convert_session(sj,ses,indir,outdir,pupil_hp,pupil_lp):
@@ -165,7 +160,8 @@ for run in num_runs:
         
         
         # get saccade info for that period (during movie clip) 
-        try:        
+        try: 
+            print('left eye was recorded')
             saccade_info = ho.saccades_during_period(trl_str_end,alias,requested_eye='L')
         except:
             print('right eye was recorded')
@@ -174,20 +170,36 @@ for run in num_runs:
         
         trial_dur = int(trl_str_end[1]-trl_str_end[0])
         trial_arr = np.zeros((3,trial_dur)) # array of (3 x trial length), filled with sacc amplitude, x position and y position of vector
+        
+        #
+        # save value and timing of interpolated samples, between the beginning and end of the trial
+        interp_trl_time = np.array(table_pos[np.logical_and(trl_str_end[0]<=table_pos['time'],table_pos['time']<=trl_str_end[1])]['time'])
+        interp_trl_val = np.array(table_pos[np.logical_and(trl_str_end[0]<=table_pos['time'],table_pos['time']<=trl_str_end[1])][table_pos.columns[6]]) # interpolated time points|
 
+        interp_time = []
+        for indice, interp in enumerate(interp_trl_time):
+            if interp_trl_val[indice] != 0.0:
+                interp_time.append(int(interp-trl_str_end[0])) # store timepoint - time of begining of trial
+            else:
+                interp_time.append(np.nan) #fill rest with nans
+
+        # detect saccades during relevant interval (and exclude those in interpolated timepoints, to be more conservative)
         sac = 0
 
         for i in range(trial_dur):
+            if sac < len(saccade_info): #set saccade range to check if interpolated samples within it
+                sacc_interval = np.arange(saccade_info[sac]['expanded_start_time'],saccade_info[sac]['expanded_end_time']+1)
+
             if sac==len(saccade_info):
                 print('total of %d saccade info saved, no more saccades in run %s' %(sac,str(run).zfill(2)))
                 break
             elif i == (saccade_info[sac]['expanded_end_time']+1):
                 sac += 1
-            elif i >= saccade_info[sac]['expanded_start_time']:
+            elif i >= saccade_info[sac]['expanded_start_time'] and interp_time[i] not in sacc_interval: 
                 trial_arr[0][i]=np.sqrt(saccade_info[sac]['expanded_vector'][0]**2+saccade_info[sac]['expanded_vector'][1]**2) # amplitude (distance) of saccade
                 trial_arr[1][i]=saccade_info[sac]['expanded_vector'][0] # x position relative to center (0,0)
                 trial_arr[2][i]=saccade_info[sac]['expanded_vector'][1] # y position relative to center (0,0)
-                
+
                 
         # save numpy array with saccade vector info in sub-dir
         np.save(os.path.join(outdir_plots,'sacc4dm_run-%s.npy'%str(run).zfill(2)),trial_arr)
@@ -199,25 +211,31 @@ for run in num_runs:
         if not os.path.exists(save_plots): # check if path to save plots exists
             os.makedirs(save_plots)      # if not create it
 
+        sac_counter = 0 #do counter because now the number of saccades will be less than detected by hedfpy
         for j in range(len(saccade_info)):
 
             smp_idx = saccade_info[j]['expanded_start_time']#13014 # index with sample number 
-            x_centered = trial_arr[1][smp_idx] + screen[0]/2.0
-            y_centered = trial_arr[2][smp_idx] + screen[1]/2.0
-            amp_pix = trial_arr[0][smp_idx]
+            
+            if trial_arr[1][smp_idx] != 0:
+                x_centered = trial_arr[1][smp_idx] + screen[0]/2.0
+                y_centered = trial_arr[2][smp_idx] + screen[1]/2.0
+                amp_pix = trial_arr[0][smp_idx]
 
-            sac_endpoint = plt.Circle((x_centered, y_centered), amp_pix, color='r')
-            fig, ax = plt.subplots() # note we must use plt.subplots, not plt.subplot
-            ax.set_xlim((0, screen[0]))
-            ax.set_ylim((0, screen[1]))
-            ax.add_artist(sac_endpoint)
+                sac_endpoint = plt.Circle((x_centered, y_centered), radius=amp_pix, color='r')
+                fig, ax = plt.subplots() # note we must use plt.subplots, not plt.subplot
+                ax.set_xlim((0, screen[0]))
+                ax.set_ylim((0, screen[1]))
+                ax.add_artist(sac_endpoint)
 
-            plt.savefig(os.path.join(save_plots,'expanded_vector_run-%s_sac-%s.png' %(str(run).zfill(2),str(j).zfill(3))))
-            plt.close()
-       
+                plt.savefig(os.path.join(save_plots,'expanded_vector_run-%s_sac-%s.png' %(str(run).zfill(2),str(sac_counter).zfill(3))))
+                plt.close()
+                sac_counter +=1
+        print('%d saccades chosen from original %d detected ones' %(sac_counter-1,sac))
+
     except:
         print('No object named %s' %alias) # not all of the eyetracking of the runs are saved?
         pass 
+
 
 
 
