@@ -92,11 +92,11 @@ if not os.path.exists(outdir_plots): # check if path to save plots exists
 
 # do loop for all runs
 num_runs = np.arange(1,11)
-# save dict with timings for all runs
-timings_allruns = {'trl_str_end':[],'movie_str_end':[],'run':[],'gaze':[]}
 
 for run in num_runs:
     try:
+        # save dict with timings for all runs
+        timings_allruns = {'trl_str_end':[],'movie_str_end':[],'run':[],'gaze':[]}
         # define hdf operator for specific run
         hdf_file = os.path.join(analysis_params['eyetrack_dir'], 
                         'sub-{sj}/ses-{ses}/eyetrack.h5'.format(sj=str(sj).zfill(2), ses=str(ses).zfill(2)))
@@ -141,7 +141,7 @@ for run in num_runs:
         timings_allruns['gaze'].append(gaze_alltrl)
 
         # save numpy array with timing info in sub-dir
-        np.savez(os.path.join(outdir_plots,'gaze_timings_run-%s.npz'%str(run).zfill(2)),
+        np.savez_compressed(os.path.join(outdir_plots,'gaze_timings_run-%s.npz'%str(run).zfill(2)),
             trl_str_end=timings_allruns['trl_str_end'],movie_str_end=timings_allruns['movie_str_end'],runs=timings_allruns['run'],
             gazedata=timings_allruns['gaze'])
 
@@ -176,7 +176,7 @@ for run in num_runs:
         saccade_info = saccade_info
         
         trial_dur = int(trl_str_end[1]-trl_str_end[0])
-        trial_arr = np.zeros((3,trial_dur)) # array of (3 x trial length), filled with sacc amplitude, x position and y position of vector
+        trial_arr = np.zeros((5,trial_dur)) # array of (5 x trial length), filled with sacc amplitude, x position and y position of vector and time of saccade
         
         #
         # save value and timing of interpolated samples, between the beginning and end of the trial
@@ -206,10 +206,13 @@ for run in num_runs:
                 trial_arr[0][i]=np.sqrt(saccade_info[sac]['expanded_vector'][0]**2+saccade_info[sac]['expanded_vector'][1]**2) # amplitude (distance) of saccade
                 trial_arr[1][i]=saccade_info[sac]['expanded_vector'][0] # x position relative to center (0,0)
                 trial_arr[2][i]=saccade_info[sac]['expanded_vector'][1] # y position relative to center (0,0)
+                trial_arr[3][i]=saccade_info[sac]['expanded_start_time']# start time relative to begining of trial 
+                trial_arr[4][i]=saccade_info[sac]['expanded_end_time'] # end time relative to begining of trial
 
                 
         # save numpy array with saccade vector info in sub-dir
-        np.save(os.path.join(outdir_plots,'sacc4dm_run-%s.npy'%str(run).zfill(2)),trial_arr)
+        np.savez(os.path.join(outdir_plots,'sacc4dm_run-%s.npz'%str(run).zfill(2)),
+             amplitude=trial_arr[0],xpos=trial_arr[1],ypos=trial_arr[2],startime=trial_arr[3],endtime=trial_arr[4])
 
         # just to see where saccade vector endpoint is on screen, as a sanity check
         # not really necessary
