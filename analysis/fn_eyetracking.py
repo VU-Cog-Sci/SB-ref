@@ -141,7 +141,9 @@ for run in num_runs:
         timings_allruns['gaze'].append(gaze_alltrl)
 
         # save numpy array with timing info in sub-dir
-        np.save(os.path.join(outdir_plots,'gaze_timings_run-%s.npy'%str(run).zfill(2)),timings_allruns)
+        np.savez(os.path.join(outdir_plots,'gaze_timings_run-%s.npz'%str(run).zfill(2)),
+            trl_str_end=timings_allruns['trl_str_end'],movie_str_end=timings_allruns['movie_str_end'],runs=timings_allruns['run'],
+            gazedata=timings_allruns['gaze'])
 
         # plot gaze!
         plt.figure(num=None, figsize=(10, 6), dpi=100, facecolor='w', edgecolor='k')
