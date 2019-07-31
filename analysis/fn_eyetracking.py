@@ -91,12 +91,12 @@ if not os.path.exists(outdir_plots): # check if path to save plots exists
 
 
 # do loop for all runs
-num_runs = np.arange(1,11)
+num_runs = np.arange(1,2)#11)
 
 for run in num_runs:
     try:
-        # save dict with timings for all runs
-        timings_allruns = {'trl_str_end':[],'movie_str_end':[],'run':[],'gaze':[]}
+        # save dict with timings for all runs and gazedata
+        timings_allruns = {'trl_str_end':[],'trial_phase_info':[],'run_num':[],'gaze_all_trl':[]}
         # define hdf operator for specific run
         hdf_file = os.path.join(analysis_params['eyetrack_dir'], 
                         'sub-{sj}/ses-{ses}/eyetrack.h5'.format(sj=str(sj).zfill(2), ses=str(ses).zfill(2)))
@@ -136,14 +136,14 @@ for run in num_runs:
         trial_phase_info = ho.read_session_data(alias, 'trial_phases')
         #save info in dict
         timings_allruns['trl_str_end'].append(trl_str_end)
-        timings_allruns['movie_str_end'].append([trial_phase_info['trial_phase_EL_timestamp'][1],trial_phase_info['trial_phase_EL_timestamp'][2]])
-        timings_allruns['run'].append([str(run).zfill(2)])
-        timings_allruns['gaze'].append(gaze_alltrl)
+        timings_allruns['trial_phase_info'].append([trial_phase_info['trial_phase_EL_timestamp'][0],trial_phase_info['trial_phase_EL_timestamp'][1],trial_phase_info['trial_phase_EL_timestamp'][2]])
+        timings_allruns['run_num'].append([str(run).zfill(2)])
+        timings_allruns['gaze_all_trl'].append(gaze_alltrl)
 
         # save numpy array with timing info in sub-dir
         np.savez_compressed(os.path.join(outdir_plots,'gaze_timings_run-%s.npz'%str(run).zfill(2)),
-            trl_str_end=timings_allruns['trl_str_end'],movie_str_end=timings_allruns['movie_str_end'],runs=timings_allruns['run'],
-            gazedata=timings_allruns['gaze'])
+            trl_str_end=timings_allruns['trl_str_end'],trial_phase_info=timings_allruns['trial_phase_info'],run_num=timings_allruns['run_num'],
+            gazedata=timings_allruns['gaze_all_trl'])
 
         # plot gaze!
         plt.figure(num=None, figsize=(10, 6), dpi=100, facecolor='w', edgecolor='k')
@@ -153,7 +153,7 @@ for run in num_runs:
         # add lines for beggining and end of clips
         # subtract start time to make it valid
         #plt.axvline(x=trl_str_end[0]-trl_str_end[0],c='b') #start recording
-        #plt.axvline(x=trial_phase_info['trial_phase_EL_timestamp'][0]-trl_str_end[0],c='r') #end waiting for scanner
+        plt.axvline(x=trial_phase_info['trial_phase_EL_timestamp'][0]-trl_str_end[0],c='b',linestyle='--') #1st TR? fixation period
         plt.axvline(x=trial_phase_info['trial_phase_EL_timestamp'][1]-trl_str_end[0],c='b') #start movie clip
         plt.axvline(x=trial_phase_info['trial_phase_EL_timestamp'][2]-trl_str_end[0],c='r') #end movie clip
 
@@ -164,43 +164,45 @@ for run in num_runs:
 
         plt.savefig(os.path.join(outdir_plots,'gaze_xydata_run-%s.png' %str(run).zfill(2)))
         plt.close()
-        
-        
+
+
         # get saccade info for that period (during movie clip) 
+        movie_period = np.array([timings_allruns['trial_phase_info'][0][1],timings_allruns['trial_phase_info'][0][2]])
         try: 
             print('left eye was recorded')
-            saccade_info = ho.saccades_during_period(trl_str_end,alias,requested_eye='L')
+            saccade_info = ho.saccades_during_period(movie_period,alias,requested_eye='L')
         except:
             print('right eye was recorded')
-            saccade_info = ho.saccades_during_period(trl_str_end,alias,requested_eye='R')
+            saccade_info = ho.saccades_during_period(movie_period,alias,requested_eye='R')
         saccade_info = saccade_info
-        
+
         trial_dur = int(trl_str_end[1]-trl_str_end[0])
         trial_arr = np.zeros((5,trial_dur)) # array of (5 x trial length), filled with sacc amplitude, x position and y position of vector and time of saccade
-        
+
         #
-        # save value and timing of interpolated samples, between the beginning and end of the trial
-        interp_trl_time = np.array(table_pos[np.logical_and(trl_str_end[0]<=table_pos['time'],table_pos['time']<=trl_str_end[1])]['time'])
-        interp_trl_val = np.array(table_pos[np.logical_and(trl_str_end[0]<=table_pos['time'],table_pos['time']<=trl_str_end[1])][table_pos.columns[6]]) # interpolated time points|
+        # save value and timing of interpolated samples, between the beginning and end of the movie
+        interp_mov_time = np.array(table_pos[np.logical_and(movie_period[0]<=table_pos['time'],table_pos['time']<=movie_period[1])]['time'])
+        interp_mov_val = np.array(table_pos[np.logical_and(movie_period[0]<=table_pos['time'],table_pos['time']<=movie_period[1])][table_pos.columns[6]]) # interpolated time points|
 
         interp_time = []
-        for indice, interp in enumerate(interp_trl_time):
-            if interp_trl_val[indice] != 0.0:
+        for indice, interp in enumerate(interp_mov_time):
+            if interp_mov_val[indice] != 0.0:
                 interp_time.append(int(interp-trl_str_end[0])) # store timepoint - time of begining of trial
             else:
                 interp_time.append(np.nan) #fill rest with nans
 
         # detect saccades during relevant interval (and exclude those in interpolated timepoints, to be more conservative)
-        sac = 0
+        sac = 0 # initiate saccade counter
 
         for i in range(trial_dur):
             if sac < len(saccade_info): #set saccade range to check if interpolated samples within it
                 sacc_interval = np.arange(saccade_info[sac]['expanded_start_time'],saccade_info[sac]['expanded_end_time']+1)
 
-            if sac==len(saccade_info):
+            elif sac==len(saccade_info): # when all saccade info saved, break loop
                 print('total of %d saccade info saved, no more saccades in run %s' %(sac,str(run).zfill(2)))
                 break
-            elif i == (saccade_info[sac]['expanded_end_time']+1):
+
+            if i == (saccade_info[sac]['expanded_end_time']+1): #after saccade end time, increment counter to next saccade
                 sac += 1
             elif i >= saccade_info[sac]['expanded_start_time'] and interp_time[i] not in sacc_interval: 
                 trial_arr[0][i]=np.sqrt(saccade_info[sac]['expanded_vector'][0]**2+saccade_info[sac]['expanded_vector'][1]**2) # amplitude (distance) of saccade
@@ -209,7 +211,7 @@ for run in num_runs:
                 trial_arr[3][i]=saccade_info[sac]['expanded_start_time']# start time relative to begining of trial 
                 trial_arr[4][i]=saccade_info[sac]['expanded_end_time'] # end time relative to begining of trial
 
-                
+
         # save numpy array with saccade vector info in sub-dir
         np.savez(os.path.join(outdir_plots,'sacc4dm_run-%s.npz'%str(run).zfill(2)),
              amplitude=trial_arr[0],xpos=trial_arr[1],ypos=trial_arr[2],startime=trial_arr[3],endtime=trial_arr[4])
@@ -225,13 +227,13 @@ for run in num_runs:
         for j in range(len(saccade_info)):
 
             smp_idx = saccade_info[j]['expanded_start_time']#13014 # index with sample number 
-            
+
             if trial_arr[1][smp_idx] != 0:
                 x_centered = trial_arr[1][smp_idx] + screen[0]/2.0
                 y_centered = trial_arr[2][smp_idx] + screen[1]/2.0
                 amp_pix = trial_arr[0][smp_idx]
 
-                sac_endpoint = plt.Circle((x_centered, y_centered), radius=amp_pix/2.0, color='r')
+                sac_endpoint = plt.Circle((x_centered, y_centered), radius=amp_pix/2.0, color='r') #circle diameter = amplitude of saccade
                 fig, ax = plt.subplots() # note we must use plt.subplots, not plt.subplot
                 ax.set_xlim((0, screen[0]))
                 ax.set_ylim((0, screen[1]))
@@ -245,9 +247,6 @@ for run in num_runs:
     except:
         print('No object named %s' %alias) # not all of the eyetracking of the runs are saved?
         pass 
-
-
-
 
 
 
