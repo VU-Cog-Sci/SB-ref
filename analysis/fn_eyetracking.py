@@ -91,7 +91,7 @@ if not os.path.exists(outdir_plots): # check if path to save plots exists
 
 
 # do loop for all runs
-num_runs = np.arange(1,2)#11)
+num_runs = np.arange(1,11)
 
 for run in num_runs:
     try:
