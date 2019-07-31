@@ -193,6 +193,8 @@ for run in num_runs:
 
         # detect saccades during relevant interval (and exclude those in interpolated timepoints, to be more conservative)
         sac = 0 # initiate saccade counter
+        init_mov = int(movie_period[0]-trl_str_end[0]) # initiate counter for interpolated values (only within movie)
+        end_mov = int(movie_period[1]-trl_str_end[0])
 
         for i in range(trial_dur):
             if sac < len(saccade_info): #set saccade range to check if interpolated samples within it
@@ -204,7 +206,7 @@ for run in num_runs:
 
             if i == (saccade_info[sac]['expanded_end_time']+1): #after saccade end time, increment counter to next saccade
                 sac += 1
-            elif i >= saccade_info[sac]['expanded_start_time'] and interp_time[i] not in sacc_interval: 
+            elif i >= saccade_info[sac]['expanded_start_time'] and (init_mov <= i <= end_mov) and interp_time[i-init_mov] not in sacc_interval: 
                 trial_arr[0][i]=np.sqrt(saccade_info[sac]['expanded_vector'][0]**2+saccade_info[sac]['expanded_vector'][1]**2) # amplitude (distance) of saccade
                 trial_arr[1][i]=saccade_info[sac]['expanded_vector'][0] # x position relative to center (0,0)
                 trial_arr[2][i]=saccade_info[sac]['expanded_vector'][1] # y position relative to center (0,0)
@@ -247,7 +249,6 @@ for run in num_runs:
     except:
         print('No object named %s' %alias) # not all of the eyetracking of the runs are saved?
         pass 
-
 
 
 
