@@ -28,6 +28,11 @@ from nilearn.signal import clean
 
 import cortex
 
+from scipy import ndimage
+from scipy import signal
+
+import time
+
 
 def median_gii(files,outdir):
     
@@ -612,3 +617,92 @@ def psc_gii(gii_file,outpth, method='median'):
 
     return new_gii_pth
 
+
+def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=103,TR=1.6,fig_sfactor=0.1,screen=[1920, 1080]):
+    ##################################################
+    #    inputs:
+    #        saccfile - absolute path to numpy array with saccade info
+    #        gazeinfo - absolute path to numpy array with gaze info
+    #        smp_freq - original sample frequency of eyetracking data
+    #        subsmp_freq - frequency to downsample the data
+    #        nrTR - number of TRs of FN data
+    #        TR - in seconds
+    #        fig_sfactor - scaling factor for figure
+    #        screen - screen res
+    ##################################################
+    
+    sac_data = np.load(saccfile) # array of (3 x trial length), filled with sacc amplitude, x position and y position of vector       
+    trial_info = np.load(gazeinfo)#,allow_pickle=True)
+    
+    print('loading saccade data for %s' %saccfile)
+
+    # define relevant timings
+    start_scan = int(trial_info['trial_phase_info'][0][0]-trial_info['trl_str_end'][0][0]) #start of scan? relative to begining of trial
+    start_movie = int(trial_info['trial_phase_info'][0][1]-trial_info['trl_str_end'][0][0]) #beginning of movie relative to begining of trial
+    end_movie = int(trial_info['trial_phase_info'][0][2]-trial_info['trl_str_end'][0][0]) #end of movie relative to begining of trial
+    end_trial = int(trial_info['trl_str_end'][0][1] - trial_info['trl_str_end'][0][0])
+
+    # save array with relevant saccade data from 1st TR to end of trial
+    amp_start_scan = [amp for _,amp in enumerate(sac_data['amplitude'][start_scan::])]
+    xpos_start_scan = [xpos for _,xpos in enumerate(sac_data['xpos'][start_scan::])]
+    ypos_start_scan = [ypos for _,ypos in enumerate(sac_data['ypos'][start_scan::])]
+    
+    # now save resampled within number of TRs
+    expt_timepoints_indices = np.arange(0, nrTR * subsmp_freq * TR)
+
+    amp_sliced = amp_start_scan[0::int(smp_freq/subsmp_freq)].copy()
+    amp_resampTR = amp_sliced[:len(expt_timepoints_indices)]
+
+    xpos_sliced = xpos_start_scan[0::int(smp_freq/subsmp_freq)].copy()
+    xpos_resampTR = xpos_sliced[:len(expt_timepoints_indices)]
+
+    ypos_sliced = ypos_start_scan[0::int(smp_freq/subsmp_freq)].copy()
+    ypos_resampTR = ypos_sliced[:len(expt_timepoints_indices)]
+    
+    checkpoint = 0 # checkpoint counter, for sanity
+    start_timer = time.time() # also added timer
+
+    for smp_idx,_ in enumerate(expt_timepoints_indices): #saves images during actual scanning period
+        # do loop over all samples to get numpy array with "screenshots"
+
+        # plotted figure is 10x smaller, so also have to rescale values to fit
+        x_centered = (xpos_resampTR[smp_idx] + screen[0]/2.0)#*fig_sfactor
+        y_centered = (ypos_resampTR[smp_idx] + screen[1]/2.0)#*fig_sfactor
+        amp_pix = (amp_resampTR[smp_idx]/2)#*fig_sfactor #diameter will be the amplitude of saccade
+
+        sac_endpoint = plt.Circle((x_centered, y_centered), radius = amp_pix, color='r',clip_on = False) #important to avoid clipping of circle
+        # res is figsiz*dpi, thus dividing by 100
+        fig, ax = plt.subplots(figsize=(screen[0]*fig_sfactor,screen[1]*fig_sfactor), dpi=1) # note we must use plt.subplots, not plt.subplot 
+        ax.set_xlim((0, screen[0]))#*fig_sfactor))
+        ax.set_ylim((0, screen[1]))#*fig_sfactor))
+        ax.add_artist(sac_endpoint)
+        plt.axis('off')
+        fig.canvas.draw()
+
+        img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+        img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        img_gray = color.rgb2gray(np.asarray(img))
+        try:
+            img_threshbin = cv2.threshold(img_gray,threshold_triangle(img_gray),255,cv2.THRESH_BINARY_INV)[1]
+        except:
+            img_threshbin = (img_gray*0).astype(np.uint8) # to make it black when no saccade
+            pass
+
+        if smp_idx==0: #binary image all samples stacked
+            img_bin = np.expand_dims(img_threshbin, axis=0)
+        else:
+            img_bin = np.concatenate((img_bin,np.expand_dims(img_threshbin, axis=0)),axis=0)
+
+        plt.close()
+
+        if smp_idx==checkpoint:
+            print('%d / %d took %d seconds' %(checkpoint,len(expt_timepoints_indices),(time.time()-start_timer)))
+            checkpoint += 1000
+
+    # save as numpy array
+    np.save(outfilename, img_bin.astype(np.uint8))
+    print('saved %s' %outfilename)
+    
+    # save as gif too, for fun/as check
+    imageio.mimwrite(outfilename.replace('.npy','.gif'), img_bin.astype(np.uint8) , 'GIF')
