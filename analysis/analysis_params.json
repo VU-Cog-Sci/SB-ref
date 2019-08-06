@@ -31,6 +31,9 @@
     "rsq_threshold": 0.20,
     "z_threshold": 3.1,
     "with_smooth": "False",
+    "eyetrack_subsmp_freq": 50,
+    "FN_TRs":103,
+    "eyetrack_smp_freq": 1000,
     "nuisance_columns": [
             "csf", 
             "white_matter", 
