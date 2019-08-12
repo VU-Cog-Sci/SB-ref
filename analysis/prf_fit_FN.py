@@ -157,6 +157,7 @@ class FN_fit(object):
             # numpy implementation is slower?
             dm = np.vstack([np.ones_like(self.predictions[:,prediction_num]),self.predictions[:,prediction_num]]).T
             (intercept, slope), residual, _, _ = sp.linalg.lstsq(dm, self.data.T, check_finite=False) #  , lapack_driver='gelsy')
+<<<<<<< HEAD
             
             if bool(residual)==True: #if residual not empty
                 rsqs = ((1 - residual / (self.n_timepoints * self.data_var)))
@@ -167,6 +168,16 @@ class FN_fit(object):
                 self.gridsearch_r2[improved_fits] = rsqs[improved_fits]
                 self.best_fitting_baseline_thus_far[improved_fits] = intercept[improved_fits]
                 self.best_fitting_beta_thus_far[improved_fits] = slope[improved_fits]
+=======
+            rsqs = ((1 - residual / (self.n_timepoints * self.data_var)))
+
+            improved_fits = rsqs > self.gridsearch_r2
+            # fill in the improvements
+            self.best_fitting_prediction_thus_far[improved_fits] = prediction_num
+            self.gridsearch_r2[improved_fits] = rsqs[improved_fits]
+            self.best_fitting_baseline_thus_far[improved_fits] = intercept[improved_fits]
+            self.best_fitting_beta_thus_far[improved_fits] = slope[improved_fits]
+>>>>>>> 661796100b2750fff8f24312b8d2147201abdd32
 
         if self.fit_model == 'gauss':
             self.gridsearch_params = np.array([ self.prf_xs.ravel()[self.best_fitting_prediction_thus_far],

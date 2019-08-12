@@ -151,7 +151,7 @@ for run in num_runs:
                 data = np.array(surface.load_surf_data(gii_file))
 
                 # intitialize prf analysis
-                FN = FN_fit(data = data.T,
+                FN = FN_fit(data = data,
                             fit_model = fit_model, 
                             visual_design = fn_dm, 
                             screen_distance = analysis_params["screen_distance"],
