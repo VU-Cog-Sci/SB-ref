@@ -21,7 +21,6 @@ from nilearn import surface
 from utils import * #import script to use relevante functions
 from prf_fit_FN import * #import script to use relevante functions
 
-
 # define participant number and open json parameter file
 if len(sys.argv)<2: 
     raise NameError('Please add subject number (ex:1) ' 
@@ -37,7 +36,7 @@ else:
 
 
 
-with open('analysis_params.json','r') as json_file: 
+with open('/home/inesv/SB-ref/scripts/analysis_params.json','r') as json_file: 
         analysis_params = json.load(json_file) 
 
 # for linux computer
@@ -79,13 +78,13 @@ bound_fits = (x_fit_bound, y_fit_bound, sigma_fit_bound, beta_fit_bound, baselin
                
 # set data paths  
 if str(sys.argv[2]) == 'cartesius':
-    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir_cartesius'],'fn','sub-{sj}'.format(sj=sj),'*'))
+    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir_cartesius'],'fn','sub-{sj}'.format(sj=str(sj).zfill(2)),'*'))
     print('functional files from %s' %os.path.split(filepath[0])[0])
     data_dir = os.path.join(analysis_params['eyetrack_dir_cartesius'],'fn','sub-{sj}'.format(sj=str(sj).zfill(2)))
     print('eyetracking files from %s' %data_dir)
 
 elif str(sys.argv[2]) == 'aeneas':
-    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'fn','sub-{sj}'.format(sj=sj),'*'))
+    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'fn','sub-{sj}'.format(sj=str(sj).zfill(2)),'*'))
     print('functional files from %s' %os.path.split(filepath[0])[0])
     data_dir = os.path.join(analysis_params['eyetrack_dir'],'fn','sub-{sj}'.format(sj=str(sj).zfill(2)))
     print('eyetracking files from %s' %data_dir)
@@ -149,7 +148,7 @@ for run in num_runs:
             for gii_file in run_gii: 
 
                 print('loading data from %s' %gii_file)
-                data = surface.load_surf_data(gii_file)
+                data = np.array(surface.load_surf_data(gii_file))
 
                 # intitialize prf analysis
                 FN = FN_fit(data = data.T,
