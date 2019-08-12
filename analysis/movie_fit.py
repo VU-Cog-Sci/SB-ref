@@ -14,8 +14,12 @@ from skimage.transform import rescale
 from skimage.filters import threshold_triangle
 
 from scipy import ndimage
+from nipy.modalities.fmri import hrf as nipy_hrf
+
+from nilearn import surface
 
 from utils import * #import script to use relevante functions
+from prf_fit_FN import * #import script to use relevante functions
 
 
 # define participant number and open json parameter file
