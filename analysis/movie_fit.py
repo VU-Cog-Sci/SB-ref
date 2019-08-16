@@ -99,7 +99,7 @@ if with_smooth=='True':
     func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('smooth5.mgz')]
 else:
     # list of functional files
-    func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('_sg_conf.mgz')]
+    func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('_sg.mgz')] #_sg_conf.mgz')]
     
 func_filename.sort()
 
