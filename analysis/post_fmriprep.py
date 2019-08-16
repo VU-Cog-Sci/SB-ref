@@ -26,7 +26,7 @@ else:
     
 # define paths and list of files
 filepath = glob.glob(os.path.join(analysis_params['fmriprep_dir'],'sub-{sj}'.format(sj=sj),'*','func/*'))
-tasks = ['fn','soma','prf','rlb','rli','rs']
+tasks = ['fn']#,'soma','prf','rlb','rli','rs']
 
 for t,cond in enumerate(tasks):
 
@@ -62,7 +62,7 @@ for t,cond in enumerate(tasks):
         filt_conf = highpass_confounds(confounds,analysis_params['nuisance_columns'],analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
                                        analysis_params['sg_filt_window_length'],TR,outpath)
 
-        if cond == 'prf': # don't clean confounds for prf.. doenst help retino maps(?)
+        if cond == 'prf' or 'fn': # don't clean confounds for prf or fn.. doenst help retino maps(?)
         	clean_gii = filt_gii
         	clean_gii_pth = filt_gii_pth
         else: #regress out PCA of confounds from data
