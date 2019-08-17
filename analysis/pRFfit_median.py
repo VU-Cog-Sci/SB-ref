@@ -21,6 +21,8 @@ import scipy.stats as stats
 import nibabel as nb
 from nilearn.image import mean_img
 
+from nilearn import surface
+
 from utils import * #import script to use relevante functions
 from prf_fit_lyon import * #import script to use relevante functions
 
@@ -44,12 +46,12 @@ filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'prf',
 # changes depending on data used
 if with_smooth=='True':
     # list of functional files
-    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('smooth5.mgz')]
+    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('_sg_smooth5.mgz')]
     # compute median run, per hemifield
     median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
 else:
     # list of functional files
-    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('_sg_conf.mgz')]
+    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('_sg.mgz')]
     # compute median run, per hemifield
     median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
     
@@ -122,7 +124,8 @@ elif fit_model == 'css' or fit_model == 'css_sg':
 
 # load median data and fit each hemisphere at a time
 for gii_file in med_gii: 
-    data = np.load(gii_file)
+    print('loading data from %s' %gii_file)
+    data = np.array(surface.load_surf_data(gii_file))
     
     # intitialize prf analysis
     prf = PRF_fit(data = data.T,
