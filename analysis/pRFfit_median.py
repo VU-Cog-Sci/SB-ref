@@ -125,7 +125,7 @@ elif fit_model == 'css' or fit_model == 'css_sg':
 # load median data and fit each hemisphere at a time
 for gii_file in med_gii: 
     print('loading data from %s' %gii_file)
-    data = np.array(surface.load_surf_data(gii_file))
+    data = np.load(gii_file)#data = np.array(surface.load_surf_data(gii_file))
     
     # intitialize prf analysis
     prf = PRF_fit(data = data.T,
