@@ -500,11 +500,9 @@ def median_mgz(files,outdir):
     
     median_img = np.median(img,axis=0)
 
-    median_file = os.path.join(outdir,re.sub('run-\d{2}_','run-median_',os.path.split(files[0])[-1]))+'.npy'
-    median_file = re.sub('smooth5.mgz','smooth5',median_file)
-    np.save(median_file,median_img)
+    np.save(outdir,median_img)
 
-    return median_file
+    return outdir
 
 
 def median_pRFestimates(subdir,with_smooth=True):
@@ -577,6 +575,7 @@ def median_pRFestimates(subdir,with_smooth=True):
 def psc_gii(gii_file,outpth, method='median'):
     
     ##################################################
+    # added option to also PSC numpy arrays of data
     #    inputs:
     #        gii_file - list of absolute filenames for giis to perform percent signal change
     #        outpth - path to save new files
@@ -590,28 +589,38 @@ def psc_gii(gii_file,outpth, method='median'):
     new_gii_pth = []
     
     for index,file in enumerate(gii_file):
-    
-        img_load = nb.load(file) #doing this to get header info etc
-        data_in = np.array([x.data for x in img_load.darrays])
-
+        
+        new_name =  os.path.split(file)[-1] # file name
+        
+        if file.endswith('.npy') == True: # if numpy array
+            new_name = new_name.replace('.npy','_psc.npy')
+            data_in = np.load(file)
+        else:
+            new_name = new_name.replace('.func.gii','_psc.func.gii')
+            img_load = nb.load(file) #doing this to get header info etc
+            data_in = np.array([x.data for x in img_load.darrays])
+            
         if method == 'mean':
             data_m = np.mean(data_in,axis=0)
         elif method == 'median':
             data_m = np.median(data_in, axis=0)
 
         data_conv = 100.0 * (data_in - data_m)/np.abs(data_m)
-
-        new_name =  os.path.split(file)[-1] 
-        new_name = new_name.replace('.func.gii','_psc.func.gii')
-        full_pth = os.path.join(outpth,new_name)
-
         
-        darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_conv]
-        new_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
-                                           extra=img_load.extra,
-                                           darrays=darrays) # need to save as gii again
+        full_pth = os.path.join(outpth,new_name)
+        
+        if file.endswith('.gii') == True: # if gii
+            
+            darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_conv]
+            new_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
+                                               extra=img_load.extra,
+                                               darrays=darrays) # need to save as gii again
+            nb.save(new_gii,full_pth) #save in correct path
+        else:
+            new_gii = data_conv
+            np.save(full_pth,new_gii)
+            
         print('saving %s' %full_pth)
-        nb.save(new_gii,full_pth) #save in correct path
         
         new_gii_pth.append(full_pth)
 
