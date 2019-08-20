@@ -35,6 +35,7 @@
     "rsq_threshold": 0.20,
     "z_threshold": 3.1,
     "with_smooth": "False",
+    "with_psc": "True",
     "eyetrack_subsmp_freq": 50,
     "FN_TRs":103,
     "eyetrack_smp_freq": 1000,
