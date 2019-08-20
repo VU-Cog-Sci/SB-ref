@@ -21,6 +21,10 @@ from nilearn import surface
 from utils import * #import script to use relevante functions
 from prf_fit_FN import * #import script to use relevante functions
 
+# change number of threads used (cartesius can go up to 24) to speed up CPU
+import mkl
+mkl.set_num_threads(24)
+
 # define participant number and open json parameter file
 if len(sys.argv)<2: 
     raise NameError('Please add subject number (ex:1) ' 
