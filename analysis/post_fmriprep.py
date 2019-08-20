@@ -32,15 +32,15 @@ with_psc = analysis_params['with_psc']
 
 for t,cond in enumerate(tasks):
 
-	# list of functional files
+    # list of functional files
     filename = [run for run in filepath if 'task-'+tasks[t] in run and 'fsaverage' in run and run.endswith('.func.gii')]
     filename.sort()
-	# list of confounds
+    # list of confounds
     confounds = [run for run in filepath if 'task-'+tasks[t] in run and run.endswith('_desc-confounds_regressors.tsv')]
     confounds.sort()
 
     if not filename: # if list empty
-    	print('Subject %s has no files for %s' %(sj,cond))
+        print('Subject %s has no files for %s' %(sj,cond))
 
     else:
         TR = analysis_params["TR"]
@@ -56,13 +56,13 @@ for t,cond in enumerate(tasks):
                                              analysis_params['sg_filt_window_length'],outpath,combine_hemi=False)
 
         if cond == 'prf' or 'fn': # don't clean confounds for prf or fn.. doenst help retino maps(?)
-        	clean_gii = filt_gii
-        	clean_gii_pth = filt_gii_pth
+            clean_gii = filt_gii
+            clean_gii_pth = filt_gii_pth
         else: #regress out PCA of confounds from data
             # first sg filter them
             filt_conf = highpass_confounds(confounds,analysis_params['nuisance_columns'],analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
                                            analysis_params['sg_filt_window_length'],TR,outpath)
-        	clean_gii, clean_gii_pth = clean_confounds(filt_gii_pth,filt_conf,outpath,combine_hemi=False) 
+            clean_gii, clean_gii_pth = clean_confounds(filt_gii_pth,filt_conf,outpath,combine_hemi=False) 
 
         if with_psc=='True':
             final_gii = psc_gii(clean_gii_pth,outpath, method='median') 
