@@ -35,8 +35,9 @@ else:
     print('FN data will be loaded for sub-%d ses-%d'%(sj,ses))
 
 
+json_dir = '/home/inesv/SB-ref/scripts/analysis_params.json' if str(sys.argv[2]) == 'cartesius' else 'analysis_params.json'
 
-with open('/home/inesv/SB-ref/scripts/analysis_params.json','r') as json_file: 
+with open(json_dir,'r') as json_file: 
         analysis_params = json.load(json_file) 
 
 # for linux computer
@@ -127,73 +128,73 @@ for run in num_runs:
             print('loading %s' %img_filename)
 
             fn_dm = np.load(img_filename)
-            #fn_dm = fn_dm.T #swap axis for popeye (x,y,time)
+            fn_dm = fn_dm.T #swap axis for popeye (x,y,time)
 
-            # make output folders, for each run
-            # set data paths  
-            if str(sys.argv[2]) == 'cartesius':
-                output_path = os.path.join(analysis_params['fn_outdir_cartesius'],'sub-{sj}'.format(sj=str(sj).zfill(2)),'run-{run}'.format(run=str(run).zfill(2)))
-                print('files will be saved in %s' %output_path)
+        # make output folders, for each run
+        # set data paths  
+        if str(sys.argv[2]) == 'cartesius':
+            output_path = os.path.join(analysis_params['fn_outdir_cartesius'],'sub-{sj}'.format(sj=str(sj).zfill(2)),'run-{run}'.format(run=str(run).zfill(2)))
+            print('files will be saved in %s' %output_path)
 
-            elif str(sys.argv[2]) == 'aeneas':
-                output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),'run-{run}'.format(run=str(run).zfill(2)))
-                print('files will be saved in %s' %output_path)
+        elif str(sys.argv[2]) == 'aeneas':
+            output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),'run-{run}'.format(run=str(run).zfill(2)))
+            print('files will be saved in %s' %output_path)
 
-            if not os.path.exists(output_path): # check if path to save median run exist
-                    os.makedirs(output_path) 
+        if not os.path.exists(output_path): # check if path to save run exist
+                os.makedirs(output_path) 
 
-            # load data for run and fit each hemisphere at a time
-            run_gii = [file for file in func_filename if 'run-{run}'.format(run=str(run).zfill(2)) in file]; run_gii.sort()
+        # load data for run and fit each hemisphere at a time
+        run_gii = [file for file in func_filename if 'run-{run}'.format(run=str(run).zfill(2)) in file]; run_gii.sort()
 
-            for gii_file in run_gii: 
+        for gii_file in run_gii: 
 
-                print('loading data from %s' %gii_file)
-                data = np.array(surface.load_surf_data(gii_file))
+            print('loading data from %s' %gii_file)
+            data = np.array(surface.load_surf_data(gii_file))
 
-                # intitialize prf analysis
-                FN = FN_fit(data = data,
-                            fit_model = fit_model, 
-                            visual_design = fn_dm, 
-                            screen_distance = analysis_params["screen_distance"],
-                            screen_width = analysis_params["screen_width"],
-                            scale_factor = 1/2.0, 
-                            tr =  TR,
-                            bound_grids = bound_grids,
-                            grid_steps = grid_steps,
-                            bound_fits = bound_fits,
-                            n_jobs = analysis_params['N_PROCS'],
-                            hrf = hrf,
-                            nr_TRs = analysis_params['FN_TRs'])
+            # intitialize prf analysis
+            FN = FN_fit(data = data,
+                        fit_model = fit_model, 
+                        visual_design = fn_dm, 
+                        screen_distance = analysis_params["screen_distance"],
+                        screen_width = analysis_params["screen_width"],
+                        scale_factor = 1/2.0, 
+                        tr =  TR,
+                        bound_grids = bound_grids,
+                        grid_steps = grid_steps,
+                        bound_fits = bound_fits,
+                        n_jobs = analysis_params['N_PROCS'],
+                        hrf = hrf,
+                        nr_TRs = analysis_params['FN_TRs'])
+            
+            
+            # make/load predictions
+            pred_out = gii_file.replace('.mgz','_predictions.npy')
+            pred_out = os.path.join(output_path,os.path.split(pred_out)[-1])
+
+            if not os.path.exists(pred_out): # if file doesn't exist
+
+                print('making predictions for %s' %pred_out) #create it
+                FN.make_predictions(out_file=pred_out)
                 
-                
-                # make/load predictions
-                pred_out = gii_file.replace('.mgz','_predictions.npy')
-                pred_out = os.path.join(output_path,os.path.split(pred_out)[-1])
+            else:
+                print('loading predictions %s' %pred_out)
+                FN.load_grid_predictions(prediction_file=pred_out)
 
-                if not os.path.exists(pred_out): # if file doesn't exist
+            FN.grid_fit() # do grid fit
 
-                    print('making predictions for %s' %pred_out) #create it
-                    FN.make_predictions(out_file=pred_out)
-                    
-                else:
-                    print('loading predictions %s' %pred_out)
-                    FN.load_grid_predictions(prediction_file=pred_out)
+            # save outputs
+            rsq_output = FN.gridsearch_r2
+            params_output = FN.gridsearch_params.T
 
-                FN.grid_fit() # do grid fit
-
-                # save outputs
-                rsq_output = FN.gridsearch_r2
-                params_output = FN.gridsearch_params.T
-
-                #in estimates file
-                estimates_out = pred_out.replace('_predictions.npy','_estimates.npz')
-                np.savez(estimates_out, 
-                         x=params_output[...,0],
-                         y=params_output[...,1],
-                         size=params_output[...,2],
-                         baseline=params_output[...,3],
-                         betas=params_output[...,4],
-                         r2=rsq_output)
+            #in estimates file
+            estimates_out = pred_out.replace('_predictions.npy','_estimates.npz')
+            np.savez(estimates_out, 
+                     x=params_output[...,0],
+                     y=params_output[...,1],
+                     size=params_output[...,2],
+                     baseline=params_output[...,3],
+                     betas=params_output[...,4],
+                     r2=rsq_output)
 
 
             
