@@ -45,16 +45,18 @@ filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'prf',
 
 # changes depending on data used
 if with_smooth=='True':
-    # list of functional files
-    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('_sg_smooth5.mgz')]
+    # last part of filename to use
+    file_extension = '_sg_smooth5.mgz'
     # compute median run, per hemifield
     median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
 else:
-    # list of functional files
-    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith('_sg.mgz')]
+    # last part of filename to use
+    file_extension = '_sg.mgz'
     # compute median run, per hemifield
     median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
-    
+
+# list of functional files
+filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith(file_extension)]
 filename.sort()
 if not os.path.exists(median_path): # check if path to save median run exist
         os.makedirs(median_path) 
@@ -64,16 +66,17 @@ med_gii=[]
 for field in ['hemi-L','hemi-R']:
     hemi = [h for h in filename if field in h]
     
-    #if file doesn't exist
+    #set name for median run (now numpy array)
     abs_file = os.path.join(median_path,re.sub('run-\d{2}_','run-median_',os.path.split(hemi[0])[-1]))
-    abs_file = re.sub('smooth5.mgz','smooth5',abs_file)
+    abs_file = re.sub(file_extension,os.path.splitext(file_extension)[0],abs_file)+'.npy'
+    #if file doesn't exist
     if not os.path.exists(abs_file): 
-        med_gii.append(median_mgz(hemi,median_path)) #create it
+        med_gii.append(median_mgz(hemi,abs_file)) #create it
         print('computed %s' %(med_gii))
     else:
         med_gii.append(abs_file)
         print('median file %s already exists, skipping' %(med_gii))
-        
+         
         
 # create/load design matrix 
 png_filename = [os.path.join(analysis_params['imgs_dir'],png) for png in os.listdir(analysis_params['imgs_dir'])] 
@@ -85,6 +88,9 @@ if not os.path.exists(dm_filename): #if not exists
         screenshot2DM(png_filename,0.1,analysis_params['screenRes'],dm_filename) #create it
         print('computed %s' %(dm_filename))
 
+else:
+    print('loading %s' %dm_filename)
+
 prf_dm = np.load(dm_filename)
 prf_dm = prf_dm.T #swap axis for popeye (x,y,time)
     
@@ -92,12 +98,7 @@ prf_dm = prf_dm.T #swap axis for popeye (x,y,time)
 # define model params
 fit_model = analysis_params["fit_model"]
 
-# exception for these 2 subjects, TR was different
-for string in ['sub-01_ses-01', 'sub-03_ses-01']:
-    if re.search(string, filename[0]):
-        TR = 1.5
-    else:
-        TR = analysis_params["TR"]
+TR = analysis_params["TR"]
 
 # Fit: define search grids
 x_grid_bound = (-analysis_params["max_eccen"], analysis_params["max_eccen"])
