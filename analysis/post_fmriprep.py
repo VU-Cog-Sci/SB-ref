@@ -26,7 +26,9 @@ else:
     
 # define paths and list of files
 filepath = glob.glob(os.path.join(analysis_params['fmriprep_dir'],'sub-{sj}'.format(sj=sj),'*','func/*'))
-tasks = ['fn']#,'soma','prf','rlb','rli','rs']
+tasks = ['fn','soma','prf','rlb','rli','rs']
+# do PSC?      
+with_psc = analysis_params['with_psc']
 
 for t,cond in enumerate(tasks):
 
@@ -41,12 +43,7 @@ for t,cond in enumerate(tasks):
     	print('Subject %s has no files for %s' %(sj,cond))
 
     else:
-        # exception for these 2 subjects, TR was different
-        for string in ['sub-01_ses-01', 'sub-03_ses-01']:
-            if re.search(string, filename[0]):
-                TR = 1.5
-            else:
-                TR = analysis_params["TR"]
+        TR = analysis_params["TR"]
 
         # set output path for processed files
         outpath = os.path.join(analysis_params['post_fmriprep_outdir'],tasks[t],'sub-{sj}'.format(sj=sj))
@@ -58,19 +55,22 @@ for t,cond in enumerate(tasks):
         filt_gii,filt_gii_pth = highpass_gii(filename,analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
                                              analysis_params['sg_filt_window_length'],outpath,combine_hemi=False)
 
-
-        filt_conf = highpass_confounds(confounds,analysis_params['nuisance_columns'],analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
-                                       analysis_params['sg_filt_window_length'],TR,outpath)
-
         if cond == 'prf' or 'fn': # don't clean confounds for prf or fn.. doenst help retino maps(?)
         	clean_gii = filt_gii
         	clean_gii_pth = filt_gii_pth
         else: #regress out PCA of confounds from data
+            # first sg filter them
+            filt_conf = highpass_confounds(confounds,analysis_params['nuisance_columns'],analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
+                                           analysis_params['sg_filt_window_length'],TR,outpath)
         	clean_gii, clean_gii_pth = clean_confounds(filt_gii_pth,filt_conf,outpath,combine_hemi=False) 
 
-
+        if with_psc=='True':
+            final_gii = psc_gii(clean_gii_pth,outpath, method='median') 
+        else:
+            final_gii = clean_gii_pth
+            
         # transform to mgz to smooth it
-        mgz_files = nparray2mgz(clean_gii_pth,filename,outpath)
+        mgz_files = nparray2mgz(final_gii,filename,outpath)
 
         # now smooth it
         mgz_files.sort()
