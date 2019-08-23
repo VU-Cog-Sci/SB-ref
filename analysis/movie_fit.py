@@ -101,7 +101,7 @@ with_smooth = analysis_params['with_smooth']
 # changes depending on data used
 if with_smooth=='True':
     # list of functional files
-    func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('smooth5.mgz')]
+    func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('_sg_smooth5.mgz')]
 else:
     # list of functional files
     func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('_sg.mgz')] #_sg_conf.mgz')]
@@ -156,7 +156,7 @@ for run in num_runs:
             data = np.array(surface.load_surf_data(gii_file))
 
             # intitialize prf analysis
-            FN = FN_fit(data = data,
+            FN = FN_fit(data = data.astype(np.float32), #to make the fitting faster
                         fit_model = fit_model, 
                         visual_design = fn_dm, 
                         screen_distance = analysis_params["screen_distance"],
