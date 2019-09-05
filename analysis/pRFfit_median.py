@@ -27,33 +27,51 @@ from utils import * #import script to use relevante functions
 from prf_fit_lyon import * #import script to use relevante functions
 
 # define participant number and open json parameter file
-if len(sys.argv)<2:	
-    raise NameError('Please add subject number (ex:01) '	
-                    'as 1st argument in the command line!')	
+if len(sys.argv)<2: 
+    raise NameError('Please add subject number (ex:1) ' 
+                    'as 1st argument in the command line!') 
+
+elif len(sys.argv)<3:
+    raise NameError('Please select server being used (ex: aeneas or cartesius) ' 
+                    'as 2nd argument in the command line!') 
    	 
 else:	
     sj = str(sys.argv[1]).zfill(2) #fill subject number with 0 in case user forgets	
 
-    with open('analysis_params.json','r') as json_file:	
-            analysis_params = json.load(json_file)	
+
+json_dir = '/home/inesv/SB-ref/scripts/analysis_params.json' if str(sys.argv[2]) == 'cartesius' else 'analysis_params.json'
+
+with open('analysis_params.json','r') as json_file:	
+        analysis_params = json.load(json_file)	
     
 # use smoothed data?        
 with_smooth = analysis_params['with_smooth']
-    
-# define paths and list of files
-filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'prf','sub-{sj}'.format(sj=sj),'*'))
+# use PSC data?
+with_psc = analysis_params['with_psc']
 
+
+# define paths and list of files
+if str(sys.argv[2]) == 'cartesius':
+    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir_cartesius'],'prf','sub-{sj}'.format(sj=sj),'*'))
+    print('functional files from %s' %os.path.split(filepath[0])[0])
+    out_dir = analysis_params['pRF_outdir_cartesius']
+
+elif str(sys.argv[2]) == 'aeneas':
+    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'prf','sub-{sj}'.format(sj=sj),'*'))
+    print('functional files from %s' %os.path.split(filepath[0])[0])
+    out_dir = analysis_params['pRF_outdir']
+    
 # changes depending on data used
 if with_smooth=='True':
     # last part of filename to use
-    file_extension = '_sg_smooth5.mgz'
+    file_extension = '_sg_smooth5.mgz' if with_psc == 'False' else '_sg_psc_smooth5.mgz'
     # compute median run, per hemifield
-    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
+    median_path = os.path.join(out_dir,'sub-{sj}'.format(sj=sj),'run-median','smooth')
 else:
     # last part of filename to use
-    file_extension = '_sg.mgz'
+    file_extension = '_sg.mgz' if with_psc == 'False' else '_sg_psc.mgz'
     # compute median run, per hemifield
-    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
+    median_path = os.path.join(out_dir,'sub-{sj}'.format(sj=sj),'run-median')
 
 # list of functional files
 filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith(file_extension)]
@@ -78,8 +96,9 @@ for field in ['hemi-L','hemi-R']:
         print('median file %s already exists, skipping' %(med_gii))
          
         
-# create/load design matrix 
-png_filename = [os.path.join(analysis_params['imgs_dir'],png) for png in os.listdir(analysis_params['imgs_dir'])] 
+# create/load design matrix
+png_path = analysis_params['imgs_dir'] if str(sys.argv[2]) == 'aeneas' else os.path.join(os.getcwd(),'imgs')
+png_filename = [os.path.join(png_path,png) for png in os.listdir(analysis_params['imgs_dir'])] 
 png_filename.sort()
 
 dm_filename = os.path.join(os.getcwd(),'prf_dm.npy')
