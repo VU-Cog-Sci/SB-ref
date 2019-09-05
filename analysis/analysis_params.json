@@ -3,6 +3,7 @@
     "fmriprep_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/fmriprep/",
     "freesurfer_dir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/freesurfer/",
     "pRF_outdir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/pRF_fit/",
+    "pRF_outdir_cartesius":"/home/inesv/SB-ref/derivatives/pRF_fit/",
     "fn_outdir":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/fn_fit/",
     "fn_outdir_cartesius":"/home/inesv/SB-ref/derivatives/fn_fit/",
     "imgs_dir":"/home/verissimo/SB-ref/analysis/imgs/",
