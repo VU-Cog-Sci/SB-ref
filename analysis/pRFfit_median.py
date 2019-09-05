@@ -41,7 +41,7 @@ else:
 
 json_dir = '/home/inesv/SB-ref/scripts/analysis_params.json' if str(sys.argv[2]) == 'cartesius' else 'analysis_params.json'
 
-with open('analysis_params.json','r') as json_file:	
+with open(json_dir,'r') as json_file:	
         analysis_params = json.load(json_file)	
     
 # use smoothed data?        
