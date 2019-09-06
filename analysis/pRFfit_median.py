@@ -97,8 +97,8 @@ for field in ['hemi-L','hemi-R']:
          
         
 # create/load design matrix
-png_path = analysis_params['imgs_dir'] if str(sys.argv[2]) == 'aeneas' else os.path.join(os.getcwd(),'imgs')
-png_filename = [os.path.join(png_path,png) for png in os.listdir(analysis_params['imgs_dir'])] 
+png_path = '/home/inesv/SB-ref/scripts/imgs/' if str(sys.argv[2]) == 'cartesius' else analysis_params['imgs_dir']
+png_filename = [os.path.join(png_path,png) for png in os.listdir(png_path)] 
 png_filename.sort()
 
 dm_filename = os.path.join(os.getcwd(),'prf_dm.npy')
