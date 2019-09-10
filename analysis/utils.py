@@ -377,49 +377,48 @@ def create_my_colormaps(mapname='mycolormap_HSV_alpha.png'):
     imsave(hsv_fn, rgba)
         
 
-def clean_confounds(npdata,confounds,outpth,combine_hemi=False):
+def clean_confounds(gii_file,confounds,outpth):
     
     ##################################################
     #    inputs:
-    #        npdata - list of absolute filenames for numpy array data
-    #        confounds - list of absolute filenames for confound tsvs
+    #        npdata - absolute filename for gii
+    #        confounds - absolute filename for confound tsv
     #        outpth - path to save new files
     #    outputs:
     #        new_data - np array with all filtered runs appended
     #        new_data_pth - list with absolute filenames
     ##################################################
     
-    #sort to make sure lists in right order
-    npdata.sort()
-    confounds.sort()
-    new_data = []
-    new_data_pth = []
-    counter = 0
-
-
-    for idx,file in enumerate(npdata):
-        print('regressing out confounds from %s' %(file))
-        data =np.load(file) #load data for run
-
-        confs = pd.read_csv(confounds[counter], sep='\t', na_values='n/a') #load tsv
-
-        # if even index, and both hemifields in list increase counter, or if hemi already combined
-        if idx == 0:
-            counter = 0
-        elif (combine_hemi == False and idx % 2 == 0) or (combine_hemi == True): 
-            counter += 1
-
-        d = clean(data, confounds=confs.values, standardize=False) #clean it
-        
-        name = os.path.splitext(os.path.split(file)[-1])[0]+'_conf'
-        output = os.path.join(outpth,name)
-        
-        np.save(output,d)
-        print('clean data saved in %s' %(output))
-        new_data.append(d)
-        new_data_pth.append(output+'.npy')
+    out_data = []
+    out_data_pth = []
     
-    return new_data,new_data_pth
+    if not os.path.isfile(gii_file): # check if file exists
+        print('no file found called %s' %gii_file)
+    else:
+        print('regressing out confounds from %s' %(gii_file))
+        # load with nibabel instead to save outputs always as gii
+        gii_in = nb.load(gii_file)
+        data_in = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))]) #load surface data
+
+        confs = pd.read_csv(confounds, sep='\t', na_values='n/a') #load tsv
+        
+        data_clean = clean(data_in, confounds=confs.values, standardize=False) #clean it
+        
+        darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_clean]
+        new_gii = nb.gifti.gifti.GiftiImage(header=gii_in.header,
+                                           extra=gii_in.extra,
+                                           darrays=darrays) # need to save as gii again
+        
+        name = os.path.split(gii_file)[-1].replace('.func.gii','_conf.func.gii')
+        
+        out_data = np.array(data_clean)
+        out_data_pth = os.path.join(outpth,name)
+        
+        print('saving %s' %out_data_pth)
+        nb.save(new_gii,out_data_pth) #save in correct path
+        
+    
+    return out_data,out_data_pth
 
     
 def nparray2mgz(nparray,giifiles,outdir):
@@ -780,4 +779,30 @@ def smooth_gii(gii_file,outdir,fwhm=5):
 
     return smooth_gii,smooth_gii_pth
         
+def highpass_pca_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
+    
+    # high pass confounds
+    confounds_SG = savgol_filter_confounds(confounds, polyorder=polyorder, deriv=deriv, window_length=window, tr=tr)
 
+    confs = pd.read_csv(confounds_SG, sep='\t', na_values='n/a')
+    confs = confs[nuisances]
+
+    #choose the minimum number of principal components such that at least 95% of the variance is retained.
+    #pca = PCA(0.95,whiten=True) 
+    pca = PCA(n_components=2,whiten=True) #had to chose 2 because above formula messes up len of regressors 
+    pca_confs = pca.fit_transform(np.nan_to_num(confs))
+    print('%d components selected for run' %pca.n_components_)
+
+    # make list of dataframes 
+    all_confs = pd.DataFrame(pca_confs, columns=['comp_{n}'.format(n=n) for n in range(pca.n_components_)])
+
+    # move file to median directory
+    outfile = os.path.join(outpth,os.path.basename(confounds_SG))
+    os.rename(confounds_SG, outfile)
+   
+    # save PCA data frame
+    pca_outfile = outfile.replace('_sg.tsv','_sg_pca.tsv')
+    all_confs.to_csv(pca_outfile, sep='\t', index=False)
+    print('filtered and PCA confounds saved in %s' %pca_outfile)
+
+    return pca_outfile
