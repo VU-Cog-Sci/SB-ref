@@ -23,7 +23,7 @@ else:
     
 # define paths and list of files
 filepath = glob.glob(os.path.join(analysis_params['fmriprep_dir'],'sub-{sj}'.format(sj=sj),'*','func/*'))
-tasks = ['fn','prf']#,'soma','rlb','rli','rs']
+tasks = ['fn','prf','soma','rlb','rli','rs']
 
 for t,cond in enumerate(tasks):
 
@@ -55,33 +55,41 @@ for t,cond in enumerate(tasks):
             hemi='left' if '_hemi-L' in file else 'right'
             
             # plot all steps as sanity check
-            plot_tSNR(file,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
+            #plot_tSNR(file,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
             
             # high pass filter all runs (savgoy-golay)
             filt_gii,filt_gii_pth = highpass_gii(file,analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
                                                          analysis_params['sg_filt_window_length'],outpath)
 
-            plot_tSNR(filt_gii_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
+            #plot_tSNR(filt_gii_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
             
             if cond == 'prf' or 'fn': # don't clean confounds for prf or fn.. doenst help retino maps(?)
                 clean_gii = filt_gii
                 clean_gii_pth = filt_gii_pth
+
             else: #regress out PCA of confounds from data
+            # to get run number, hence making sure that subtracting right confounds
+                run_str = '_run-'
+                run_num = os.path.split(file)[-1][os.path.split(file)[-1].index(run_str)+len(run_str):][0:2]
+
+                # confound for that run
+                conf = [tsv for _,tsv in enumerate(confounds) if run_str+run_num in os.path.split(tsv)[-1]][0]
+
                 # first sg filter them
-                filt_conf = highpass_confounds(confounds,analysis_params['nuisance_columns'],analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
+                filt_conf = highpass_pca_confounds(conf,analysis_params['nuisance_columns'],analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
                                                        analysis_params['sg_filt_window_length'],TR,outpath)
-                # NEED TO CHECK THIS ONE STILL, AND CHANGE FUNCTION TO MAKE SURE IT SAVES ONLY GII
-                clean_gii, clean_gii_pth = clean_confounds(filt_gii_pth,filt_conf,outpath,combine_hemi=False) 
+                # clean the counfounds from data
+                clean_gii, clean_gii_pth = clean_confounds(filt_gii_pth,filt_conf,outpath) 
                 
             # do PSC
             psc_data,psc_data_pth = psc_gii(clean_gii_pth,outpath, method='median') 
 
-            plot_tSNR(psc_data_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
+            #plot_tSNR(psc_data_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
             
             # smooth it
             smt_file, smt_pth = smooth_gii(psc_data_pth,outpath,fwhm=5)
             
-            plot_tSNR(smt_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
+            #plot_tSNR(smt_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
 
 
 
