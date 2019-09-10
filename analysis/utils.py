@@ -36,6 +36,8 @@ import time
 from nilearn.datasets import fetch_surf_fsaverage
 import nilearn.plotting as ni_plt 
 
+import nipype.interfaces.freesurfer as fs
+
 
 def median_gii(files,outdir):
     
@@ -552,56 +554,51 @@ def median_pRFestimates(subdir,with_smooth=True):
 def psc_gii(gii_file,outpth, method='median'):
     
     ##################################################
-    # added option to also PSC numpy arrays of data
     #    inputs:
-    #        gii_file - list of absolute filenames for giis to perform percent signal change
+    #        gii_file - absolute filename for gii
     #        outpth - path to save new files
     #        method - median vs mean
     #    outputs:
-    #        new_gii_pth - list with absolute filenames for saved giis
+    #        psc_gii - np array with percent signal changed file
+    #        psc_gii_pth - list with absolute filenames for saved giis
     ##################################################
     
-    # gii data
-    gii_file.sort()
-    new_gii_pth = []
+    psc_gii = []
+    psc_gii_pth = []
     
-    for index,file in enumerate(gii_file):
+    if not os.path.isfile(gii_file): # check if file exists
+            print('no file found called %s' %gii_file)
+    else:
+    
+        # load with nibabel instead to save outputs always as gii
+        img_load = nb.load(gii_file)
+        data_in = np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]) #load surface data
+
+        print('PSC run %s' %gii_file)
         
-        new_name =  os.path.split(file)[-1] # file name
-        
-        if file.endswith('.npy') == True: # if numpy array
-            new_name = new_name.replace('.npy','_psc.npy')
-            data_in = np.load(file)
-        else:
-            new_name = new_name.replace('.func.gii','_psc.func.gii')
-            img_load = nb.load(file) #doing this to get header info etc
-            data_in = np.array([x.data for x in img_load.darrays])
-            
         if method == 'mean':
             data_m = np.mean(data_in,axis=0)
         elif method == 'median':
             data_m = np.median(data_in, axis=0)
+        
+        data_conv = 100.0 * (data_in - data_m)/data_m#np.abs(data_m)
+        
+        new_name =  os.path.split(gii_file)[-1].replace('.func.gii','_psc.func.gii') # file name
+        
+        darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_conv]
+        new_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
+                                           extra=img_load.extra,
+                                           darrays=darrays) # need to save as gii again
+        psc_gii = np.array(data_conv)
+        psc_gii_pth = os.path.join(outpth,new_name)
+        
+        print('saving %s' %psc_gii_pth)
+        nb.save(new_gii,psc_gii_pth) #save in correct path
+        
 
-        data_conv = 100.0 * (data_in - data_m)/np.abs(data_m)
-        
-        full_pth = os.path.join(outpth,new_name)
-        
-        if file.endswith('.gii') == True: # if gii
-            
-            darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_conv]
-            new_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
-                                               extra=img_load.extra,
-                                               darrays=darrays) # need to save as gii again
-            nb.save(new_gii,full_pth) #save in correct path
-        else:
-            new_gii = data_conv
-            np.save(full_pth,new_gii)
-            
-        print('saving %s' %full_pth)
-        
-        new_gii_pth.append(full_pth)
 
-    return new_gii_pth
+    return psc_gii,psc_gii_pth
+        
 
 
 def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=103,TR=1.6,fig_sfactor=0.1,screen=[1920, 1080]):
@@ -708,7 +705,7 @@ def plot_tSNR(gii_in,hemi,outpth,mesh='fsaverage'):
     surfmesh = fetch_surf_fsaverage(mesh=mesh)
     hemi_data = surface.load_surf_data(gii_in).T
     
-    out_name = os.path.split(gii_in)[-1].replace('.func.gii','_tSNR.pdf')
+    out_name = os.path.split(gii_in)[-1].replace('.func.gii','_tSNR.png')
     
     if not os.path.exists(outpth): # check if path to save plot exists
         os.makedirs(outpth)  #if not, create it
@@ -725,3 +722,62 @@ def plot_tSNR(gii_in,hemi,outpth,mesh='fsaverage'):
                                     title='tSNR map') 
     plt.savefig(os.path.join(outpth,out_name), bbox_inches="tight")
     
+
+
+def smooth_gii(gii_file,outdir,fwhm=5):
+    
+    ##################################################
+    #    inputs:
+    #        gii_file - absolute path for gii file
+    #        outdir - output dir
+    #       fwhm - width of the kernel, at half of the maximum of the height of the Gaussian
+    #    outputs:
+    #        smooth_gii - np array with smoothed file
+    #        smooth_gii_pth - absolute path for smoothed file
+    ##################################################
+    smooth_gii = []
+    smooth_gii_pth = []
+    
+    if not os.path.isfile(gii_file): # check if file exists
+            print('no file found called %s' %gii_file)
+    else:
+    
+        # load with nibabel instead to save outputs always as gii
+        gii_in = nb.load(gii_file)
+        data_in = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))]) #load surface data
+
+        print('loading file %s' %gii_file)
+        
+        # first need to convert to mgz
+        # will be saved in output dir
+        new_mgz = os.path.join(outdir,os.path.split(gii_file)[-1].replace('.func.gii','.mgz'))
+        
+        print('converting gifti to mgz as %s' %(new_mgz))
+        os.system('mri_convert %s %s'%(gii_file,new_mgz))
+        
+        # now smooth it
+        smoother = fs.SurfaceSmooth()
+        smoother.inputs.in_file = new_mgz
+        smoother.inputs.subject_id = 'fsaverage'
+        
+        # define hemisphere
+        smoother.inputs.hemi = 'lh' if '_hemi-L' in new_mgz else 'rh'
+        print('smoothing %s' %smoother.inputs.hemi)
+        smoother.inputs.fwhm = fwhm
+        smoother.run() # doctest: +SKIP
+        
+        new_filename = os.path.split(new_mgz)[-1].replace('.mgz','_smooth%d.mgz'%(smoother.inputs.fwhm))
+        smooth_mgz = os.path.join(outdir,new_filename)
+        os.rename(os.path.join(os.getcwd(),new_filename), smooth_mgz) #move to correct dir
+        
+        # transform to gii again
+        new_data = surface.load_surf_data(smooth_mgz).T
+                
+        smooth_gii = np.array(new_data)
+        smooth_gii_pth = smooth_mgz.replace('.mgz','.func.gii')
+        print('converting to %s' %smooth_gii_pth)
+        os.system('mri_convert %s %s'%(smooth_mgz,smooth_gii_pth))
+
+    return smooth_gii,smooth_gii_pth
+        
+
