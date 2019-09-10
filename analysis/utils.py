@@ -33,6 +33,9 @@ from scipy import signal
 
 import time
 
+from nilearn.datasets import fetch_surf_fsaverage
+import nilearn.plotting as ni_plt 
+
 
 def median_gii(files,outdir):
     
@@ -91,73 +94,47 @@ def screenshot2DM(filenames,scale,screen,outfile):
     np.save(outfile, img_bin.astype(np.uint8))
     
 
-def highpass_gii(filenames,polyorder,deriv,window,outpth,combine_hemi=False):
+def highpass_gii(filename,polyorder,deriv,window,outpth):
 
     ##################################################
     #    inputs:
-    #        filenames - list of absolute filenames for gii files (L and R hemi)
+    #        filename - list of absolute filename for gii file
     #        polyorder - order of the polynomial used to fit the samples - must be less than window_length.
     #        deriv - order of the derivative to compute - must be a nonnegative integer
     #        window -  length of the filter window (number of coefficients) - must be a positive odd integer
     #        outpth - path to save new files
     #    outputs:
-    #        filenames_sg - np array with all filtered runs appended
-    #        filepaths_sg - list with filenames
+    #        filename_sg - np array with filtered run
+    #        filepath_sg - filename
     ##################################################
     
+    filename_sg = []
+    filepath_sg = []
     
-    filenames_sg = []
-    filepaths_sg = []
-    filenames.sort() #to make sure their in right order
+    if not os.path.isfile(filename): # check if file exists
+            print('no file found called %s' %filename)
+    else:
+    
+        # load with nibabel instead to save outputs always as gii
+        gii_in = nb.load(filename)
+        data_in = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))]) #load surface data
 
-    all_runs = np.arange(1,11) #10 is max number of runs for any of the tasks (FN is the biggest one)
+        print('filtering run %s' %filename)
+        data_in_filt = savgol_filter(data_in, window, polyorder, axis=0,deriv=deriv,mode='nearest')
+        data_out = data_in - data_in_filt + data_in_filt.mean(axis=0) # add mean image back to avoid distribution around 0 
 
-    for run in all_runs: # for every run (2 hemi per run)
+        darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_out]
+        gii_out = nb.gifti.gifti.GiftiImage(header=gii_in.header, extra=gii_in.extra, darrays=darrays)
 
-        run_files = [x for _,x in enumerate(filenames) if 'run-'+str(run).zfill(2) in os.path.split(x)[-1]]
+        output = os.path.join(outpth,os.path.split(filename)[-1].replace('.func.gii','_sg.func.gii'))
+
+        nb.save(gii_out,output) # save as gii file
+
+        filename_sg = data_out
+        filepath_sg = output
         
-        if not run_files:
-            print('no files for run-%s' %str(run).zfill(2))
-        else:
-
-            if combine_hemi==False: # if we dont want to combine the hemi fields in one array
-
-                for _,hemi in enumerate(run_files):
-
-                    data_hemi = surface.load_surf_data(hemi).T #load surface data
-                    print('filtering run %s' %hemi)
-                    data_hemi -= savgol_filter(data_hemi, window, polyorder, axis=0,deriv=deriv)
-
-                    name = os.path.splitext(os.path.splitext(os.path.split(hemi)[-1])[0])[0]
-                    name = name+'_sg'
-
-                    output = os.path.join(outpth,name)
-
-                    np.save(output,data_hemi)
-
-                    filenames_sg.append(data_hemi)
-                    filepaths_sg.append(output+'.npy')
-
-            else:
-
-                data_both = []
-                for _,hemi in enumerate(run_files):
-                    data_both.append(surface.load_surf_data(hemi).T) #load surface data
-
-                data_both = np.hstack(data_both) #stack then filter
-                print('filtering run %s' %run_files)
-                data_both -= savgol_filter(data_both, window, polyorder, axis=0,deriv=deriv)
-
-                name = os.path.splitext(os.path.splitext(os.path.split(run_files[0])[-1])[0])[0]
-                name = name.replace('hemi-L','hemi-both_sg')
-                output = os.path.join(outpth,name)
-
-                np.save(output,data_both)
-
-                filenames_sg.append(data_both)
-                filepaths_sg.append(output+'.npy')
-
-    return np.array(filenames_sg),filepaths_sg
+    return np.array(filename_sg),filepath_sg
+    
     
 
 def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
@@ -514,7 +491,7 @@ def median_pRFestimates(subdir,with_smooth=True):
     #   outputs
     # estimates - dictionary with average estimated parameters
     
-    allsubs = os.listdir(subdir)
+    allsubs = [folder for _,folder in enumerate(os.listdir(subdir)) if 'sub-' in folder]
     allsubs.sort()
     print('averaging %d subjects' %(len(allsubs)))
     
@@ -715,3 +692,36 @@ def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=
     
     # save as gif too, for fun/as check
     imageio.mimwrite(outfilename.replace('.npy','.gif'), img_bin.astype(np.uint8) , 'GIF')
+
+
+
+def plot_tSNR(gii_in,hemi,outpth,mesh='fsaverage'):
+    
+    ##################################################
+    #    inputs:
+    #        gii_in - absolute filename for gii file
+    #        hemi - string with name of hemifield to plot ('right' or 'left')
+    #        mesh - string with name of mesh to load for plotting (default 'fsaverage')
+    #        outpth - path to save plot
+    ##################################################
+    
+    surfmesh = fetch_surf_fsaverage(mesh=mesh)
+    hemi_data = surface.load_surf_data(gii_in).T
+    
+    out_name = os.path.split(gii_in)[-1].replace('.func.gii','_tSNR.pdf')
+    
+    if not os.path.exists(outpth): # check if path to save plot exists
+        os.makedirs(outpth)  #if not, create it
+
+    if hemi == 'left':
+        ni_plt.plot_surf_stat_map(surfmesh['infl_left'], stat_map=np.median(hemi_data,axis=0)/np.std(hemi_data,axis=0),
+                                    hemi='left', view='lateral', colorbar=True,
+                                    bg_map=surfmesh['sulc_left'], bg_on_data=True,darkness=0.5,
+                                    title='tSNR map')    
+    else:
+        ni_plt.plot_surf_stat_map(surfmesh['infl_right'], stat_map=np.median(hemi_data,axis=0)/np.std(hemi_data,axis=0),
+                                    hemi='right', view='lateral', colorbar=True,
+                                    bg_map=surfmesh['sulc_right'], bg_on_data=True,darkness=0.5,
+                                    title='tSNR map') 
+    plt.savefig(os.path.join(outpth,out_name), bbox_inches="tight")
+    
