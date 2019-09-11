@@ -63,7 +63,7 @@ for t,cond in enumerate(tasks):
 
             #plot_tSNR(filt_gii_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
             
-            if cond == 'prf' or 'fn': # don't clean confounds for prf or fn.. doenst help retino maps(?)
+            if cond in ('prf','fn'): # don't clean confounds for prf or fn.. doenst help retino maps(?)
                 clean_gii = filt_gii
                 clean_gii_pth = filt_gii_pth
 
