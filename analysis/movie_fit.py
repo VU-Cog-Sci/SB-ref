@@ -140,7 +140,7 @@ for _,runstr in enumerate(all_runs):
     fn_dm.append(np.load(img_filename).T) #swap axis for popeye (x,y,time)
 
 # fit both hemispheres
-hemi_label = ['hemi-L']#['hemi-L','hemi-R']
+hemi_label = ['hemi-L','hemi-R']
 
 for _,hemi in enumerate(hemi_label):
     
