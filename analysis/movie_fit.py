@@ -168,12 +168,11 @@ for _,hemi in enumerate(hemi_label):
         # make output folders, for each run
         folder = 'run-all' if fit_runs=='all' else all_runs[ind] # name of folder to save outputs
         
-        ## set data paths  
-        #if str(sys.argv[2]) == 'cartesius':
-        #    output_path = os.path.join(analysis_params['fn_outdir_cartesius'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder)
-        #elif str(sys.argv[2]) == 'aeneas':
-        #    output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder)
-        output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder)
+        # set data paths  
+        if str(sys.argv[2]) == 'cartesius':
+            output_path = os.path.join(analysis_params['fn_outdir_cartesius'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder) if with_smooth == 'False' else os.path.join(analysis_params['fn_outdir_cartesius'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder,'smooth%d'%(analysis_params['smooth_fwhm']))
+        elif str(sys.argv[2]) == 'aeneas':
+            output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder) if with_smooth == 'False' else os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder,'smooth%d'%(analysis_params['smooth_fwhm']))
 
         print('files will be saved in %s' %output_path)
 
