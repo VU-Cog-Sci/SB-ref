@@ -104,7 +104,7 @@ with_smooth = analysis_params['with_smooth']
     
 # define list of files
 # changes depending on data used
-file_extension = '_sg_psc_smooth5.func.gii' if with_smooth=='True' else '_sg_psc.func.gii'
+file_extension = '_sg_psc_smooth%d.func.gii'%(analysis_params['smooth_fwhm']) if with_smooth=='True' else '_sg_psc.func.gii'
 # list of functional files
 func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith(file_extension)]
 func_filename.sort()
