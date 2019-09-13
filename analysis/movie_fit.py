@@ -111,6 +111,7 @@ func_filename.sort()
 
 # set hrf timepoints according to subsample frequency
 hrf_timepoints = np.arange(0, 32, 1/analysis_params['eyetrack_subsmp_freq']) # 32 randomly chosen, tail of hrf
+hrf = nipy_hrf.spm_hrf_compat(t=hrf_timepoints)
 
 # list all eyetracking files for subject
 eye_filename = glob.glob(os.path.join(data_dir,'sacc4dm_run-*.npz')); eye_filename.sort()
@@ -151,12 +152,6 @@ for _,hemi in enumerate(hemi_label):
         print('loading data from %s and concatenating' %all_runs)
         data_hemi_all = [np.concatenate([np.array(surface.load_surf_data(gii_file)) for _,gii_file in enumerate(hemi_file)], axis=-1)]
         
-        # and concatenate hrf too because I need to use it for new concatenated time
-        hrf = []
-        for i in range(len(all_runs)):
-            hrf.append(nipy_hrf.spm_hrf_compat(t=hrf_timepoints))
-        hrf = np.concatenate(hrf,axis=-1)
-        
         fn_dm = [np.concatenate(fn_dm,axis=-1)] # concatenate along time
         
         nr_TRs = analysis_params['FN_TRs']*len(all_runs)
@@ -164,9 +159,7 @@ for _,hemi in enumerate(hemi_label):
     elif fit_runs == 'single':
         print('loading data from %s' %all_runs)
         data_hemi_all = np.stack([np.array(surface.load_surf_data(gii_file)) for _,gii_file in enumerate(hemi_file)], axis=0)
-        
-        hrf = nipy_hrf.spm_hrf_compat(t=hrf_timepoints)
-        
+                
         nr_TRs = analysis_params['FN_TRs']
          
     # now actually fit it
