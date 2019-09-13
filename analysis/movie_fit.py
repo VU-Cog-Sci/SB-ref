@@ -32,13 +32,18 @@ if len(sys.argv)<2:
 
 elif len(sys.argv)<3:
     raise NameError('Please select server being used (ex: aeneas or cartesius) ' 
-                    'as 2nd argument in the command line!') 
+                    'as 2nd argument in the command line!')
+
+elif len(sys.argv)<4:
+    raise NameError('Please state if fitting all runs (all) ' 
+                    'or single runs (single)')
+    
 else:   
-    sj = int(sys.argv[1])
+    sj = str(sys.argv[1]).zfill(2)
     ses = 1 # it's always in the first session #int(sys.argv[2])
     print('FN data will be loaded for sub-%d ses-%d'%(sj,ses))
 
-
+fit_runs = str(sys.argv[3]) # string with type of fitting to do (all concatenated vs single-run)
 json_dir = '/home/inesv/SB-ref/scripts/analysis_params.json' if str(sys.argv[2]) == 'cartesius' else 'analysis_params.json'
 
 with open(json_dir,'r') as json_file: 
@@ -99,113 +104,131 @@ with_smooth = analysis_params['with_smooth']
     
 # define list of files
 # changes depending on data used
-if with_smooth=='True':
-    # list of functional files
-    func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('_sg_smooth5.mgz')]
-else:
-    # list of functional files
-    func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith('_sg.mgz')] #_sg_conf.mgz')]
-    
+file_extension = '_sg_psc_smooth5.func.gii' if with_smooth=='True' else '_sg_psc.func.gii'
+# list of functional files
+func_filename = [run for run in filepath if 'fn' in run and 'fsaverage' in run and run.endswith(file_extension)]
 func_filename.sort()
 
-# set hrf to be in same sample ratio
+# set hrf timepoints according to subsample frequency
 hrf_timepoints = np.arange(0, 32, 1/analysis_params['eyetrack_subsmp_freq']) # 32 randomly chosen, tail of hrf
-hrf = nipy_hrf.spm_hrf_compat(t=hrf_timepoints)
 
-# do loop for all runs
-num_runs = np.arange(1,11)
+# list all eyetracking files for subject
+eye_filename = glob.glob(os.path.join(data_dir,'sacc4dm_run-*.npz')); eye_filename.sort()
+fileinfo = glob.glob(os.path.join(data_dir,'gaze_timings_run-*.npz')); fileinfo.sort()
+  
+# list of strings with all run numbers that have eyetracking data (not necessarily 10 runs always)
+all_runs = [os.path.splitext(eye_filename[r])[0][-6::] for r,_ in enumerate(eye_filename)]
 
-for run in num_runs:
-    try:
-        # load saccade files
-        eye_filename = os.path.join(data_dir,'sacc4dm_run-{run}.npz'.format(run=str(run).zfill(2)))
-        fileinfo = os.path.join(data_dir,'gaze_timings_run-{run}.npz'.format(run=str(run).zfill(2)))
+# stack all DMs
+fn_dm = []
+for _,runstr in enumerate(all_runs):
+    # absolute path to save binary image numpy array
+    img_filename = os.path.join(data_dir,'fn_bin_sub-{sj}_'.format(sj=str(sj).zfill(2))+runstr+'.npy')
 
-        # absolute path to save binary image numpy array
-        img_filename = os.path.join(data_dir,'fn_bin_sub-{sj}_run-{run}.npy'.format(sj=str(sj).zfill(2),run=str(run).zfill(2)))
+    if not os.path.exists(img_filename): #if not exists
+        # get "long" DM(subsampled but not to TR) for that run
+        eye_file_run = [w for _,w in enumerate(eye_filename) if runstr in w][0]
+        info_file_run = [w for _,w in enumerate(fileinfo) if runstr in w][0]
+        sacc2longDM(eye_file_run,info_file_run,img_filename,smp_freq=analysis_params['eyetrack_smp_freq'],
+                    subsmp_freq=analysis_params['eyetrack_subsmp_freq'],
+                    nrTR=analysis_params['FN_TRs'],TR=analysis_params['TR'],fig_sfactor=fig_sfactor,screen=screen)
+    else:
+        print('loading %s' %img_filename)
+    
+    # then stack
+    fn_dm.append(np.load(img_filename).T) #swap axis for popeye (x,y,time)
 
-        if not os.path.exists(img_filename): #if not exists
-            # get "long" DM(subsampled but not to TR)
-            sacc2longDM(eye_filename,fileinfo,img_filename,smp_freq=analysis_params['eyetrack_smp_freq'],subsmp_freq=analysis_params['eyetrack_subsmp_freq'],
-                        nrTR=analysis_params['FN_TRs'],TR=analysis_params['TR'],fig_sfactor=fig_sfactor,screen=screen)
-        else:
-            print('loading %s' %img_filename)
+# fit both hemispheres
+hemi_label = ['hemi-L']#['hemi-L','hemi-R']
 
-            fn_dm = np.load(img_filename)
-            fn_dm = fn_dm.T #swap axis for popeye (x,y,time)
+for _,hemi in enumerate(hemi_label):
+    
+    print('Fitting %s' %hemi)
+    # absolute path of all runs of that hemisphere to be fitted
+    hemi_file = [file for file in func_filename if any(runstr in file for runstr in all_runs) and hemi in file]
+    
+    if fit_runs == 'all':
+        print('loading data from %s and concatenating' %all_runs)
+        data_hemi_all = [np.concatenate([np.array(surface.load_surf_data(gii_file)) for _,gii_file in enumerate(hemi_file)], axis=-1)]
+        
+        # and concatenate hrf too because I need to use it for new concatenated time
+        hrf = []
+        for i in range(len(all_runs)):
+            hrf.append(nipy_hrf.spm_hrf_compat(t=hrf_timepoints))
+        hrf = np.concatenate(hrf,axis=-1)
+        
+        fn_dm = [np.concatenate(fn_dm,axis=-1)] # concatenate along time
+        
+        nr_TRs = analysis_params['FN_TRs']*len(all_runs)
 
+    elif fit_runs == 'single':
+        print('loading data from %s' %all_runs)
+        data_hemi_all = np.stack([np.array(surface.load_surf_data(gii_file)) for _,gii_file in enumerate(hemi_file)], axis=0)
+        
+        hrf = nipy_hrf.spm_hrf_compat(t=hrf_timepoints)
+        
+        nr_TRs = analysis_params['FN_TRs']
+         
+    # now actually fit it
+    for ind in range(len(data_hemi_all)):
+        
         # make output folders, for each run
-        # set data paths  
-        if str(sys.argv[2]) == 'cartesius':
-            output_path = os.path.join(analysis_params['fn_outdir_cartesius'],'sub-{sj}'.format(sj=str(sj).zfill(2)),'run-{run}'.format(run=str(run).zfill(2)))
-            print('files will be saved in %s' %output_path)
+        folder = 'run-all' if fit_runs=='all' else all_runs[ind] # name of folder to save outputs
+        
+        ## set data paths  
+        #if str(sys.argv[2]) == 'cartesius':
+        #    output_path = os.path.join(analysis_params['fn_outdir_cartesius'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder)
+        #elif str(sys.argv[2]) == 'aeneas':
+        #    output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder)
+        output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),folder)
 
-        elif str(sys.argv[2]) == 'aeneas':
-            output_path = os.path.join(analysis_params['fn_outdir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),'run-{run}'.format(run=str(run).zfill(2)))
-            print('files will be saved in %s' %output_path)
+        print('files will be saved in %s' %output_path)
 
         if not os.path.exists(output_path): # check if path to save run exist
-                os.makedirs(output_path) 
-
-        # load data for run and fit each hemisphere at a time
-        run_gii = [file for file in func_filename if 'run-{run}'.format(run=str(run).zfill(2)) in file]; run_gii.sort()
-
-        for gii_file in run_gii: 
-
-            print('loading data from %s' %gii_file)
-            data = np.array(surface.load_surf_data(gii_file))
-
-            # intitialize prf analysis
-            FN = FN_fit(data = data.astype(np.float32), #to make the fitting faster
-                        fit_model = fit_model, 
-                        visual_design = fn_dm, 
-                        screen_distance = analysis_params["screen_distance"],
-                        screen_width = analysis_params["screen_width"],
-                        scale_factor = 1/2.0, 
-                        tr =  TR,
-                        bound_grids = bound_grids,
-                        grid_steps = grid_steps,
-                        bound_fits = bound_fits,
-                        n_jobs = analysis_params['N_PROCS'],
-                        hrf = hrf,
-                        nr_TRs = analysis_params['FN_TRs'])
+            os.makedirs(output_path) 
             
-            
-            # make/load predictions
-            pred_out = gii_file.replace('.mgz','_predictions.npy')
-            pred_out = os.path.join(output_path,os.path.split(pred_out)[-1])
+        # intitialize prf analysis
+        FN = FN_fit(data = data_hemi_all[ind].astype(np.float32), #to make the fitting faster
+                    fit_model = fit_model, 
+                    visual_design = fn_dm[ind], 
+                    screen_distance = analysis_params["screen_distance"],
+                    screen_width = analysis_params["screen_width"],
+                    scale_factor = 1/2.0, 
+                    tr =  TR,
+                    bound_grids = bound_grids,
+                    grid_steps = grid_steps,
+                    bound_fits = bound_fits,
+                    n_jobs = analysis_params['N_PROCS'],
+                    hrf = hrf,
+                    nr_TRs = nr_TRs)
+        
+        # make/load predictions
+        pred_out = os.path.join(output_path,re.sub('run-\d{2}',folder,os.path.split(hemi_file[0])[-1])).replace('.func.gii','_predictions.npy')
 
-            if not os.path.exists(pred_out): # if file doesn't exist
+        if not os.path.exists(pred_out): # if file doesn't exist
 
-                print('making predictions for %s' %pred_out) #create it
-                FN.make_predictions(out_file=pred_out)
-                
-            else:
-                print('loading predictions %s' %pred_out)
-                FN.load_grid_predictions(prediction_file=pred_out)
+            print('making predictions for %s' %pred_out) #create it
+            FN.make_predictions(out_file=pred_out)
 
-            FN.grid_fit() # do grid fit
+        else:
+            print('loading predictions %s' %pred_out)
+            FN.load_grid_predictions(prediction_file=pred_out)
 
-            # save outputs
-            rsq_output = FN.gridsearch_r2
-            params_output = FN.gridsearch_params.T
+        FN.grid_fit() # do grid fit
 
-            #in estimates file
-            estimates_out = pred_out.replace('_predictions.npy','_estimates.npz')
-            np.savez(estimates_out, 
-                     x=params_output[...,0],
-                     y=params_output[...,1],
-                     size=params_output[...,2],
-                     baseline=params_output[...,3],
-                     betas=params_output[...,4],
-                     r2=rsq_output)
+        # save outputs
+        rsq_output = FN.gridsearch_r2
+        params_output = FN.gridsearch_params.T
 
-
-            
-    except: 
-        print('skipping run-%s' %run)
-        pass
-
+        #in estimates file
+        estimates_out = pred_out.replace('_predictions.npy','_estimates.npz')
+        np.savez(estimates_out, 
+                 x=params_output[...,0],
+                 y=params_output[...,1],
+                 size=params_output[...,2],
+                 baseline=params_output[...,3],
+                 betas=params_output[...,4],
+                 r2=rsq_output)
 
 
 
