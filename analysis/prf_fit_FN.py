@@ -156,7 +156,7 @@ class FN_fit(object):
             # rsqs = rs**2
             # numpy implementation is slower?
             dm = np.vstack([np.ones_like(self.predictions[:,prediction_num]),self.predictions[:,prediction_num]]).T
-            (intercept, slope), residual, _, _ = sp.linalg.lstsq(dm, self.data.T, check_finite=False) #  , lapack_driver='gelsy')
+            (intercept, slope), residual, _, _ = sp.linalg.lstsq(dm.astype(np.float32), self.data.T, check_finite=False) #  , lapack_driver='gelsy')
 
             if residual.any()==True: #if residual not empty
             
