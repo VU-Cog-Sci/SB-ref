@@ -87,7 +87,7 @@ for t,cond in enumerate(tasks):
             #plot_tSNR(psc_data_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
             
             # smooth it
-            smt_file, smt_pth = smooth_gii(psc_data_pth,outpath,fwhm=5)
+            smt_file, smt_pth = smooth_gii(psc_data_pth,outpath,fwhm=analysis_params['smooth_fwhm'])
             
             #plot_tSNR(smt_pth,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
 
