@@ -145,7 +145,7 @@ for gii_file in med_gii:
     data = np.array(surface.load_surf_data(gii_file))
     
     # intitialize prf analysis
-    prf = PRF_fit(data = data.T,
+    prf = PRF_fit(data = data,
                 fit_model = fit_model, 
                 visual_design = prf_dm, 
                 screen_distance = analysis_params["screen_distance"],
