@@ -39,8 +39,6 @@ else:
 
 # use smoothed data?        
 with_smooth = analysis_params['with_smooth']
-# use PSC data?
-with_psc = analysis_params['with_psc']
 
 if sj == 'median':
     allsubdir = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'],'soma','sub-*/'))
@@ -68,18 +66,17 @@ for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
     # changes depending on data used
     if with_smooth=='True':
         # soma out path
-        soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
+        soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
         # last part of filename to use
-        file_extension = '_sg_conf_smooth5.mgz' if with_psc == 'False' else '_sg_psc_smooth5.mgz'
+        file_extension = '_sg_conf_psc_smooth%d.func.gii'%analysis_params['smooth_fwhm']
     else:
         # soma out path
         soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
         # last part of filename to use
-        file_extension = '_sg_conf.mgz' if with_psc == 'False' else '_sg_psc.mgz'
+        file_extension = '_sg_conf_psc.func.gii'
 
     # list of functional files
     filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
-
     filename.sort()
 
     if not os.path.exists(soma_out): # check if path to save median run exist
