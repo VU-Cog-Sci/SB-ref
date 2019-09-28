@@ -46,8 +46,6 @@ with open(json_dir,'r') as json_file:
     
 # use smoothed data?        
 with_smooth = analysis_params['with_smooth']
-# use PSC data?
-with_psc = analysis_params['with_psc']
 
 
 # define paths and list of files
@@ -64,12 +62,12 @@ elif str(sys.argv[2]) == 'aeneas':
 # changes depending on data used
 if with_smooth=='True':
     # last part of filename to use
-    file_extension = '_sg_smooth5.mgz' if with_psc == 'False' else '_sg_psc_smooth5.mgz'
+    file_extension = '_sg_psc_smooth%d.func.gii'%analysis_params['smooth_fwhm']
     # compute median run, per hemifield
-    median_path = os.path.join(out_dir,'sub-{sj}'.format(sj=sj),'run-median','smooth')
+    median_path = os.path.join(out_dir,'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
 else:
     # last part of filename to use
-    file_extension = '_sg.mgz' if with_psc == 'False' else '_sg_psc.mgz'
+    file_extension = '_sg_psc.func.gii'
     # compute median run, per hemifield
     median_path = os.path.join(out_dir,'sub-{sj}'.format(sj=sj),'run-median')
 
@@ -85,14 +83,13 @@ for field in ['hemi-L','hemi-R']:
     hemi = [h for h in filename if field in h]
     
     #set name for median run (now numpy array)
-    abs_file = os.path.join(median_path,re.sub('run-\d{2}_','run-median_',os.path.split(hemi[0])[-1]))
-    abs_file = re.sub(file_extension,os.path.splitext(file_extension)[0],abs_file)+'.npy'
+    med_file = os.path.join(median_path,re.sub('run-\d{2}_','run-median_',os.path.split(hemi[0])[-1]))
     #if file doesn't exist
-    if not os.path.exists(abs_file): 
-        med_gii.append(median_mgz(hemi,abs_file)) #create it
+    if not os.path.exists(med_file): 
+        med_gii.append(median_gii(hemi,median_path)) #create it
         print('computed %s' %(med_gii))
     else:
-        med_gii.append(abs_file)
+        med_gii.append(med_file)
         print('median file %s already exists, skipping' %(med_gii))
          
         
@@ -145,7 +142,7 @@ elif fit_model == 'css' or fit_model == 'css_sg':
 # load median data and fit each hemisphere at a time
 for gii_file in med_gii: 
     print('loading data from %s' %gii_file)
-    data = np.load(gii_file)#data = np.array(surface.load_surf_data(gii_file))
+    data = np.array(surface.load_surf_data(gii_file))
     
     # intitialize prf analysis
     prf = PRF_fit(data = data.T,
@@ -166,7 +163,7 @@ for gii_file in med_gii:
 
 
     # make/load predictions
-    pred_out = gii_file.replace('.npy','_predictions.npy')
+    pred_out = gii_file.replace('.func.gii','_predictions.npy')
 
     if not os.path.exists(pred_out): # if file doesn't exist
 
@@ -184,7 +181,7 @@ for gii_file in med_gii:
     params_output = prf.gridsearch_params.T
 
     #in estimates file
-    estimates_out = gii_file.replace('.npy','_estimates.npz')
+    estimates_out = gii_file.replace('.func.gii','_estimates.npz')
     np.savez(estimates_out, 
              x=params_output[...,0],
              y=params_output[...,1],
