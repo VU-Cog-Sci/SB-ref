@@ -3,7 +3,8 @@
 import re
 import nibabel as nb
 import numpy as np
-import os
+import os, json
+import glob
 
 import imageio
 from skimage import color
@@ -37,6 +38,9 @@ from nilearn.datasets import fetch_surf_fsaverage
 import nilearn.plotting as ni_plt 
 
 import nipype.interfaces.freesurfer as fs
+
+with open('analysis_params.json','r') as json_file: 
+            analysis_params = json.load(json_file)
 
 
 def median_gii(files,outdir):
@@ -507,7 +511,7 @@ def median_pRFestimates(subdir,with_smooth=True):
     for idx,sub in enumerate(allsubs):
         
         if with_smooth==True: #if data smoothed
-            sub_list.append(os.path.join(subdir,sub,'run-median','smooth'))
+            sub_list.append(os.path.join(subdir,sub,'run-median','smooth%d'%analysis_params['smooth_fwhm']))
         else:
             sub_list.append(os.path.join(subdir,sub,'run-median'))
         
@@ -806,3 +810,108 @@ def highpass_pca_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth)
     print('filtered and PCA confounds saved in %s' %pca_outfile)
 
     return pca_outfile
+
+def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,template='fsaverage',extension='sg_psc.func.gii'):
+    
+    ##################################################
+    #    inputs:
+    #        sj - subject number
+    #        run - run number (can also be median)
+    #        vertex - vertex number for file
+    #        giidir - absolute path to func file
+    #        eventdir - absolute path to event file
+    ##################################################
+    
+    data_both=[]
+    for hemi_label in ['hemi-L','hemi-R']:
+
+        filestring = os.path.join(giidir,'sub-{sj}_ses-*_task-soma_run-{run}_space-{template}_{hemi}_{ext}'.format(sj=str(sj).zfill(2),
+                                                                                            run=str(run).zfill(2),
+                                                                                            template=template,
+                                                                                            hemi=hemi_label,
+                                                                                            ext=extension))
+        absfile = glob.glob(filestring) #absolute filename
+
+        if not absfile: #if list is empty
+            if run=='median':
+
+                # list with absolute files to make median over
+                run_files = [os.path.join(giidir,file) for _,file in enumerate(os.listdir(giidir)) 
+                            if 'sub-{sj}'.format(sj=str(sj).zfill(2)) in file and
+                            '_space-{template}'.format(template=template) in file and
+                            '_{hemi}'.format(hemi=hemi_label) in file and 
+                             '_{ext}'.format(ext=extension) in file]
+                run_files.sort()
+
+                #compute and save median run 
+                filename = median_gii(run_files,giidir) 
+                print('computed %s' %(filename))
+
+                # load surface data from path and append both hemi in array
+                data_both.append(surface.load_surf_data(filename).T)
+                print('loading %s' %filename)
+            else:
+                print('%s doesn\'t exist' %(absfile))
+        else:
+            # load surface data from path and append both hemi in array
+            data_both.append(surface.load_surf_data(absfile[0]).T)
+            print('loading %s' %absfile[0])
+
+    # stack them to get 2D array
+    data_both = np.hstack(data_both)
+
+    #load events
+    # list of stimulus onsets
+    if run == 'median':
+        print('no median event file, making standard times')
+        events_inTR = np.linspace(7.5,132,num=60)
+    else:
+        events = [ev for _,ev in enumerate(os.listdir(eventdir)) if 'sub-'+str(sj).zfill(2) in ev and 'run-'+str(run).zfill(2) in ev and ev.endswith('events.tsv')]
+        events = events[0]
+        print('loading %s'%events)
+
+        events_pd = pd.read_csv(os.path.join(eventdir,events),sep = '\t')
+
+        new_events = []
+        for ev in events_pd.iterrows():
+            row = ev[1]   
+            new_events.append([row['onset'],row['duration'],row['trial_type']])
+
+        df = pd.DataFrame(new_events, columns=['onset','duration','trial_type'])  #make sure only relevant columns present
+
+        # event onsets in TR instead of seconds
+        events_inTR = (np.linspace(df['onset'][0],df['onset'][len(df['onset'])-1],num = len(df['onset'])))/analysis_params['TR']
+
+    # plot the fig
+    fig= plt.figure(num=None, figsize=(15,7.5), dpi=100, facecolor='w', edgecolor='k')
+
+    color = {'face':'r','hand':'b','leg':'g'}
+
+    for idx,name in enumerate(task):
+
+        # timeseries to plot
+        timeseries = data_both[...,vertex[idx]]
+        plt.plot(range(len(timeseries)),timeseries, linestyle='-',c=color[name],label='%s'%task[idx],marker='.')
+
+    counter = 0
+    while counter < len(events_inTR):
+        face_line = np.arange(events_inTR[0+counter],events_inTR[4+counter],0.05)
+        hand_line = np.arange(events_inTR[4+counter],events_inTR[9+counter],0.05)
+        if counter==50:
+            leg_line = np.arange(events_inTR[9+counter],events_inTR[9+counter]+2.25/1.6,0.05)
+        else:
+            leg_line = np.arange(events_inTR[9+counter],events_inTR[10+counter],0.05)
+        plt.plot(face_line,[-5]*len(face_line),marker='s',c='r')
+        plt.plot(hand_line,[-5]*len(hand_line),marker='s',c='b')
+        plt.plot(leg_line,[-5]*len(leg_line),marker='s',c='g')
+        counter += 10
+
+    plt.xlabel('Time (TR)',fontsize=18)
+    plt.ylabel('BOLD signal change (%)',fontsize=18)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.xlim(0,len(timeseries))
+    plt.legend(task, fontsize=10)
+    plt.show()
+    
+    fig.savefig(os.path.join(outdir,'soma_timeseries_sub-{sj}_run-{run}.svg'.format(sj=str(sj).zfill(2),run=str(run).zfill(2))), dpi=100)
