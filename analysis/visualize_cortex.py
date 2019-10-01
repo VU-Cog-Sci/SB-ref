@@ -35,10 +35,10 @@ images = {}
 with_smooth = analysis_params['with_smooth']
 
 if with_smooth=='True':
-    flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps','smooth')
-    soma_path =  os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
+    flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps','smooth%d'%analysis_params['smooth_fwhm'])
+    soma_path =  os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
     # load prf estimates
-    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth')
+    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
 else:
     flatmap_out = os.path.join(analysis_params['cortex_dir'],'sub-{sj}'.format(sj=sj),'flatmaps')
     soma_path =  os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
