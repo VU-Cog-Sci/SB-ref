@@ -91,7 +91,7 @@ for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
     data_both=[]
     for hemi_label in ['hemi-L','hemi-R']:
 
-        filestring = os.path.join(subdir,'sub-{sj}_ses-*_task-soma_run-median_space-fsaverage_{hemi}_{ext}'.format(sj=sj,
+        filestring = os.path.join(subdir,'{sj}_ses-*_task-soma_run-median_space-fsaverage_{hemi}_{ext}'.format(sj=os.path.split(os.path.split(subdir)[0])[1],
                                                                                             hemi=hemi_label,
                                                                                             ext=file_extension))
         absfile = glob.glob(filestring) #absolute filename for median run
