@@ -55,7 +55,6 @@ onsets_allsubs = []
 durations_allsubs = []
     
 for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
-
     print('functional files from %s'%allsubdir[idx])
     print('event files from %s'%alleventdir[idx])
 
@@ -68,12 +67,12 @@ for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
         # soma out path
         soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
         # last part of filename to use
-        file_extension = '_sg_psc_smooth%d.func.gii'%analysis_params['smooth_fwhm']
+        file_extension = 'sg_psc_smooth%d.func.gii'%analysis_params['smooth_fwhm']
     else:
         # soma out path
         soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
         # last part of filename to use
-        file_extension = '_sg_psc.func.gii'
+        file_extension = 'sg_psc.func.gii'
 
     # list of functional files
     filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
@@ -81,37 +80,46 @@ for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
 
     if not os.path.exists(soma_out): # check if path to save median run exist
         os.makedirs(soma_out) 
-
-
+        
     # list of stimulus onsets
     events = [run for run in eventpath if 'soma' in run and run.endswith('events.tsv')]
     events.sort()
 
     TR = analysis_params["TR"]
     
-    #load processed data        
-    all_files = []
-    all_runs = np.arange(1,5) # 4 runs for soma task
+    # load and stack median run for subject
+    data_both=[]
+    for hemi_label in ['hemi-L','hemi-R']:
 
-    for run in all_runs: # for every run (2 hemi per run)
-        run_files = [x for _,x in enumerate(filename) if 'run-'+str(run).zfill(2) in os.path.split(x)[-1]]
+        filestring = os.path.join(subdir,'sub-{sj}_ses-*_task-soma_run-median_space-fsaverage_{hemi}_{ext}'.format(sj=sj,
+                                                                                            hemi=hemi_label,
+                                                                                            ext=file_extension))
+        absfile = glob.glob(filestring) #absolute filename for median run
 
-        if not run_files:
-                print('no files for run-%s' %str(run).zfill(2))
+        if not absfile: #if list is empty (no median run)
+            print('%s doesn\'t exist' %(filestring))
+            # list with absolute files to make median over
+
+            run_files = [os.path.join(subdir,file) for _,file in enumerate(os.listdir(subdir)) 
+                        if 'sub-{sj}'.format(sj=str(sj).zfill(2)) in file and
+                        '_{hemi}'.format(hemi=hemi_label) in file and 
+                         '_{ext}'.format(ext=file_extension) in file]
+            run_files.sort()
+
+            #compute and save median run 
+            file_hemi = median_gii(run_files,subdir) 
+            print('averaged %d runs, computed %s' %(len(run_files),file_hemi))
+
+            # load surface data from path and append both hemi in array
+            data_both.append(surface.load_surf_data(file_hemi).T)
+            print('loading %s' %file_hemi)
         else:
-            data_both = []
-            for _,hemi in enumerate(run_files):
-                data_both.append(surface.load_surf_data(hemi).T) #load surface data
+            # load surface data from path and append both hemi in array
+            data_both.append(surface.load_surf_data(absfile[0]).T)
+            print('loading %s' %absfile[0])
 
-            data_both = np.hstack(data_both) #stack then filter
-
-            all_files.append(data_both)
-
-    # all runs stacked in same array
-    all_files = np.array(all_files)
-    
-    # compute median soma file
-    median_data = np.median(all_files,axis=0)
+    # stack them to get 2D array
+    median_data = np.hstack(data_both)
     
     if idx == 0:
         median_sub = median_data[np.newaxis,:,:]
@@ -145,7 +153,7 @@ for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
     for w in range(len(all_events)):
         onsets.append(all_events[w]['onset'])
         durations.append(all_events[w]['duration'])
-        
+
     onsets_allsubs.append(np.median(np.array(onsets),axis=0)) #append average onset of all runs
     durations_allsubs.append(np.median(np.array(durations),axis=0))
 
