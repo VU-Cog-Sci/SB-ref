@@ -201,7 +201,7 @@ for index,region in enumerate(reg_keys):
 
 z_threshold = analysis_params['z_threshold']
 
-print('Using z-score of %d as threshold for localizer' %z_threshold)
+print('Using z-score of %0.2f as threshold for localizer' %z_threshold)
 
 # compute masked data for R+L hands and for face
 # to be used in more detailed contrasts
