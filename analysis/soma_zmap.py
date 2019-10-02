@@ -68,12 +68,12 @@ for idx,subdir in enumerate(allsubdir): #loop over all subjects in defined list
         # soma out path
         soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
         # last part of filename to use
-        file_extension = '_sg_conf_psc_smooth%d.func.gii'%analysis_params['smooth_fwhm']
+        file_extension = '_sg_psc_smooth%d.func.gii'%analysis_params['smooth_fwhm']
     else:
         # soma out path
         soma_out = os.path.join(analysis_params['soma_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
         # last part of filename to use
-        file_extension = '_sg_conf_psc.func.gii'
+        file_extension = '_sg_psc.func.gii'
 
     # list of functional files
     filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
