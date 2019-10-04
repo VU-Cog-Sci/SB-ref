@@ -196,7 +196,7 @@ for index,region in enumerate(reg_keys):
     z_map = np.array(z_map)
     zmaps_all[str(region)]=z_map
     
-    zscore_file = os.path.join(soma_out,'z_%s_contrast.npy' %region)
+    zscore_file = os.path.join(soma_out,'z_%s_contrast.npy' %(region))
     np.save(zscore_file,z_map)
 
 z_threshold = analysis_params['z_threshold']
@@ -240,7 +240,7 @@ for _,key in enumerate(limbs):
     z_map = np.array(z_map)
     zmaps_all['RL_'+key[0]]=z_map
 
-    zscore_file = os.path.join(soma_out,'z_right-left_'+key[0]+'_contrast.npy')
+    zscore_file = os.path.join(soma_out,'z_right-left_'+key[0]+'_contrast_thresh-%0.2f.npy'%z_threshold)
     np.save(zscore_file,z_map)  
 
 # compare each finger with the others of same hand
@@ -270,7 +270,7 @@ for j,lbl in enumerate(bhand_label):
         z_map = contrast_val.z_score()
         z_map = np.array(z_map)
 
-        zscore_file = os.path.join(soma_out,'z_%s-all_%s_contrast.npy' %(fing,lbl))
+        zscore_file = os.path.join(soma_out,'z_%s-all_%s_contrast_thresh-%0.2f.npy' %(fing,lbl,z_threshold))
         np.save(zscore_file,z_map)
  
 # compare each finger with the others of same hand
@@ -287,7 +287,7 @@ for i,part in enumerate(face):
     z_map = contrast_val.z_score()
     z_map = np.array(z_map)
 
-    zscore_file = os.path.join(soma_out,'z_%s-other_face_areas_contrast.npy' %(part))
+    zscore_file = os.path.join(soma_out,'z_%s-other_face_areas_contrast_thresh-%0.2f.npy' %(part,z_threshold))
     np.save(zscore_file,z_map)        
 
 print('Success!')
