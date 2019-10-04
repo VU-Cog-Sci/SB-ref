@@ -199,8 +199,8 @@ print('Computing center of mass for different regions combined')
 soma_labels, soma_zval = zsc_2_COM(combined_zvals)
 
 ## Right vs left
-RLupper_zscore = np.load(os.path.join(soma_path,'z_right-left_hand_contrast.npy'))
-RLlower_zscore = np.load(os.path.join(soma_path,'z_right-left_leg_contrast.npy'))
+RLupper_zscore = np.load(os.path.join(soma_path,'z_right-left_hand_contrast_thresh-%0.2f.npy'%z_threshold))
+RLlower_zscore = np.load(os.path.join(soma_path,'z_right-left_leg_contrast_thresh-%0.2f.npy'%z_threshold))
 
 # threshold left vs right, to only show relevant vertex
 data_threshed_RLhand=zthresh(RLupper_zscore,side='both')
@@ -215,8 +215,8 @@ print('Loading data for all fingers and appending in list')
 
 for i in range(len(analysis_params['all_contrasts']['upper_limb'])//2):
     
-    Ldata = np.load(os.path.join(soma_path,'z_%s-all_lhand_contrast.npy' %(analysis_params['all_contrasts']['upper_limb'][i])))
-    Rdata = np.load(os.path.join(soma_path,'z_%s-all_rhand_contrast.npy' %(analysis_params['all_contrasts']['upper_limb'][i+5])))
+    Ldata = np.load(os.path.join(soma_path,'z_%s-all_lhand_contrast_thresh-%0.2f.npy' %(analysis_params['all_contrasts']['upper_limb'][i],z_threshold)))
+    Rdata = np.load(os.path.join(soma_path,'z_%s-all_rhand_contrast_thresh-%0.2f.npy' %(analysis_params['all_contrasts']['upper_limb'][i+5],z_threshold)))
    
     LHfing_zscore.append(Ldata)  
     RHfing_zscore.append(Rdata)
@@ -239,7 +239,7 @@ print('Loading data for each face part and appending in list')
 
 for _,name in enumerate(analysis_params['all_contrasts']['face']):
     
-    facedata = np.load(os.path.join(soma_path,'z_%s-other_face_areas_contrast.npy' %(name)))   
+    facedata = np.load(os.path.join(soma_path,'z_%s-other_face_areas_contrast_thresh-%0.2f.npy' %(name,z_threshold)))   
     allface_zscore.append(facedata)  
 
 allface_zscore = np.array(allface_zscore)
@@ -325,12 +325,12 @@ images['v_combined_alpha'] = cortex.Vertex2D(soma_labels.T, soma_zval.T, 'fsaver
 
 # vertex for right vs left hand
 images['rl_upper'] = cortex.Vertex(data_threshed_RLhand.T, 'fsaverage',
-                           vmin=-5, vmax=5,
+                           vmin=-3, vmax=3,
                            cmap=blue_red)
 
 # vertex for right vs left leg
 images['rl_lower'] = cortex.Vertex(data_threshed_RLleg.T, 'fsaverage',
-                           vmin=-5, vmax=5,
+                           vmin=-3, vmax=3,
                            cmap=blue_red)
 
 # all fingers left hand combined ONLY in left hand region 
@@ -461,22 +461,32 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_facecombined_mycm'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
-hand_colors = [ (0.19607843, 0.80392157, 0.19607843), #limegreen
-          (0.        , 0.39215686, 0.),#darkgreen 
-          (0.09803922, 0.09803922, 0.43921569), # midnightblue
-          (0.2745098 , 0.50980392, 0.70588235), # steelblue
-           (0.52941176, 0.80784314, 0.92156863)]#skyblue
+blue_colors = [ (0.09803922, 0.09803922, 0.43921569), # midnightblue #(0., 0.37254902, 0.5372549), # darkish blue color #005f89
+          (0.        , 0.57647059, 0.71764706),# color #0093b7
+          (0.56862745, 0.69411765, 0.72941176), #(0.62745098, 0.77254902, 0.81176471), # color #a0c5cf
+          (0.90196078, 0.9254902 , 0.92156863), # color #e6eceb
+           (0.40784314, 0.90196078, 0.90980392)] #(0.38823529, 0.80392157, 0.84313725)]# color #63cdd7
+
 n_bins = 100  # Discretizes the interpolation into bins
-my_handcm = LinearSegmentedColormap.from_list('my_handcm', hand_colors, N=n_bins)
+my_bluecm = LinearSegmentedColormap.from_list('my_bluecm', blue_colors, N=n_bins)
 
 images['v_Rfingers_mycm'] = cortex.Vertex(RH_COM.T, 'fsaverage',
                            vmin=0, vmax=4,
-                           cmap= my_handcm)#'ocean')#costum colormap added to database
+                           cmap= blue_colors)#'ocean')#costum colormap added to database
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_mycm.png' %z_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_Rfingers_mycm'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
+
+images['v_Lfingers_mycm'] = cortex.Vertex(LH_COM.T, 'fsaverage',
+                           vmin=0, vmax=4,
+                           cmap= blue_colors)#'ocean')#costum colormap added to database
+
+# Save this flatmap
+filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_mycm.png' %z_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Lfingers_mycm'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
 # plot only positive z-scores for feet
