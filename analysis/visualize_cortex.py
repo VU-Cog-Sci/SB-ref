@@ -472,16 +472,25 @@ my_bluecm = LinearSegmentedColormap.from_list('my_bluecm', blue_colors, N=n_bins
 
 images['v_Rfingers_mycm'] = cortex.Vertex(RH_COM.T, 'fsaverage',
                            vmin=0, vmax=4,
-                           cmap= blue_colors)#'ocean')#costum colormap added to database
+                           cmap= my_bluecm)#'ocean')#costum colormap added to database
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-RHfing_mycm.png' %z_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_Rfingers_mycm'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
 
+green_colors = [ (0.14901961, 0.2627451 , 0.00392157), # dark green color #264301
+          (0.36078431, 0.54117647, 0.01176471),# color #5c8a03
+          (0.50980392, 0.69803922, 0.11764706), # color #82b21e
+          (0.83921569, 0.96078431, 0.55686275), # color #d6f58e
+           (0.82745098, 0.89019608, 0.71372549)]# color #d3e3b6
+
+n_bins = 100  # Discretizes the interpolation into bins
+my_greencm = LinearSegmentedColormap.from_list('my_greencm', green_colors, N=n_bins)
+
 images['v_Lfingers_mycm'] = cortex.Vertex(LH_COM.T, 'fsaverage',
                            vmin=0, vmax=4,
-                           cmap= blue_colors)#'ocean')#costum colormap added to database
+                           cmap= my_greencm)#'ocean')#costum colormap added to database
 
 # Save this flatmap
 filename = os.path.join(flatmap_out,'flatmap_space-fsaverage_zthresh-%0.2f_type-LHfing_mycm.png' %z_threshold)
@@ -493,7 +502,7 @@ _ = cortex.quickflat.make_png(filename, images['v_Lfingers_mycm'], recache=True,
 pos_lower = data_threshed_lower.copy()
 pos_lower[pos_lower<0] = np.nan
 
-feet_colors = [ (0.85490196, 0.64705882, 0.1254902),(0.85490196, 0.64705882, 0.1254902)]#goldenrod
+feet_colors = [ (0.56470588, 0.4, 0.72941176),(0.56470588, 0.4, 0.72941176)]#purple
 my_feetcm = LinearSegmentedColormap.from_list('my_feetcm', feet_colors)#, N=n_bins)
 
 # vertex for lower limb vs all others
