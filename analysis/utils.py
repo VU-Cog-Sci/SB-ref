@@ -811,7 +811,7 @@ def highpass_pca_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth)
 
     return pca_outfile
 
-def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,template='fsaverage',extension='sg_psc.func.gii'):
+def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['#ad2f42','#59a89f','#9066ba'],template='fsaverage',extension='sg_psc.func.gii'):
     
     ##################################################
     #    inputs:
@@ -885,7 +885,7 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,template='fsa
     # plot the fig
     fig= plt.figure(num=None, figsize=(15,7.5), dpi=100, facecolor='w', edgecolor='k')
 
-    color = {'face':'r','hand':'b','leg':'g'}
+    color = {'face':plotcolors[0],'hand':plotcolors[1],'leg':plotcolors[2]}
 
     for idx,name in enumerate(task):
 
@@ -901,9 +901,9 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,template='fsa
             leg_line = np.arange(events_inTR[9+counter],events_inTR[9+counter]+2.25/1.6,0.05)
         else:
             leg_line = np.arange(events_inTR[9+counter],events_inTR[10+counter],0.05)
-        plt.plot(face_line,[-5]*len(face_line),marker='s',c='r')
-        plt.plot(hand_line,[-5]*len(hand_line),marker='s',c='b')
-        plt.plot(leg_line,[-5]*len(leg_line),marker='s',c='g')
+        plt.plot(face_line,[-5]*len(face_line),marker='s',c=color['face'])
+        plt.plot(hand_line,[-5]*len(hand_line),marker='s',c=color['hand'])
+        plt.plot(leg_line,[-5]*len(leg_line),marker='s',c=color['leg'])
         counter += 10
 
     plt.xlabel('Time (TR)',fontsize=18)
