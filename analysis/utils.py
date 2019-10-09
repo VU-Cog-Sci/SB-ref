@@ -21,7 +21,7 @@ from sklearn.decomposition import PCA
 
 from PIL import Image
 
-from scipy.misc import imsave
+#from scipy.misc import imsave
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
@@ -378,7 +378,7 @@ def create_my_colormaps(mapname='mycolormap_HSV_alpha.png'):
     #plt.imshow(rgba)
     hsv_fn = os.path.join(os.path.split(cortex.database.default_filestore)[
                           0], 'colormaps', mapname)
-    imsave(hsv_fn, rgba)
+    imageio.imwrite(hsv_fn, rgba)
         
 
 def clean_confounds(gii_file,confounds,outpth):
