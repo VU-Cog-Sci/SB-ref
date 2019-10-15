@@ -7,21 +7,21 @@ import os, json
 import glob
 
 import imageio
-# from skimage import color
-# import cv2
-# from skimage.transform import rescale
-# from skimage.filters import threshold_triangle
+from skimage import color
+import cv2
+from skimage.transform import rescale
+from skimage.filters import threshold_triangle
 
 from nilearn import surface
 from scipy.signal import savgol_filter
 
 import pandas as pd
-# from spynoza.filtering.nodes import savgol_filter_confounds
+from spynoza.filtering.nodes import savgol_filter_confounds
 from sklearn.decomposition import PCA
 
 from PIL import Image
 
-#from scipy.misc import imsave
+from scipy.misc import imsave
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
@@ -72,7 +72,7 @@ def median_gii(files,outdir):
     return median_file
 
 
-def screenshot2DM(filenames,scale,screen,outfile):
+def screenshot2DM(filenames,scale,screen,outfile,dm_shape = 'rectangle'):
 
     ##################################################
     #    inputs:
@@ -83,12 +83,20 @@ def screenshot2DM(filenames,scale,screen,outfile):
     #    outputs:
     #        DM - absolute output design matrix filename
     ##################################################
+    
+    if dm_shape == 'square': # make square dm, using max screen dim
+        x_dim = max(screen)
+        y_dim = max(screen)
+        
+    else:
+        x_dim = int(screen[1])
+        y_dim = int(screen[0])
 
-    im_gr_resc = np.zeros((len(filenames),int(screen[1]*scale),int(screen[0]*scale)))
+    im_gr_resc = np.zeros((len(filenames),int(x_dim*scale),int(y_dim*scale)))
 
     for i, png in enumerate(filenames): #rescaled and grayscaled images
         image = Image.open(png).convert('RGB')
-        image = image.resize((screen[0],screen[1]), Image.ANTIALIAS)
+        image = image.resize((y_dim,x_dim), Image.ANTIALIAS)
 
         im_gr_resc[i,:,:] = rescale(color.rgb2gray(np.asarray(image)), scale)
 
