@@ -176,12 +176,15 @@ for gii_file in med_gii:
 
     prf.grid_fit() # do grid fit
 
+    prf.iterative_fit() # do iterative fit
+
     # save outputs
     rsq_output = prf.gridsearch_r2
     params_output = prf.gridsearch_params.T
 
     #in estimates file
     estimates_out = gii_file.replace('.func.gii','_estimates.npz')
+
     np.savez(estimates_out, 
              x=params_output[...,0],
              y=params_output[...,1],
@@ -189,3 +192,9 @@ for gii_file in med_gii:
              baseline=params_output[...,3],
              betas=params_output[...,4],
              r2=rsq_output)
+
+    iterative_out = gii_file.replace('.func.gii','_iterative_output.npz')
+    np.savez(iterative_out, 
+             fit_output=prf.fit_output)
+
+
