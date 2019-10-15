@@ -26,59 +26,59 @@ from tqdm import tqdm
 
 
 class CompressiveSpatialSummationModel(PopulationModel):
-    
+
     r"""
-    A Compressive Spatial Summation population receptive field model class    
+    A Compressive Spatial Summation population receptive field model class
     """
-    
+
     def __init__(self, stimulus, hrf_model, cached_model_path=None, nuisance=None):
-                
+
         PopulationModel.__init__(self, stimulus, hrf_model, nuisance)
 
     # main method for deriving model time-series
     def generate_prediction(self, x, y, sigma, n, beta, baseline):
-        
+
         # generate the RF
         rf = generate_og_receptive_field(
             x, y, sigma, self.stimulus.deg_x, self.stimulus.deg_y)
-        
+
         # normalize by the integral
         rf /= ((2 * np.pi * sigma**2) * 1 /
                np.diff(self.stimulus.deg_x[0, 0:2])**2)
-        
+
         # extract the stimulus time-series
         response = generate_rf_timeseries_nomask(self.stimulus.stim_arr, rf)
-        
+
         # compression
         response **= n
-        
+
         # convolve with the HRF
         hrf = self.hrf_model(self.hrf_delay, self.stimulus.tr_length)
-        
+
         # convolve it with the stimulus
         model = fftconvolve(response, hrf)[0:len(response)]
-        
+
         # units
         model /= np.max(model)
-        
+
         # offset
         model += baseline
-        
+
         # scale it by beta
         model *= beta
 
         return model
 
 class CompressiveSpatialSummationModelFiltered(PopulationModel):
-    
+
     r"""
     A Compressive Spatial Summation population receptive field model class
     Adapted to include a savgol_filter
-    
+
     """
-    
+
     def __init__(self, stimulus, hrf_model, cached_model_path=None, nuisance=None, sg_filter_window_length=120, sg_filter_polyorder=3, sg_filter_deriv = 0, tr=1.5):
-                
+
         PopulationModel.__init__(self, stimulus, hrf_model, nuisance)
 
         # sg filter
@@ -90,103 +90,103 @@ class CompressiveSpatialSummationModelFiltered(PopulationModel):
 
     # main method for deriving model time-series
     def generate_prediction(self, x, y, sigma, n, beta, baseline):
-        
+
         # generate the RF
         rf = generate_og_receptive_field(
             x, y, sigma, self.stimulus.deg_x, self.stimulus.deg_y)
-        
+
         # normalize by the integral
         rf /= ((2 * np.pi * sigma**2) * 1 /
                np.diff(self.stimulus.deg_x[0, 0:2])**2)
-        
+
         # extract the stimulus time-series
         response = generate_rf_timeseries_nomask(self.stimulus.stim_arr, rf)
-        
+
         # compression
         response **= n
-        
+
         # convolve with the HRF
         hrf = self.hrf_model(self.hrf_delay, self.stimulus.tr_length)
-        
+
         # convolve it with the stimulus
         model = fftconvolve(response, hrf)[0:len(response)]
-        
+
         # units
         model /= np.max(model)
-        
+
         # at this point, add filtering with a savitzky-golay filter
-        model_drift = savgol_filter(model, 
-                                    window_length = self.sg_filter_window, 
+        model_drift = savgol_filter(model,
+                                    window_length = self.sg_filter_window,
                                     polyorder = self.sg_filter_polyorder,
-                                    deriv = self.sg_filter_deriv, 
+                                    deriv = self.sg_filter_deriv,
                                     mode = 'nearest')
-        
+
         # demain model_drift, so baseline parameter is still interpretable
         model_drift_demeaned = model_drift-np.mean(model_drift)
-        
+
         # and apply to data
-        model -= model_drift_demeaned    
-        
+        model -= model_drift_demeaned
+
         # offset
         model += baseline
-        
+
         # scale it by beta
         model *= beta
 
         return model
-    
+
 class GaussianModel(PopulationModel):
-    
+
     r"""
     A Gaussian Spatial Summation population receptive field model class
-    
+
     """
-    
+
     def __init__(self, stimulus, hrf_model, cached_model_path=None, nuisance=None):
-                
+
         PopulationModel.__init__(self, stimulus, hrf_model, nuisance)
 
     # main method for deriving model time-series
     def generate_prediction(self, x, y, sigma, beta, baseline):
-        
+
         # generate the RF
         rf = generate_og_receptive_field(
             x, y, sigma, self.stimulus.deg_x, self.stimulus.deg_y)
-        
+
         # normalize by the integral
         rf /= ((2 * np.pi * sigma**2) * 1 /
                np.diff(self.stimulus.deg_x[0, 0:2])**2)
-        
+
         # extract the stimulus time-series
         response = generate_rf_timeseries_nomask(self.stimulus.stim_arr, rf)
-                
+
         # convolve with the HRF
         hrf = self.hrf_model(self.hrf_delay, self.stimulus.tr_length)
-        
+
         # convolve it with the stimulus
         model = fftconvolve(response, hrf)[0:len(response)]
-        
+
         # units
         model /= np.max(model)
-        
+
         # offset
         model += baseline
-        
+
         # scale it by beta
         model *= beta
 
         return model
-    
+
 class GaussianModelFiltered(PopulationModel):
-    
+
     r"""
     A Gaussian Spatial Summation population receptive field model class
     Adapted to include a savgol_filter
-    
+
     """
-    
+
     def __init__(self, stimulus, hrf_model, cached_model_path=None, nuisance=None, sg_filter_window_length=120, sg_filter_polyorder=3, sg_filter_deriv = 0, tr=1.5):
-                
+
         PopulationModel.__init__(self, stimulus, hrf_model, nuisance)
 
         # sg filter
@@ -198,43 +198,43 @@ class GaussianModelFiltered(PopulationModel):
 
     # main method for deriving model time-series
     def generate_prediction(self, x, y, sigma, beta, baseline):
-        
+
         # generate the RF
         rf = generate_og_receptive_field(
             x, y, sigma, self.stimulus.deg_x, self.stimulus.deg_y)
-        
+
         # normalize by the integral
         rf /= ((2 * np.pi * sigma**2) * 1 /
                np.diff(self.stimulus.deg_x[0, 0:2])**2)
-        
+
         # extract the stimulus time-series
         response = generate_rf_timeseries_nomask(self.stimulus.stim_arr, rf)
-                
+
         # convolve with the HRF
         hrf = self.hrf_model(self.hrf_delay, self.stimulus.tr_length)
-        
+
         # convolve it with the stimulus
         model = fftconvolve(response, hrf)[0:len(response)]
-        
+
         # units
         model /= np.max(model)
-        
+
         # at this point, add filtering with a savitzky-golay filter
-        model_drift = savgol_filter(model, 
-                                    window_length = self.sg_filter_window, 
+        model_drift = savgol_filter(model,
+                                    window_length = self.sg_filter_window,
                                     polyorder = self.sg_filter_polyorder,
-                                    deriv = self.sg_filter_deriv, 
+                                    deriv = self.sg_filter_deriv,
                                     mode = 'nearest')
-        
+
         # demain model_drift, so baseline parameter is still interpretable
         model_drift_demeaned = model_drift-np.mean(model_drift)
-        
+
         # and apply to data
-        model -= model_drift_demeaned    
-        
+        model -= model_drift_demeaned
+
         # offset
         model += baseline
-        
+
         # scale it by beta
         model *= beta
 
@@ -250,8 +250,8 @@ def fit_gradient_descent(model, data, ballpark, bounds, verbose=0):
                                          verbose)[0]
 
 class PRF_fit(object):
-    
-    def __init__(self, data, fit_model, visual_design, screen_distance, screen_width, 
+
+    def __init__(self, data, fit_model, visual_design, screen_distance, screen_width,
                  scale_factor, tr, bound_grids, grid_steps, bound_fits, n_jobs,
                  sg_filter_window_length=210, sg_filter_polyorder=3, sg_filter_deriv=0):
 
@@ -263,7 +263,7 @@ class PRF_fit(object):
         self.n_timepoints = self.data.shape[1]
 
         self.stimulus = VisualStimulus( stim_arr = visual_design,
-                                        viewing_distance = screen_distance, 
+                                        viewing_distance = screen_distance,
                                         screen_width = screen_width,
                                         scale_factor = scale_factor,
                                         tr_length = tr,
@@ -273,12 +273,12 @@ class PRF_fit(object):
             "Data and design matrix do not have the same nr of timepoints, %i vs %i!"%(self.n_timepoints, self.stimulus.run_length)
 
         if fit_model == 'gauss':
-            self.model_func = GaussianModel(stimulus = self.stimulus, 
-                                                    hrf_model = utils.spm_hrf)    
+            self.model_func = GaussianModel(stimulus = self.stimulus,
+                                                    hrf_model = utils.spm_hrf)
         elif fit_model == 'gauss_sg':
             self.model_func = GaussianModelFiltered(stimulus = self.stimulus,
                                             hrf_model = utils.spm_hrf,
-                                            sg_filter_window_length = sg_filter_window_length, 
+                                            sg_filter_window_length = sg_filter_window_length,
                                             sg_filter_polyorder = sg_filter_polyorder,
                                             sg_filter_deriv = sg_filter_deriv,
                                             tr = tr)
@@ -289,35 +289,35 @@ class PRF_fit(object):
         elif fit_model == 'css_sg':
             self.model_func = CompressiveSpatialSummationModelFiltered( stimulus = self.stimulus,
                                                                     hrf_model = utils.spm_hrf,
-                                                                    sg_filter_window_length = sg_filter_window_length, 
+                                                                    sg_filter_window_length = sg_filter_window_length,
                                                                     sg_filter_polyorder = sg_filter_polyorder,
                                                                     sg_filter_deriv = sg_filter_deriv,
                                                                     tr = tr)
         self.model_func.hrf_delay = 0
-        self.predictions = None      
+        self.predictions = None
         self.fit_model =  fit_model
         self.bound_grids = bound_grids
         self.grid_steps = grid_steps
         self.bound_fits = bound_fits
         self.n_jobs = n_jobs
-        
+
     def make_grid(self):
         prf_xs = np.linspace(self.bound_grids[0][0],self.bound_grids[0][1],self.grid_steps)
         prf_ys = np.linspace(self.bound_grids[1][0],self.bound_grids[1][1],self.grid_steps)
         prf_sigma = np.linspace(self.bound_grids[2][0],self.bound_grids[2][1],self.grid_steps)
-        
+
         if self.fit_model == 'gauss' or self.fit_model == 'gauss_sg':
             self.prf_xs, self.prf_ys, self.prf_sigma = np.meshgrid(prf_xs, prf_ys, prf_sigma)
         elif self.fit_model == 'css' or self.fit_model == 'css_sg':
             prf_n = np.linspace(self.bound_grids[3][0],self.bound_grids[3][1],self.grid_steps)
             self.prf_xs, self.prf_ys, self.prf_sigma, self.prf_n = np.meshgrid(prf_xs, prf_ys, prf_sigma, prf_n)
-    
+
     def make_predictions(self, out_file=None):
         if not hasattr(self, 'prf_xs'):
             self.make_grid()
         self.predictions = np.zeros(list(self.prf_xs.shape) + [self.stimulus.run_length])
         self.predictions = self.predictions.reshape(-1, self.predictions.shape[-1]).T
-        
+
         if self.fit_model == 'gauss' or self.fit_model == 'gauss_sg':
             for i, (x, y, s) in tqdm(enumerate(zip(self.prf_xs.ravel(), self.prf_ys.ravel(), self.prf_sigma.ravel()))):
                 self.predictions[:, i] = self.model_func.generate_prediction(x, y, s, 1, 0)
@@ -333,7 +333,7 @@ class PRF_fit(object):
         self.predictions = np.load(prediction_file)
 
     def grid_fit(self):
-        
+
         if self.fit_model == 'gauss' or self.fit_model == 'gauss_sg':
             prediction_params = np.ones((self.n_units, 6))*np.nan
         elif self.fit_model == 'css' or self.fit_model == 'css_sg':
@@ -376,27 +376,38 @@ class PRF_fit(object):
                                                     self.best_fitting_beta_thus_far,
                                                     self.best_fitting_baseline_thus_far
                                                 ])
-                
-    def iterative_fit(self):
+
+    def iterative_fit(self, iterative_fit_rsq_threshold=0.5):
         if self.gridsearch_params is None:
             raise Exception('First use self.fit_grid!')
-        
-        prf_params = Parallel(self.n_jobs,verbose = 10)(delayed(fit_gradient_descent)(self.model_func, data, ballpark, self.bound_fits)
-                                       for (data,ballpark) in zip(self.data, self.gridsearch_params))
+
+        above_threshold_rsq = self.gridsearch_r2 > iterative_fit_rsq_threshold
+        print(f'iterative fitting for {above_threshold_rsq.sum()}')
+        prf_params = Parallel(self.n_jobs, verbose=10)(delayed(fit_gradient_descent)(self.model_func, data, ballpark, self.bound_fits)
+                                       for (data,ballpark) in zip(self.data[above_threshold_rsq], self.gridsearch_params[:,above_threshold_rsq].T))
+
+        # prf_params = []
+        # for (data,ballpark) in tqdm(zip(self.data[above_threshold_rsq], self.gridsearch_params[:,above_threshold_rsq].T)):
+        #     prf_params.append(fit_gradient_descent(self.model_func, data, ballpark, self.bound_fits))
+
         prf_params = np.vstack(prf_params)
+
         if self.fit_model == 'gauss' or self.fit_model == 'gauss_sg':
             output = np.ones((self.n_units,6))*nan
         elif self.fit_model == 'css' or self.fit_model == 'css_sg':
             output = np.ones((self.n_units,7))*nan
-            
+
+        vox_counter = 0
         for vox in range(0,self.n_units):
-            data_tc = self.data[:,vox]
-            if self.fit_model == 'gauss' or self.fit_model == 'gauss_sg':
-                model_tc = self.model_func.generate_prediction(prf_params[vox,0],prf_params[vox,1],prf_params[vox,2],prf_params[vox,3],prf_params[vox,4])
-            elif self.fit_model == 'css' or self.fit_model == 'css_sg':
-                model_tc = self.model_func.generate_prediction(prf_params[vox,0],prf_params[vox,1],prf_params[vox,2],prf_params[vox,3],prf_params[vox,4],prf_params[vox,5])
-                
-            output[vox,:] = np.hstack([prf_params[vox,:], utils.coeff_of_determination(data_tc,model_tc)/100.0])
-        
+            if vox in np.arange(output.shape[0])[above_threshold_rsq]:
+                data_tc = self.data[vox]
+                if self.fit_model == 'gauss' or self.fit_model == 'gauss_sg':
+                    model_tc = self.model_func.generate_prediction(prf_params[vox_counter,0],prf_params[vox_counter,1],prf_params[vox_counter,2],prf_params[vox_counter,3],prf_params[vox_counter,4])
+                elif self.fit_model == 'css' or self.fit_model == 'css_sg':
+                    model_tc = self.model_func.generate_prediction(prf_params[vox_counter,0],prf_params[vox_counter,1],prf_params[vox_counter,2],prf_params[vox_counter,3],prf_params[vox_counter,4],prf_params[vox_counter,5])
+
+                output[vox,:] = np.hstack([prf_params[vox_counter,:], (1 - np.var((data_tc - model_tc))) / np.var(data_tc)])
+                vox_counter += 1
+
         self.fit_output = output
         return output

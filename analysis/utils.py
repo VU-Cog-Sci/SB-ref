@@ -7,16 +7,16 @@ import os, json
 import glob
 
 import imageio
-from skimage import color
-import cv2
-from skimage.transform import rescale
-from skimage.filters import threshold_triangle
+# from skimage import color
+# import cv2
+# from skimage.transform import rescale
+# from skimage.filters import threshold_triangle
 
 from nilearn import surface
 from scipy.signal import savgol_filter
 
 import pandas as pd
-from spynoza.filtering.nodes import savgol_filter_confounds
+# from spynoza.filtering.nodes import savgol_filter_confounds
 from sklearn.decomposition import PCA
 
 from PIL import Image
@@ -35,16 +35,16 @@ from scipy import signal
 import time
 
 from nilearn.datasets import fetch_surf_fsaverage
-import nilearn.plotting as ni_plt 
+import nilearn.plotting as ni_plt
 
 import nipype.interfaces.freesurfer as fs
 
-with open('analysis_params.json','r') as json_file: 
+with open('analysis_params.json','r') as json_file:
             analysis_params = json.load(json_file)
 
 
 def median_gii(files,outdir):
-    
+
     ##################################################
     #    inputs:
     #        files - list of absolute filenames to do median over
@@ -52,15 +52,15 @@ def median_gii(files,outdir):
     #    outputs:
     #        median_file - absolute output filename
     ##################################################
-    
-    
+
+
     img = []
     for i,filename in enumerate(files):
         img_load = nb.load(filename)
         img.append([x.data for x in img_load.darrays]) #(runs,TRs,vertices)
-    
+
     median_img = np.median(img,axis=0)
-    
+
     darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in median_img]
     median_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
                                            extra=img_load.extra,
@@ -73,7 +73,7 @@ def median_gii(files,outdir):
 
 
 def screenshot2DM(filenames,scale,screen,outfile):
-    
+
     ##################################################
     #    inputs:
     #        filenames - list of absolute filenames of pngs
@@ -83,22 +83,22 @@ def screenshot2DM(filenames,scale,screen,outfile):
     #    outputs:
     #        DM - absolute output design matrix filename
     ##################################################
-        
+
     im_gr_resc = np.zeros((len(filenames),int(screen[1]*scale),int(screen[0]*scale)))
-    
+
     for i, png in enumerate(filenames): #rescaled and grayscaled images
         image = Image.open(png).convert('RGB')
-        image = image.resize((screen[0],screen[1]), Image.ANTIALIAS) 
-        
+        image = image.resize((screen[0],screen[1]), Image.ANTIALIAS)
+
         im_gr_resc[i,:,:] = rescale(color.rgb2gray(np.asarray(image)), scale)
-    
+
     img_bin = np.zeros(im_gr_resc.shape) #binary image, according to triangle threshold
     for i in range(len(im_gr_resc)):
         img_bin[i,:,:] = cv2.threshold(im_gr_resc[i,:,:],threshold_triangle(im_gr_resc[i,:,:]),255,cv2.THRESH_BINARY_INV)[1]
-    
+
     # save as numpy array
     np.save(outfile, img_bin.astype(np.uint8))
-    
+
 
 def highpass_gii(filename,polyorder,deriv,window,outpth):
 
@@ -113,21 +113,21 @@ def highpass_gii(filename,polyorder,deriv,window,outpth):
     #        filename_sg - np array with filtered run
     #        filepath_sg - filename
     ##################################################
-    
+
     filename_sg = []
     filepath_sg = []
-    
+
     if not os.path.isfile(filename): # check if file exists
             print('no file found called %s' %filename)
     else:
-    
+
         # load with nibabel instead to save outputs always as gii
         gii_in = nb.load(filename)
         data_in = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))]) #load surface data
 
         print('filtering run %s' %filename)
         data_in_filt = savgol_filter(data_in, window, polyorder, axis=0,deriv=deriv,mode='nearest')
-        data_out = data_in - data_in_filt + data_in_filt.mean(axis=0) # add mean image back to avoid distribution around 0 
+        data_out = data_in - data_in_filt + data_in_filt.mean(axis=0) # add mean image back to avoid distribution around 0
 
         darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_out]
         gii_out = nb.gifti.gifti.GiftiImage(header=gii_in.header, extra=gii_in.extra, darrays=darrays)
@@ -138,13 +138,13 @@ def highpass_gii(filename,polyorder,deriv,window,outpth):
 
         filename_sg = data_out
         filepath_sg = output
-        
+
     return np.array(filename_sg),filepath_sg
-    
-    
+
+
 
 def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
-    
+
 
     all_confs = []
     filt_conf_dir = []
@@ -158,31 +158,31 @@ def highpass_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
         confs = confs[nuisances]
 
         #choose the minimum number of principal components such that at least 95% of the variance is retained.
-        #pca = PCA(0.95,whiten=True) 
-        pca = PCA(n_components=2,whiten=True) #had to chose 2 because above formula messes up len of regressors 
+        #pca = PCA(0.95,whiten=True)
+        pca = PCA(n_components=2,whiten=True) #had to chose 2 because above formula messes up len of regressors
         pca_confs = pca.fit_transform(np.nan_to_num(confs))
         print('%d components selected for run' %pca.n_components_)
 
-        # make list of dataframes 
+        # make list of dataframes
         all_confs.append(pd.DataFrame(pca_confs, columns=['comp_{n}'.format(n=n) for n in range(pca.n_components_)]))
 
         # move file to median directory
         outfile = os.path.join(outpth,os.path.basename(confounds_SG))
         print('filtered confounds saved in %s' %outfile)
 
-        filt_conf_dir.append(outfile)                      
+        filt_conf_dir.append(outfile)
         os.rename(confounds_SG, outfile)
 
     return filt_conf_dir
 
-  
+
 def zthresh(zfile_in,threshold=0,side='above'):
 
 ##################################################
 #    inputs:
 #        zfile_in - array with z scores
 #        threshold - value to threshold the zscores
-#        side - 'above'/'below'/'both', indicating if output values will be 
+#        side - 'above'/'below'/'both', indicating if output values will be
 #               above mean (positive zscores), below mean (negative zscores) or both
 #    outputs:
 #        zfile_out - array with threshed z scores
@@ -203,43 +203,43 @@ def zthresh(zfile_in,threshold=0,side='above'):
 
     zfile_out = data_threshed
 
-    return zfile_out  
+    return zfile_out
 
 
 def winner_takes_all(zfiles,labels,threshold=0,side='above'):
-    
+
     ##################################################
     #    inputs:
     #        zfiles - numpy array of zfiles for each condition
     #        labels - dictionary of labels to give to each condition
     #        threshold - value to threshold the zscores
-    #        side - 'above'/'below'/'both', indicating if output values will be 
+    #        side - 'above'/'below'/'both', indicating if output values will be
     #               above mean (positive zscores), below mean (negative zscores) or both
     #    outputs:
     #        all_zval - array with threshed z scores
     #        all_labels - array with corresponding labels
     ##################################################
-        
+
     all_labels = np.zeros(zfiles[0].shape)
     all_zval = np.zeros(zfiles[0].shape)
-    
+
     lbl = np.linspace(0,1,num=len(labels), endpoint=True)
-    
+
     for i in range(len(all_labels)):
         if side == 'above': #only save values above mean
-            
+
             zvals = [file[i] for _,file in enumerate(zfiles)] #zscore for each condition in that vertex
             max_zvals = max(zvals) #choose max one
-    
+
             if max_zvals > threshold: #if bigger than thresh
                 all_zval[i] = max_zvals #take max value for position, that will be the label shown
-            
+
                 for j,val in enumerate(lbl):
                     if np.argmax(zvals) == j: #if max zscore index = index of label
                         all_labels[i] = val #give that label
-    
+
     return all_labels, all_zval
-    
+
 
 def mask_data(data,zscores,threshold=0,side='above'):
     ##################################################
@@ -247,25 +247,25 @@ def mask_data(data,zscores,threshold=0,side='above'):
     #        data1 - "original" data array (t,vertex)
     #        zscores - ROI zscore map, used to mask data1 (vertex,)
     #        threshold - value to threshold the zscores
-    #        side - 'above'/'below'/'both', indicating if output values will be 
+    #        side - 'above'/'below'/'both', indicating if output values will be
     #               above mean (positive zscores), below mean (negative zscores) or both
     #    outputs:
-    #        maskdata - data array, masked 
+    #        maskdata - data array, masked
     ##################################################
     maskdata = data.copy()
-    
+
     for pos,vxl in enumerate(zscores):
 
         if side == 'above':
             if vxl < threshold or np.isnan(vxl):
-                maskdata[:,pos]=np.nan 
+                maskdata[:,pos]=np.nan
         elif side == 'below':
             if vxl > -threshold or np.isnan(vxl):
-                maskdata[:,pos]=np.nan 
+                maskdata[:,pos]=np.nan
         elif side == 'both':
             if vxl > -threshold or vxl < threshold or np.isnan(vxl):
-                maskdata[:,pos]=np.nan 
-    
+                maskdata[:,pos]=np.nan
+
     return maskdata
 
 
@@ -275,26 +275,26 @@ def make_contrast(dm_col,tasks,contrast_val=[1],num_cond=1):
     #        dm_col - design matrix columns (all possible task names in list)
     #        tasks - list with list of tasks to give contrast value
     #                if num_cond=1 : [tasks]
-    #                if num_cond=2 : [tasks1,tasks2], contrast will be tasks1 - tasks2 
+    #                if num_cond=2 : [tasks1,tasks2], contrast will be tasks1 - tasks2
     #        contrast_val - list with values for contrast
     #                if num_cond=1 : [value]
-    #                if num_cond=2 : [value1,value2], contrast will be tasks1 - tasks2 
+    #                if num_cond=2 : [value1,value2], contrast will be tasks1 - tasks2
     #        num_cond - if one task vs the rest (1), or if comparing 2 tasks (2)
     #    outputs:
     #        contrast - contrast array
     ##################################################
-    
+
     contrast = np.zeros(len(dm_col))
 
     if num_cond == 1: # if only one contrast value to give ("task vs rest")
-        
+
         for j,name in enumerate(tasks[0]):
             for i in range(len(contrast)):
                 if dm_col[i] == name:
-                    contrast[i] = contrast_val[0]    
-                    
+                    contrast[i] = contrast_val[0]
+
     elif num_cond == 2: # if comparing 2 conditions (task1 - task2)
-        
+
         for k,lbl in enumerate(tasks):
             idx = []
             for i,val in enumerate(lbl):
@@ -306,7 +306,7 @@ def make_contrast(dm_col,tasks,contrast_val=[1],num_cond=1):
                 for i in range(len(dm_col)):
                     if i==idx[j]:
                         contrast[i]=val
-       
+
     print('contrast for %s is %s'%(tasks,contrast))
     return contrast
 
@@ -328,7 +328,7 @@ def leave_one_out_lists(input_list):
 
 
 def zsc_2_COM(zdata):
-    
+
 ##################################################
 #    inputs:
 #        zdata - array with z scores (elements,vertices)
@@ -355,12 +355,12 @@ def zsc_2_COM(zdata):
     center_of_mass = np.array(center_of_mass)
     avg_zval = np.array(avg_zval)
 
-    
+
     return center_of_mass,avg_zval
 
-    
+
 def create_my_colormaps(mapname='mycolormap_HSV_alpha.png'):
-   
+
     hue, alpha = np.meshgrid(np.linspace(
         0.7,0, 80, endpoint=False), 1-np.linspace(0, 1, 80)) #values chosen to make it visible
     print(hue.shape)
@@ -379,10 +379,10 @@ def create_my_colormaps(mapname='mycolormap_HSV_alpha.png'):
     hsv_fn = os.path.join(os.path.split(cortex.database.default_filestore)[
                           0], 'colormaps', mapname)
     imageio.imwrite(hsv_fn, rgba)
-        
+
 
 def clean_confounds(gii_file,confounds,outpth):
-    
+
     ##################################################
     #    inputs:
     #        npdata - absolute filename for gii
@@ -392,10 +392,10 @@ def clean_confounds(gii_file,confounds,outpth):
     #        new_data - np array with all filtered runs appended
     #        new_data_pth - list with absolute filenames
     ##################################################
-    
+
     out_data = []
     out_data_pth = []
-    
+
     if not os.path.isfile(gii_file): # check if file exists
         print('no file found called %s' %gii_file)
     else:
@@ -405,28 +405,28 @@ def clean_confounds(gii_file,confounds,outpth):
         data_in = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))]) #load surface data
 
         confs = pd.read_csv(confounds, sep='\t', na_values='n/a') #load tsv
-        
+
         data_clean = clean(data_in, confounds=confs.values, standardize=False) #clean it
-        
+
         darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_clean]
         new_gii = nb.gifti.gifti.GiftiImage(header=gii_in.header,
                                            extra=gii_in.extra,
                                            darrays=darrays) # need to save as gii again
-        
+
         name = os.path.split(gii_file)[-1].replace('.func.gii','_conf.func.gii')
-        
+
         out_data = np.array(data_clean)
         out_data_pth = os.path.join(outpth,name)
-        
+
         print('saving %s' %out_data_pth)
         nb.save(new_gii,out_data_pth) #save in correct path
-        
-    
+
+
     return out_data,out_data_pth
 
-    
+
 def nparray2mgz(nparray,giifiles,outdir):
-    
+
     ##################################################
     #    inputs:
     #        nparray - list of absolute path for np arrays (all hemi and runs)
@@ -435,19 +435,19 @@ def nparray2mgz(nparray,giifiles,outdir):
     #    outputs:
     #        mgz_files - list of absolute path for files
     ##################################################
-    
+
     # make sure in right order
     nparray.sort()
     giifiles.sort()
     mgz_files = []
-    
+
     for index,file in enumerate(giifiles):
-        
+
         gii_load = nb.load(file) #load original hemi gii file
         nparr = np.load(nparray[index]) # load processed hemi np array
-        
+
         darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in nparr]
-        
+
         # new gii file is the processed numpy array as gii
         new_gii = nb.gifti.gifti.GiftiImage(header=gii_load.header,
                                            extra=gii_load.extra,
@@ -455,17 +455,17 @@ def nparray2mgz(nparray,giifiles,outdir):
         new_gii_pth = os.path.join(outdir,os.path.splitext(os.path.split(nparray[index])[-1])[0]+'.func.gii')
         nb.save(new_gii,new_gii_pth)
         print('saved numpy array as gifti in %s' %(new_gii_pth))
-        
+
         new_mgz = os.path.join(outdir,os.path.splitext(os.path.split(nparray[index])[-1])[0]+'.mgz')
         mgz_files.append(new_mgz)
         print('converting gifti to mgz as %s' %(new_mgz))
         os.system('mri_convert %s %s'%(new_gii_pth,new_mgz))
-    
+
     return mgz_files
 
 
 def median_mgz(files,outdir):
-    
+
     ##################################################
     #    inputs:
     #        files - list of absolute filenames to do median over
@@ -473,13 +473,13 @@ def median_mgz(files,outdir):
     #    outputs:
     #        median_file - absolute output filename
     ##################################################
-    
-    
+
+
     img = []
     for i,filename in enumerate(files):
         img_load = surface.load_surf_data(filename).T
         img.append(img_load) #(runs,TRs,vertices)
-    
+
     median_img = np.median(img,axis=0)
 
     np.save(outdir,median_img)
@@ -488,18 +488,18 @@ def median_mgz(files,outdir):
 
 
 def median_pRFestimates(subdir,with_smooth=True):
-    
+
     ####################
     #    inputs
     # subdir - absolute path to all subject dir (where fits are)
     # with_smooth - boolean, use smooth data?
     #   outputs
     # estimates - dictionary with average estimated parameters
-    
+
     allsubs = [folder for _,folder in enumerate(os.listdir(subdir)) if 'sub-' in folder]
     allsubs.sort()
     print('averaging %d subjects' %(len(allsubs)))
-    
+
     sub_list = []
     rsq = []
     xx = []
@@ -507,14 +507,14 @@ def median_pRFestimates(subdir,with_smooth=True):
     size = []
     baseline = []
     beta = []
-    
+
     for idx,sub in enumerate(allsubs):
-        
+
         if with_smooth==True: #if data smoothed
             sub_list.append(os.path.join(subdir,sub,'run-median','smooth%d'%analysis_params['smooth_fwhm']))
         else:
             sub_list.append(os.path.join(subdir,sub,'run-median'))
-        
+
         estimates_list = [x for x in os.listdir(sub_list[idx]) if x.endswith('estimates.npz') ]
         estimates_list.sort() #sort to make sure pRFs not flipped
 
@@ -531,7 +531,7 @@ def median_pRFestimates(subdir,with_smooth=True):
         size.append(np.concatenate((lhemi_est['size'],rhemi_est['size'])))
         baseline.append(np.concatenate((lhemi_est['baseline'],rhemi_est['baseline'])))
         beta.append(np.concatenate((lhemi_est['betas'],rhemi_est['betas'])))
-        
+
     med_rsq = np.median(np.array(rsq),axis=0) # median rsq
 
     # make rsq mask where 0 is nan (because of 0 divisions in average)
@@ -545,17 +545,17 @@ def median_pRFestimates(subdir,with_smooth=True):
     med_size = np.average(np.array(size),axis=0,weights=np.array(rsq_mask))
 
     med_baseline = np.average(np.array(baseline),axis=0,weights=np.array(rsq_mask))
-    med_beta = np.average(np.array(beta),axis=0,weights=np.array(rsq_mask))    
-        
-    
+    med_beta = np.average(np.array(beta),axis=0,weights=np.array(rsq_mask))
+
+
     estimates = {'subs':sub_list,'r2':med_rsq,'x':med_xx,'y':med_yy,
                  'size':med_size,'baseline':med_baseline,'betas':med_beta}
-    
+
     return estimates
 
 
 def psc_gii(gii_file,outpth, method='median'):
-    
+
     ##################################################
     #    inputs:
     #        gii_file - absolute filename for gii
@@ -565,43 +565,43 @@ def psc_gii(gii_file,outpth, method='median'):
     #        psc_gii - np array with percent signal changed file
     #        psc_gii_pth - list with absolute filenames for saved giis
     ##################################################
-    
+
     psc_gii = []
     psc_gii_pth = []
-    
+
     if not os.path.isfile(gii_file): # check if file exists
             print('no file found called %s' %gii_file)
     else:
-    
+
         # load with nibabel instead to save outputs always as gii
         img_load = nb.load(gii_file)
         data_in = np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]) #load surface data
 
         print('PSC run %s' %gii_file)
-        
+
         if method == 'mean':
             data_m = np.mean(data_in,axis=0)
         elif method == 'median':
             data_m = np.median(data_in, axis=0)
-        
+
         data_conv = 100.0 * (data_in - data_m)/data_m#np.abs(data_m)
-        
+
         new_name =  os.path.split(gii_file)[-1].replace('.func.gii','_psc.func.gii') # file name
-        
+
         darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in data_conv]
         new_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
                                            extra=img_load.extra,
                                            darrays=darrays) # need to save as gii again
         psc_gii = np.array(data_conv)
         psc_gii_pth = os.path.join(outpth,new_name)
-        
+
         print('saving %s' %psc_gii_pth)
         nb.save(new_gii,psc_gii_pth) #save in correct path
-        
+
 
 
     return psc_gii,psc_gii_pth
-        
+
 
 
 def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=103,TR=1.6,fig_sfactor=0.1,screen=[1920, 1080]):
@@ -616,10 +616,10 @@ def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=
     #        fig_sfactor - scaling factor for figure
     #        screen - screen res
     ##################################################
-    
-    sac_data = np.load(saccfile) # array of (3 x trial length), filled with sacc amplitude, x position and y position of vector       
+
+    sac_data = np.load(saccfile) # array of (3 x trial length), filled with sacc amplitude, x position and y position of vector
     trial_info = np.load(gazeinfo)#,allow_pickle=True)
-    
+
     print('loading saccade data for %s' %saccfile)
 
     # define relevant timings
@@ -632,7 +632,7 @@ def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=
     amp_start_scan = [amp for _,amp in enumerate(sac_data['amplitude'][start_scan::])]
     xpos_start_scan = [xpos for _,xpos in enumerate(sac_data['xpos'][start_scan::])]
     ypos_start_scan = [ypos for _,ypos in enumerate(sac_data['ypos'][start_scan::])]
-    
+
     # now save resampled within number of TRs
     expt_timepoints_indices = np.arange(0, nrTR * subsmp_freq * TR)
 
@@ -644,7 +644,7 @@ def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=
 
     ypos_sliced = ypos_start_scan[0::int(smp_freq/subsmp_freq)].copy()
     ypos_resampTR = ypos_sliced[:len(expt_timepoints_indices)]
-    
+
     checkpoint = 0 # checkpoint counter, for sanity
     start_timer = time.time() # also added timer
 
@@ -658,7 +658,7 @@ def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=
 
         sac_endpoint = plt.Circle((x_centered, y_centered), radius = amp_pix, color='r',clip_on = False) #important to avoid clipping of circle
         # res is figsiz*dpi, thus dividing by 100
-        fig, ax = plt.subplots(figsize=(screen[0]*fig_sfactor,screen[1]*fig_sfactor), dpi=1) # note we must use plt.subplots, not plt.subplot 
+        fig, ax = plt.subplots(figsize=(screen[0]*fig_sfactor,screen[1]*fig_sfactor), dpi=1) # note we must use plt.subplots, not plt.subplot
         ax.set_xlim((0, screen[0]))#*fig_sfactor))
         ax.set_ylim((0, screen[1]))#*fig_sfactor))
         ax.add_artist(sac_endpoint)
@@ -689,14 +689,14 @@ def sacc2longDM(saccfile,gazeinfo,outfilename,smp_freq=1000,subsmp_freq=50,nrTR=
     # save as numpy array
     np.save(outfilename, img_bin.astype(np.uint8))
     print('saved %s' %outfilename)
-    
+
     # save as gif too, for fun/as check
     imageio.mimwrite(outfilename.replace('.npy','.gif'), img_bin.astype(np.uint8) , 'GIF')
 
 
 
 def plot_tSNR(gii_in,hemi,outpth,mesh='fsaverage'):
-    
+
     ##################################################
     #    inputs:
     #        gii_in - absolute filename for gii file
@@ -704,12 +704,12 @@ def plot_tSNR(gii_in,hemi,outpth,mesh='fsaverage'):
     #        mesh - string with name of mesh to load for plotting (default 'fsaverage')
     #        outpth - path to save plot
     ##################################################
-    
+
     surfmesh = fetch_surf_fsaverage(mesh=mesh)
     hemi_data = surface.load_surf_data(gii_in).T
-    
+
     out_name = os.path.split(gii_in)[-1].replace('.func.gii','_tSNR.png')
-    
+
     if not os.path.exists(outpth): # check if path to save plot exists
         os.makedirs(outpth)  #if not, create it
 
@@ -717,18 +717,18 @@ def plot_tSNR(gii_in,hemi,outpth,mesh='fsaverage'):
         ni_plt.plot_surf_stat_map(surfmesh['infl_left'], stat_map=np.median(hemi_data,axis=0)/np.std(hemi_data,axis=0),
                                     hemi='left', view='lateral', colorbar=True,
                                     bg_map=surfmesh['sulc_left'], bg_on_data=True,darkness=0.5,
-                                    title='tSNR map')    
+                                    title='tSNR map')
     else:
         ni_plt.plot_surf_stat_map(surfmesh['infl_right'], stat_map=np.median(hemi_data,axis=0)/np.std(hemi_data,axis=0),
                                     hemi='right', view='lateral', colorbar=True,
                                     bg_map=surfmesh['sulc_right'], bg_on_data=True,darkness=0.5,
-                                    title='tSNR map') 
+                                    title='tSNR map')
     plt.savefig(os.path.join(outpth,out_name), bbox_inches="tight")
-    
+
 
 
 def smooth_gii(gii_file,outdir,fwhm=5):
-    
+
     ##################################################
     #    inputs:
     #        gii_file - absolute path for gii file
@@ -740,51 +740,51 @@ def smooth_gii(gii_file,outdir,fwhm=5):
     ##################################################
     smooth_gii = []
     smooth_gii_pth = []
-    
+
     if not os.path.isfile(gii_file): # check if file exists
             print('no file found called %s' %gii_file)
     else:
-    
+
         # load with nibabel instead to save outputs always as gii
         gii_in = nb.load(gii_file)
         data_in = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))]) #load surface data
 
         print('loading file %s' %gii_file)
-        
+
         # first need to convert to mgz
         # will be saved in output dir
         new_mgz = os.path.join(outdir,os.path.split(gii_file)[-1].replace('.func.gii','.mgz'))
-        
+
         print('converting gifti to mgz as %s' %(new_mgz))
         os.system('mri_convert %s %s'%(gii_file,new_mgz))
-        
+
         # now smooth it
         smoother = fs.SurfaceSmooth()
         smoother.inputs.in_file = new_mgz
         smoother.inputs.subject_id = 'fsaverage'
-        
+
         # define hemisphere
         smoother.inputs.hemi = 'lh' if '_hemi-L' in new_mgz else 'rh'
         print('smoothing %s' %smoother.inputs.hemi)
         smoother.inputs.fwhm = fwhm
         smoother.run() # doctest: +SKIP
-        
+
         new_filename = os.path.split(new_mgz)[-1].replace('.mgz','_smooth%d.mgz'%(smoother.inputs.fwhm))
         smooth_mgz = os.path.join(outdir,new_filename)
         os.rename(os.path.join(os.getcwd(),new_filename), smooth_mgz) #move to correct dir
-        
+
         # transform to gii again
         new_data = surface.load_surf_data(smooth_mgz).T
-                
+
         smooth_gii = np.array(new_data)
         smooth_gii_pth = smooth_mgz.replace('.mgz','.func.gii')
         print('converting to %s' %smooth_gii_pth)
         os.system('mri_convert %s %s'%(smooth_mgz,smooth_gii_pth))
 
     return smooth_gii,smooth_gii_pth
-        
+
 def highpass_pca_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth):
-    
+
     # high pass confounds
     confounds_SG = savgol_filter_confounds(confounds, polyorder=polyorder, deriv=deriv, window_length=window, tr=tr)
 
@@ -792,18 +792,18 @@ def highpass_pca_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth)
     confs = confs[nuisances]
 
     #choose the minimum number of principal components such that at least 95% of the variance is retained.
-    #pca = PCA(0.95,whiten=True) 
-    pca = PCA(n_components=2,whiten=True) #had to chose 2 because above formula messes up len of regressors 
+    #pca = PCA(0.95,whiten=True)
+    pca = PCA(n_components=2,whiten=True) #had to chose 2 because above formula messes up len of regressors
     pca_confs = pca.fit_transform(np.nan_to_num(confs))
     print('%d components selected for run' %pca.n_components_)
 
-    # make list of dataframes 
+    # make list of dataframes
     all_confs = pd.DataFrame(pca_confs, columns=['comp_{n}'.format(n=n) for n in range(pca.n_components_)])
 
     # move file to median directory
     outfile = os.path.join(outpth,os.path.basename(confounds_SG))
     os.rename(confounds_SG, outfile)
-   
+
     # save PCA data frame
     pca_outfile = outfile.replace('_sg.tsv','_sg_pca.tsv')
     all_confs.to_csv(pca_outfile, sep='\t', index=False)
@@ -812,7 +812,7 @@ def highpass_pca_confounds(confounds,nuisances,polyorder,deriv,window,tr,outpth)
     return pca_outfile
 
 def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['#ad2f42','#59a89f','#9066ba'],template='fsaverage',extension='sg_psc.func.gii'):
-    
+
     ##################################################
     #    inputs:
     #        sj - subject number
@@ -821,7 +821,7 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
     #        giidir - absolute path to func file
     #        eventdir - absolute path to event file
     ##################################################
-    
+
     data_both=[]
     for hemi_label in ['hemi-L','hemi-R']:
 
@@ -836,15 +836,15 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
             if run=='median':
 
                 # list with absolute files to make median over
-                run_files = [os.path.join(giidir,file) for _,file in enumerate(os.listdir(giidir)) 
+                run_files = [os.path.join(giidir,file) for _,file in enumerate(os.listdir(giidir))
                             if 'sub-{sj}'.format(sj=str(sj).zfill(2)) in file and
                             '_space-{template}'.format(template=template) in file and
-                            '_{hemi}'.format(hemi=hemi_label) in file and 
+                            '_{hemi}'.format(hemi=hemi_label) in file and
                              '_{ext}'.format(ext=extension) in file]
                 run_files.sort()
 
-                #compute and save median run 
-                filename = median_gii(run_files,giidir) 
+                #compute and save median run
+                filename = median_gii(run_files,giidir)
                 print('computed %s' %(filename))
 
                 # load surface data from path and append both hemi in array
@@ -874,7 +874,7 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
 
         new_events = []
         for ev in events_pd.iterrows():
-            row = ev[1]   
+            row = ev[1]
             new_events.append([row['onset'],row['duration'],row['trial_type']])
 
         df = pd.DataFrame(new_events, columns=['onset','duration','trial_type'])  #make sure only relevant columns present
@@ -913,5 +913,5 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
     plt.xlim(0,len(timeseries))
     plt.legend(task, fontsize=10)
     plt.show()
-    
+
     fig.savefig(os.path.join(outdir,'soma_timeseries_sub-{sj}_run-{run}.svg'.format(sj=str(sj).zfill(2),run=str(run).zfill(2))), dpi=100)
