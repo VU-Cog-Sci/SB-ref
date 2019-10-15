@@ -48,7 +48,7 @@ else:
     sj = str(sys.argv[1]).zfill(2)
 
 
-json_dir = '/home/verissimo/SB-ref/scripts/analysis_params.json' if str(
+json_dir = '/home/inesv/SB-ref/scripts/analysis_params.json' if str(
     sys.argv[2]) == 'cartesius' else 'analysis_params.json'
 
 with open(json_dir, 'r') as json_file:
