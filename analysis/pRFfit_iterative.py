@@ -127,7 +127,7 @@ else:
     print('loading %s' % dm_filename)
 
 prf_dm = np.load(dm_filename)
-prf_dm = prf_dm.T  # swap axis for popeye (x,y,time)
+prf_dm = np.moveaxis(prf_dm, 0, -1) # do this and not transpose because we don't want to swap the DM spatially
 
 
 # define model params
@@ -188,19 +188,24 @@ for gii_file in med_gii:
     gf.gridsearch_params = np.transpose(gf.gridsearch_params)
 
     # do iterative fit
-    print('doing iterative fit')
-    gf.iterative_fit(rsq_threshold=0.1, verbose=False)
-
     iterative_out = gii_file.replace('.func.gii', '_iterative_output.npz')
-    np.savez(iterative_out,
-             it_output=gf.iterative_search_params)
 
-    # do iterative fit again, now with css, n=1 (isn't that just gaussian?)
-    print('doing iterative fit with css ')
-    gf.fit_css = True
-    gf.iterative_fit(rsq_threshold=0.1, verbose=False)
+    if not os.path.isfile(iterative_out): # if estimates file doesn't exist
+        print('doing iterative fit')
+        gf.iterative_fit(rsq_threshold=0.1, verbose=False)
 
-    iterative_css_out = gii_file.replace('.func.gii', '_iterative_css_output.npz')
-    np.savez(iterative_css_out,
-             it_output=gf.iterative_search_params)
+        
+        np.savez(iterative_out,
+                 it_output=gf.iterative_search_params)
+    else:
+        print('%s already exists'%iterative_out)
+
+    ## do iterative fit again, now with css, n=1 (isn't that just gaussian?)
+    #print('doing iterative fit with css ')
+    #gf.fit_css = True
+    #gf.iterative_fit(rsq_threshold=0.1, verbose=False)
+
+    #iterative_css_out = gii_file.replace('.func.gii', '_iterative_css_output.npz')
+    #np.savez(iterative_css_out,
+    #         it_output=gf.iterative_search_params)
 
