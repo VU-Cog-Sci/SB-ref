@@ -185,6 +185,7 @@ for gii_file in med_gii:
     loaded_gf_pars = np.load(grid_estimates_filename)
 
     gf.gridsearch_params = np.array([loaded_gf_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline','ns','r2']]) 
+    gf.gridsearch_params = np.transpose(gf.gridsearch_params)
 
     # do iterative fit
     print('doing iterative fit')
