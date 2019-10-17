@@ -42,7 +42,7 @@ else:
     sj = str(sys.argv[1]).zfill(2)
 
 
-json_dir = '/home/knapen/SB-ref/scripts/analysis_params.json' if str(
+json_dir = '/home/verissimo/SB-ref/scripts/analysis_params.json' if str(
     sys.argv[2]) == 'cartesius' else 'analysis_params.json'
 
 with open(json_dir, 'r') as json_file:
@@ -188,30 +188,34 @@ for gii_file in med_gii:
         print('loading predictions %s' % pred_out)
         prf.load_grid_predictions(prediction_file=pred_out)
 
-    # prf.grid_fit()  # do grid fit
-    # in estimates file
-    # estimates_out_filename = gii_file.replace('.func.gii', '_estimates.npz')
+    
+    estimates_out_filename = gii_file.replace('.func.gii', '_estimates.npz')
 
-    # np.savez(estimates_out_filename,
-    #          x=params_output[..., 0],
-    #          y=params_output[..., 1],
-    #          size=params_output[..., 2],
-    #          baseline=params_output[..., 3],
-    #          betas=params_output[..., 4],
-    #          r2=rsq_output)
+    if not estimates_out_filename:
+        prf.grid_fit()  # do grid fit
+        # in estimates file
 
-    loaded_gf_pars = np.load(gii_file.replace('.func.gii', '_estimates.npz'))
+        #    save outputs
+        rsq_output = prf.gridsearch_r2
+        params_output = prf.gridsearch_params.T
+    
+        np.savez(estimates_out_filename,
+                x=params_output[..., 0],
+                y=params_output[..., 1],
+                size=params_output[..., 2],
+                betas=params_output[..., 3],
+                baseline=params_output[..., 4],
+                r2=rsq_output)
+    else:
 
-    prf.gridsearch_params = np.array(
-        [loaded_gf_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline']])
-    prf.gridsearch_r2 = loaded_gf_pars['r2']
+        loaded_gf_pars = np.load(estimates_out_filename)
 
-    prf.iterative_fit()  # do iterative fit
+        prf.gridsearch_params = np.array([loaded_gf_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline']])
+        prf.gridsearch_r2 = loaded_gf_pars['r2']
 
-    # save outputs
-    rsq_output = prf.gridsearch_r2
-    params_output = prf.gridsearch_params.T
+    #prf.iterative_fit()  # do iterative fit
 
-    iterative_out = gii_file.replace('.func.gii', '_iterative_output.npz')
-    np.savez(iterative_out,
-             fit_output=prf.fit_output)
+    
+    #iterative_out = gii_file.replace('.func.gii', '_iterative_output.npz')
+    #np.savez(iterative_out,
+    #         fit_output=prf.fit_output)
