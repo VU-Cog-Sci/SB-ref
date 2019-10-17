@@ -8,6 +8,13 @@
 ####
 
 import os
+
+# issue with tensorflow, try this suggestion
+#NUM_PARALLEL_EXEC_UNITS = 16
+#os.environ['OMP_NUM_THREADS'] = str(NUM_PARALLEL_EXEC_UNITS)
+#os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
+##
+
 import json
 import sys
 import glob
@@ -127,7 +134,7 @@ else:
     print('loading %s' % dm_filename)
 
 prf_dm = np.load(dm_filename)
-prf_dm = np.moveaxis(prf_dm, 0, -1) # do this and not transpose because we don't want to swap the DM spatially
+prf_dm = prf_dm.T # then it'll be (x, y, t)
 
 
 # define model params
@@ -150,11 +157,10 @@ gg = Iso2DGaussianGridder(stimulus=prf_stim,
                           highpass=True)
 
 # set grid parameters
-grid_nr = analysis_params["grid_steps"]#20
-max_ecc_size = analysis_params["max_eccen"]#16
-sizes, eccs, polars = max_ecc_size * np.linspace(0.25,1,grid_nr)**2, \
-                    max_ecc_size * np.linspace(0.1,1,grid_nr)**2, \
-                        np.linspace(0, 2*np.pi, grid_nr)
+grid_nr = analysis_params["grid_steps"]
+sizes = analysis_params["max_size"] * np.linspace(sqrt(analysis_params["min_size"]/analysis_params["max_size"]),1,grid_nr)**2
+eccs = analysis_params["max_eccen"] * np.linspace(sqrt(analysis_params["min_eccen"]/analysis_params["max_eccen"]),1,grid_nr)**2
+polars = np.linspace(0, 2*np.pi, grid_nr)
 
 for gii_file in med_gii:
     print('loading data from %s' % gii_file)
