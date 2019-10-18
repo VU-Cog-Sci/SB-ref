@@ -169,11 +169,11 @@ class GaussianModel(PopulationModel):
         # units
         model /= np.max(model)
 
-        # offset
-        model += baseline
-
         # scale it by beta
         model *= beta
+
+        # offset
+        model += baseline
 
         return model
 
