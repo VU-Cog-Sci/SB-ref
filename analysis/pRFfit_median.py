@@ -191,7 +191,7 @@ for gii_file in med_gii:
     
     estimates_out_filename = gii_file.replace('.func.gii', '_estimates.npz')
 
-    if not estimates_out_filename:
+    if not os.path.isfile(estimates_out_filename):
         prf.grid_fit()  # do grid fit
         # in estimates file
 
