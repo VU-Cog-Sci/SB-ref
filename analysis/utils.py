@@ -19,7 +19,7 @@ import pandas as pd
 from spynoza.filtering.nodes import savgol_filter_confounds
 from sklearn.decomposition import PCA
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from scipy.misc import imsave
 import matplotlib.pyplot as plt
@@ -84,22 +84,32 @@ def screenshot2DM(filenames,scale,screen,outfile,dm_shape = 'rectangle'):
     #        DM - absolute output design matrix filename
     ##################################################
     
+    hRes = int(screen[0])
+    vRes = int(screen[1])
+    
     if dm_shape == 'square': # make square dm, using max screen dim
-        x_dim = max(screen)
-        y_dim = max(screen)
+        dim1 = hRes
+        dim2 = hRes
         
     else:
-        x_dim = int(screen[1])
-        y_dim = int(screen[0])
-
-    im_gr_resc = np.zeros((len(filenames),int(x_dim*scale),int(y_dim*scale)))
-
+        dim1 = hRes
+        dim2 = vRes
+        
+    im_gr_resc = np.zeros((len(filenames),int(dim2*scale),int(dim1*scale)))
+    
     for i, png in enumerate(filenames): #rescaled and grayscaled images
         image = Image.open(png).convert('RGB')
-        image = image.resize((y_dim,x_dim), Image.ANTIALIAS)
-
+        
+        if dm_shape == 'square': # add padding (top and bottom borders)
+            #padded_img = Image.new(image.mode, (hRes, hRes), (255, 255, 255))
+            #padded_img.paste(image, (0, ((hRes - vRes) // 2)))
+            padding = (0, (hRes - vRes)//2, 0, (hRes - vRes)-((hRes - vRes)//2))
+            image = ImageOps.expand(image, padding, fill=(255, 255, 255))
+            #plt.imshow(image)
+            
+        image = image.resize((dim1,dim2), Image.ANTIALIAS)
         im_gr_resc[i,:,:] = rescale(color.rgb2gray(np.asarray(image)), scale)
-
+    
     img_bin = np.zeros(im_gr_resc.shape) #binary image, according to triangle threshold
     for i in range(len(im_gr_resc)):
         img_bin[i,:,:] = cv2.threshold(im_gr_resc[i,:,:],threshold_triangle(im_gr_resc[i,:,:]),255,cv2.THRESH_BINARY_INV)[1]
