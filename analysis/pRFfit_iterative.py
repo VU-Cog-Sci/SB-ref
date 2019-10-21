@@ -40,6 +40,7 @@ from prfpy.stimulus import PRFStimulus2D
 from prfpy.grid import Iso2DGaussianGridder
 from prfpy.fit import Iso2DGaussianFitter
 
+from popeye import utilities 
 
 # define participant number and open json parameter file
 if len(sys.argv) < 2:
@@ -125,13 +126,13 @@ png_filename.sort()
 
 dm_filename = os.path.join(os.getcwd(), 'prf_dm_square.npy')
 
-if not os.path.exists(dm_filename):  # if not exists
-    screenshot2DM(png_filename, 0.1,
-                  analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
-    print('computed %s' % (dm_filename))
+#if not os.path.exists(dm_filename):  # if not exists
+screenshot2DM(png_filename, 0.1,
+              analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
+print('computed %s' % (dm_filename))
 
-else:
-    print('loading %s' % dm_filename)
+#else:
+#    print('loading %s' % dm_filename)
 
 prf_dm = np.load(dm_filename)
 prf_dm = prf_dm.T # then it'll be (x, y, t)
@@ -142,6 +143,8 @@ fit_model = analysis_params["fit_model"]
 
 TR = analysis_params["TR"]
 
+hrf = utilities.spm_hrf(0,TR)
+
 # make stimulus object, which takes an input design matrix and sets up its real-world dimensions
 prf_stim = PRFStimulus2D(screen_size_cm=analysis_params["screen_width"], 
                          screen_distance_cm=analysis_params["screen_distance"], 
@@ -150,7 +153,7 @@ prf_stim = PRFStimulus2D(screen_size_cm=analysis_params["screen_width"],
 
 # sets up stimulus and hrf for this gridder
 gg = Iso2DGaussianGridder(stimulus=prf_stim,
-                          hrf=None,
+                          hrf=hrf,
                           filter_predictions=False,
                           window_length=analysis_params["sg_filt_window_length"],
                           polyorder=analysis_params["sg_filt_polyorder"],
