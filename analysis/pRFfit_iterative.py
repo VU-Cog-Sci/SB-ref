@@ -161,8 +161,8 @@ gg = Iso2DGaussianGridder(stimulus=prf_stim,
 
 # set grid parameters
 grid_nr = analysis_params["grid_steps"]
-sizes = analysis_params["max_size"] * np.linspace(sqrt(analysis_params["min_size"]/analysis_params["max_size"]),1,grid_nr)**2
-eccs = analysis_params["max_eccen"] * np.linspace(sqrt(analysis_params["min_eccen"]/analysis_params["max_eccen"]),1,grid_nr)**2
+sizes = analysis_params["max_size"] * np.linspace(np.sqrt(analysis_params["min_size"]/analysis_params["max_size"]),1,grid_nr)**2
+eccs = analysis_params["max_eccen"] * np.linspace(np.sqrt(analysis_params["min_eccen"]/analysis_params["max_eccen"]),1,grid_nr)**2
 polars = np.linspace(0, 2*np.pi, grid_nr)
 
 for gii_file in med_gii:
