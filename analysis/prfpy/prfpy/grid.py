@@ -73,7 +73,7 @@ class Iso2DGaussianGridder(Gridder):
         self.__dict__.update(kwargs)
 
         # HRF stuff
-        if hrf.any() == None:  # for use with standard fMRI
+        if hrf is None:  # for use with standard fMRI
             self.hrf = spm_hrf(tr=self.stimulus.TR,
                                oversampling=1, time_length=40)
         elif hrf == 'direct':  # for use with anything like eCoG with instantaneous irf
