@@ -157,8 +157,8 @@ class Iso2DGaussianGridder(Gridder):
 
         self.eccs, self.polars, self.sizes, self.ns = np.meshgrid(
             ecc_grid, polar_grid, size_grid, n_grid)
-        self.xs, self.ys = np.sin(self.polars) * \
-            self.eccs, np.cos(self.polars) * self.eccs
+        self.xs, self.ys = np.cos(self.polars) * \
+            self.eccs, np.sin(self.polars) * self.eccs
 
         self.create_rfs()
         self.stimulus_times_prfs()
