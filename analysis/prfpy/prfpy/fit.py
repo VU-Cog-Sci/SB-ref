@@ -167,14 +167,16 @@ class Iso2DGaussianFitter(Fitter):
                             self.gridder.predictions[prediction_num]]).T
             (intercept, slope), residual, _, _ = sp.linalg.lstsq(
                 dm, self.data.T)
-            rsqs = ((1 - residual / (self.n_timepoints * self.data_var)))
 
-            improved_fits = rsqs > self.gridsearch_r2
-            # fill in the improvements
-            self.best_fitting_prediction[improved_fits] = prediction_num
-            self.gridsearch_r2[improved_fits] = rsqs[improved_fits]
-            self.best_fitting_baseline[improved_fits] = intercept[improved_fits]
-            self.best_fitting_beta[improved_fits] = slope[improved_fits]
+            if residual.any() == True:
+                rsqs = ((1 - residual / (self.n_timepoints * self.data_var)))
+
+                improved_fits = rsqs > self.gridsearch_r2
+                # fill in the improvements
+                self.best_fitting_prediction[improved_fits] = prediction_num
+                self.gridsearch_r2[improved_fits] = rsqs[improved_fits]
+                self.best_fitting_baseline[improved_fits] = intercept[improved_fits]
+                self.best_fitting_beta[improved_fits] = slope[improved_fits]
 
         self.gridsearch_params = np.array([
             self.gridder.xs.ravel()[self.best_fitting_prediction],
