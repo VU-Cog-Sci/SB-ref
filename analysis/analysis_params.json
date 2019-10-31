@@ -1,5 +1,6 @@
 {
     "sourcedata_dir": "/home/shared/2018/visual/SB-prep/SB-ref/sourcedata/",
+    "derivatives":"/home/shared/2018/visual/SB-prep/SB-ref/derivatives/",
     "fmriprep_dir": "/home/shared/2018/visual/SB-prep/SB-ref/derivatives/fmriprep/",
     "freesurfer_dir": "/home/shared/2018/visual/SB-prep/SB-ref/derivatives/freesurfer/",
     "pRF_outdir": "/home/shared/2018/visual/SB-prep/SB-ref/derivatives/pRF_fit/",
@@ -36,8 +37,8 @@
     "sg_filt_deriv": 0,
     "grid_steps": 20,
     "N_PROCS": 4,
-    "rsq_threshold": 0.20,
-    "z_threshold": 3.1,
+    "rsq_threshold": 0.15,
+    "z_threshold": 4.5,
     "with_smooth": "False",
     "with_psc": "True",
     "eyetrack_subsmp_freq": 50,
