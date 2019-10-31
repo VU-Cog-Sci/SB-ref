@@ -933,3 +933,68 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
     plt.show()
 
     fig.savefig(os.path.join(outdir,'soma_timeseries_sub-{sj}_run-{run}.svg'.format(sj=str(sj).zfill(2),run=str(run).zfill(2))), dpi=100)
+
+
+
+    def median_iterative_pRFestimates(subdir,with_smooth=True):
+
+    ####################
+    #    inputs
+    # subdir - absolute path to all subject dir (where fits are)
+    # with_smooth - boolean, use smooth data?
+    #   outputs
+    # estimates - dictionary with average estimated parameters
+
+        allsubs = [folder for _,folder in enumerate(os.listdir(subdir)) if 'sub-' in folder]
+        allsubs.sort()
+        print('averaging %d subjects' %(len(allsubs)))
+
+        rsq = []
+        xx = []
+        yy = []
+        size = []
+        baseline = []
+        beta = []
+
+        #load estimates and append
+        for _,sub in enumerate(allsubs):
+
+            # load prf estimates
+            if with_smooth=='True':    
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+            else:
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','iterative_fit')
+
+            estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
+            estimates_list.sort() #sort to make sure pRFs not flipped
+
+            estimates = []
+            for _,val in enumerate(estimates_list) :
+                print('appending %s'%val)
+                estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
+
+            xx.append(np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0])))
+            yy.append(-(np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])))) # Need to do this (-) for now, CHANGE ONCE BUG FIXED
+
+            size.append(np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2])))
+            beta.append(np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3])))
+            baseline.append(np.concatenate((estimates[0]['it_output'][...,4],estimates[1]['it_output'][...,4])))
+
+            rsq.append(np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5]))) 
+
+
+        xx = np.nanmedian(np.array(xx),axis=0)   
+        yy = np.nanmedian(np.array(yy),axis=0)   
+
+        size = np.nanmedian(np.array(size),axis=0)   
+        beta = np.nanmedian(np.array(beta),axis=0)   
+        baseline = np.nanmedian(np.array(baseline),axis=0)   
+
+        rsq = np.nanmedian(np.array(rsq),axis=0)
+
+
+        estimates = {'subs':allsubs,'r2':rsq,'x':xx,'y':yy,
+                     'size':size,'baseline':baseline,'betas':beta}
+
+        return estimates
+
