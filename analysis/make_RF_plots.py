@@ -465,14 +465,13 @@ if sj != 'median': # doesn't work for median subject
                                         y=gg.stimulus.y_coordinates[..., np.newaxis],
                                         mu=(new_xx[new_index], new_yy[new_index]),
                                         sigma=new_size[new_index])
-            rf_prfpy = rf_prfpy.T
 
             # plot receptive field
             fig= plt.figure(figsize=(15,7.5))
             if os.path.split(dm_filename)[-1] == 'prf_dm_square.npy': # if square DM
-                rf2plot = rf_prfpy[0,:,31:136] # cut upper and lower borders, good enough for plotting purposes
+                rf2plot = rf_prfpy[:,31:136,0] # cut upper and lower borders, good enough for plotting purposes
             else:
-                rf2plot = rf_prfpy[0,:,:]
+                rf2plot = rf_prfpy[:,:,0]
 
             plt.imshow(rf2plot.T,cmap='viridis')
             plt.title('RF for single voxel %d of ROI %s ' %(new_index,roi))
@@ -532,7 +531,7 @@ plt.xlabel('pRF eccentricity [bins]',fontsize=18)
 plt.ylabel('pRF size [dva]',fontsize=18)
 s.set(adjustable='box-forced', aspect='equal')    
 plt.show()   
-fig.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
+f.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
 
 
 
