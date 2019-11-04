@@ -228,7 +228,7 @@ for i in range(len(vertex)):
     
     # plot data with model
     fig= plt.figure(figsize=(15,7.5),dpi=100)
-    plt.plot(time_sec,model_sig,c='r',lw=3,label='model fit',zorder=1)
+    plt.plot(time_sec,model_sig,c='#0093b7',lw=3,label='model fit',zorder=1)
     plt.scatter(time_sec,data[vertex[i]], marker='.',c='k',label='data')
     plt.xlabel('Time (s)',fontsize=18)
     plt.ylabel('BOLD signal change (%)',fontsize=18)
