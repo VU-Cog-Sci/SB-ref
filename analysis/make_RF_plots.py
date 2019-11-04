@@ -449,7 +449,7 @@ if sj != 'median': # doesn't work for median subject
             # plot data with model
             time_sec = np.linspace(0,len(timeseries)*TR,num=len(timeseries)) # array with 90 timepoints, in seconds
             fig= plt.figure(figsize=(15,7.5),dpi=100)
-            plt.plot(time_sec,model_it_prfpy,c='r',lw=3,label='model fit',zorder=1)
+            plt.plot(time_sec,model_it_prfpy,c='#db3050',lw=3,label='model fit',zorder=1)
             plt.scatter(time_sec,timeseries, marker='.',c='k',label='data')
             plt.xlabel('Time (s)',fontsize=18)
             plt.ylabel('BOLD signal change (%)',fontsize=18)
