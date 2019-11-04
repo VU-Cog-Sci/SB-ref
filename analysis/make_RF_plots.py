@@ -534,7 +534,83 @@ plt.show()
 f.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
 
 
+# combined timecourse, new form of showing it
 
+ROIs = ['V1','sPCS']
+roi_verts = {} #empty dictionary 
+for i,val in enumerate(ROIs):   
+    if type(val)==str: # if string, we can directly get the ROI vertices  
+        roi_verts[val] = cortex.get_roi_verts('fsaverage',val)[val]
+
+# times where bar is on screen [1st on, last on, 1st on, last on, etc] 
+bar_onset = np.array([14,22,25,41,55,71,74,82])*TR
+
+red_color = ['#591420','#d12e4c']
+data_color = ['#262626','#8a8a8a']
+
+fig, axis = plt.subplots(1,figsize=(15,7.5),dpi=100)
+for idx,roi in enumerate(ROIs):
+    if type(roi)!=str: # if list
+        print('skipping list ROI %s for timeseries plot'%str(roi))
+    else:
+        new_rsq = rsq[roi_verts[roi]]
+
+        new_xx = xx[roi_verts[roi]]
+        new_yy = yy[roi_verts[roi]]
+        new_size = size[roi_verts[roi]]
+
+        new_beta = beta[roi_verts[roi]]
+        new_baseline = baseline[roi_verts[roi]]
+
+        new_ecc = eccentricity[roi_verts[roi]]
+        new_polar_angle = polar_angle[roi_verts[roi]]
+
+
+        new_data = data[roi_verts[roi]] # data from ROI
+
+        new_index =np.where(new_rsq==max(new_rsq))[0][0]# index for max rsq within ROI
+
+        timeseries = new_data[new_index]
+
+        model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index],
+                                                     beta=new_beta[new_index],baseline=new_baseline[new_index])
+        model_it_prfpy = model_it_prfpy[0]
+
+        print('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
+
+        # plot data with model
+        time_sec = np.linspace(0,len(timeseries)*TR,num=len(timeseries)) # array with 90 timepoints, in seconds
+        
+        # instantiate a second axes that shares the same x-axis
+        if roi == 'sPCS': axis = axis.twinx() 
+        
+        # plot data with model
+        axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label='model',zorder=1)
+        axis.scatter(time_sec,timeseries, marker='.',c=data_color[idx],label=roi)
+        axis.set_xlabel('Time (s)',fontsize=18)
+        axis.set_ylabel('BOLD signal change (%)',fontsize=18)
+        axis.tick_params(axis='both', labelsize=14)
+        axis.tick_params(axis='y', labelcolor=red_color[idx])
+        axis.set_xlim(0,len(timeseries)*TR)
+        #plt.title('voxel %d (%s) , MSE = %.3f, rsq = %.3f' %(vertex[i],task[i],mse,r2))
+        
+        if idx == 0:
+            handles,labels = axis.axes.get_legend_handles_labels()
+        else:
+            a,b = axis.axes.get_legend_handles_labels()
+            handles = handles+a
+            labels = labels+b
+
+        # plot axis vertical bar on background to indicate stimulus display time
+        ax_count = 0
+        for h in range(4):
+            plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1], facecolor=red_color[idx], alpha=0.1)
+            ax_count += 2
+
+        
+axis.legend(handles,labels,loc='upper left')  # doing this to guarantee that legend is how I want it   
+
+fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%str(ROIs)), dpi=100,bbox_inches = 'tight')
 
 
 
