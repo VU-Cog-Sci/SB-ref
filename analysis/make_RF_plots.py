@@ -207,36 +207,22 @@ for idx,roi in enumerate(ROIs):
     # do scatter plot, with RF positions and alpha scaled by rsq
     rgba_colors = np.zeros((new_xx.shape[0], 4))
     rgba_colors[:,0] = 0.8 # make red
-    rgba_colors[:,3] = new_rsq/5 #12# the rsq is alpha
+    rgba_colors[:,3] = new_rsq/20 #new_rsq/5 #12# the rsq is alpha
     
-    #####
-    ## normalize polar angles to have values in circle between 0 and 1
-    #new_pa_norm = (new_polar_angle + np.pi) / (np.pi * 2.0)
-    #
-    ## use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
-    ## why have an offset?
-    #new_pa_norm = np.fmod(new_pa_norm+angle_offset, 1.0)
-    #
-    ## convert angles to colors, using correlations as weights
-    #hsv_colors = np.zeros(list(new_pa_norm.shape) + [3])
-    #hsv_colors[..., 0] = new_pa_norm # different hue value for each angle
-    #hsv_colors[..., 1] = new_rsq/max(new_rsq)#new_rsq #1 #saturation weighted by rsq
-    #hsv_colors[..., 2] = 1#(new_rsq > rsq_threshold).astype(float) # value weighted by rsq
-    #
-    ## convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
-    #rgba_colors = colors.hsv_to_rgb(hsv_colors)
-    ######## 
-
     edgecolors = np.zeros((new_xx.shape[0], 4))
     edgecolors[:,:3] = 1#0.8 # make gray
     edgecolors[:,3] = new_rsq/10 #12# the rsq is alpha
     
-    s[0].scatter(new_xx, new_yy, s=(4*np.pi*new_size)**2, color=rgba_colors, edgecolors=edgecolors, linewidths=2) # this size is made up and depends on dpi - beware.
     s[0].set_title('%s pRFs in visual field'%roi)
     s[0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
     s[0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
     s[0].axvline(0, -15, 15, c='k', lw=0.25)
     s[0].axhline(0, -15, 15, c='k', lw=0.25)
+    # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
+    for w in range(len(new_xx)):
+        s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
+        #s[0].scatter(new_xx[w], new_yy[w], s=new_size[w])
+
     s[0].set_xlabel('horizontal space [dva]')
     s[0].set_ylabel('vertical space [dva]')
     s[1].set_title('%s pRF size vs eccentricity'%roi)
@@ -283,7 +269,7 @@ for idx,roi in enumerate(ROIs):
     # convert angles to colors, using correlations as weights
     hsv_colors = np.zeros(list(new_pa_norm.shape) + [3])
     hsv_colors[..., 0] = new_pa_norm # different hue value for each angle
-    hsv_colors[..., 1] = 1#(new_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
+    hsv_colors[..., 1] = new_rsq#1#(new_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
     hsv_colors[..., 2] = 1#(new_rsq > rsq_threshold).astype(float) # value weighted by rsq
 
     # convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
@@ -294,12 +280,16 @@ for idx,roi in enumerate(ROIs):
     edgecolors[:,:3] = 1#0.8 # make gray
     edgecolors[:,3] = new_rsq/10 #12# the rsq is alpha
     
-    s[idx][0].scatter(new_xx, new_yy, s=(4*np.pi*new_size)**2, color=rgba_colors, edgecolors=edgecolors, linewidths=2) # this size is made up and depends on dpi - beware.
     s[idx][0].set_title('%s pRFs in visual field'%roi)
     s[idx][0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
     s[idx][0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
     s[idx][0].axvline(0, -15, 15, c='k', lw=0.25)
     s[idx][0].axhline(0, -15, 15, c='k', lw=0.25)
+    # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
+    for w in range(len(new_xx)):
+        s[idx][0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
+        #s[idx][0].scatter(new_xx[w], new_yy[w], s=new_size[w])
+     
     s[idx][0].set_xlabel('horizontal space [dva]')
     s[idx][0].set_ylabel('vertical space [dva]')
     s[idx][1].set_title('%s pRF size vs eccentricity'%roi)
@@ -604,7 +594,7 @@ for idx,roi in enumerate(ROIs):
         # plot axis vertical bar on background to indicate stimulus display time
         ax_count = 0
         for h in range(4):
-            plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1], facecolor=red_color[idx], alpha=0.1)
+            plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1]+TR, facecolor=red_color[idx], alpha=0.1)
             ax_count += 2
 
         
