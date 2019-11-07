@@ -29,6 +29,9 @@ from prfpy.fit import Iso2DGaussianFitter
 
 from popeye import utilities 
 
+import matplotlib.gridspec as gridspec
+import scipy
+
 
 # define participant number and open json parameter file
 if len(sys.argv)<2:	
@@ -76,8 +79,8 @@ else:
         estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
         
     xx = np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0]))
-    yy = np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1]))
-    yy = -yy # Need to do this for now, CHANGE ONCE BUG FIXED
+    yy = -np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1]))
+    #yy = -yy # Need to do this for now, CHANGE ONCE BUG FIXED
 
     size = np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2]))
     beta = np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3]))
@@ -220,7 +223,8 @@ for idx,roi in enumerate(ROIs):
     s[0].axhline(0, -15, 15, c='k', lw=0.25)
     # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
     for w in range(len(new_xx)):
-        s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
+        if new_rsq[w]>rsq_threshold:
+            s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
         #s[0].scatter(new_xx[w], new_yy[w], s=new_size[w])
 
     s[0].set_xlabel('horizontal space [dva]')
@@ -230,7 +234,7 @@ for idx,roi in enumerate(ROIs):
     s[1].set_ylim([0,analysis_params["max_size"]])
     s[1].set_xlabel('pRF eccentricity [dva]')
     s[1].set_ylabel('pRF size [dva]')
-    s[1].scatter(new_ecc, new_size, color=rgba_colors, edgecolors=edgecolors, linewidths=2);  # this size is made up - beware.
+    s[1].scatter(new_ecc[new_rsq>rsq_threshold], new_size[new_rsq>rsq_threshold]) #color=rgba_colors, edgecolors=edgecolors, linewidths=2);  # this size is made up - beware.
     
     # make sure that plots have proportional size
     s[0].set(adjustable='box-forced', aspect='equal')
@@ -287,8 +291,9 @@ for idx,roi in enumerate(ROIs):
     s[idx][0].axhline(0, -15, 15, c='k', lw=0.25)
     # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
     for w in range(len(new_xx)):
-        s[idx][0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
-        #s[idx][0].scatter(new_xx[w], new_yy[w], s=new_size[w])
+        if new_rsq[w]>rsq_threshold:
+            s[idx][0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
+            #s[idx][0].scatter(new_xx[w], new_yy[w], s=new_size[w])
      
     s[idx][0].set_xlabel('horizontal space [dva]')
     s[idx][0].set_ylabel('vertical space [dva]')
@@ -297,7 +302,7 @@ for idx,roi in enumerate(ROIs):
     s[idx][1].set_ylim([0,analysis_params["max_size"]])
     s[idx][1].set_xlabel('pRF eccentricity [dva]')
     s[idx][1].set_ylabel('pRF size [dva]')
-    s[idx][1].scatter(new_ecc, new_size, color=rgba_colors, edgecolors=edgecolors, linewidths=2);  # this size is made up - beware.
+    s[idx][1].scatter(new_ecc[new_rsq>rsq_threshold], new_size[new_rsq>rsq_threshold])#color=rgba_colors, edgecolors=edgecolors, linewidths=2);  # this size is made up - beware.
     
     # make sure that plots have proportional size
     s[idx][0].set(adjustable='box-forced', aspect='equal')
@@ -405,6 +410,10 @@ if sj != 'median': # doesn't work for median subject
     
     ############ SHOW FIT FOR SINGLE VOXEL AND PLOT IT OVER DATA ##############
 
+    # times where bar is on screen [1st on, last on, 1st on, last on, etc] 
+    bar_onset = np.array([14,22,25,41,55,71,74,82])*TR
+
+
     # get single voxel data from ROI where rsq is max 
     # get datapoints for RF only belonging to roi
     for idx,roi in enumerate(ROIs):
@@ -448,25 +457,63 @@ if sj != 'median': # doesn't work for median subject
             plt.xlim(0,len(timeseries)*TR)
             plt.title('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
             plt.legend(loc=0)
+
+            # plot axis vertical bar on background to indicate stimulus display time
+            ax_count = 0
+            for h in range(4):
+                plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1]+TR, facecolor='r', alpha=0.1)
+                ax_count += 2
+
             fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%roi), dpi=100,bbox_inches = 'tight')
 
-            # get receptive field for that voxel
-            rf_prfpy = gauss2D_iso_cart(x=gg.stimulus.x_coordinates[..., np.newaxis],
-                                        y=gg.stimulus.y_coordinates[..., np.newaxis],
-                                        mu=(new_xx[new_index], new_yy[new_index]),
-                                        sigma=new_size[new_index])
 
-            # plot receptive field
-            fig= plt.figure(figsize=(15,7.5))
-            if os.path.split(dm_filename)[-1] == 'prf_dm_square.npy': # if square DM
-                rf2plot = rf_prfpy[:,31:136,0] # cut upper and lower borders, good enough for plotting purposes
-            else:
-                rf2plot = rf_prfpy[:,:,0]
+            ################# get receptive field for that voxel ###################################
 
-            plt.imshow(rf2plot.T,cmap='viridis')
-            plt.title('RF for single voxel %d of ROI %s ' %(new_index,roi))
-            plt.axis('off')
+            # add this so then I can see which bar passes correspond to model peaks
+            # hence check if it makes sense
+            # plot RF for voxel and bar passes corresponding to model peaks
+            sig_peaks = scipy.signal.find_peaks(model_it_prfpy,height=0.5) #find peaks
+            print('peaks for roi %s'%roi)
+            print(sig_peaks)
+
+            fig = plt.figure(figsize=(24,48),constrained_layout=True)
+            outer = gridspec.GridSpec(1, 2, wspace=0.4)
+
+            for i in range(2):
+                if i == 0: #first plot, one subplot
+                    inner = gridspec.GridSpecFromSubplotSpec(1,1,
+                                    subplot_spec=outer[i])
+                    ax = plt.Subplot(fig, inner[0])
+                    ax.set_title('RF position for voxel %d of %s'%(new_index,roi))
+                    ax.set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+                    ax.set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+                    ax.axvline(0, -15, 15, c='k', lw=0.25)
+                    ax.axhline(0, -15, 15, c='k', lw=0.25)
+                    ax.add_artist(plt.Circle((new_xx[new_index],new_yy[new_index]), new_size[new_index], color='r',alpha=new_rsq[new_index]))
+                    ax.set(adjustable='box-forced', aspect='equal')   
+
+                    fig.add_subplot(ax)
+
+                else: #second plot with 4 subplots
+                    inner = gridspec.GridSpecFromSubplotSpec(1,2,#2, 2,
+                                    subplot_spec=outer[i])
+
+                    # plot bar pass for peaks
+                    k = 0
+                    for j in range(2):
+                        inner1 = gridspec.GridSpecFromSubplotSpec(2,1, subplot_spec=inner[j]) 
+
+                        for w in range(2):
+                            ax = plt.Subplot(fig, inner1[w])#inner[j,w])
+                            ax.imshow(prf_dm[:,:,sig_peaks[0][k]-4].T) # subtract 4 TRs because hemodynamic response takes 6s to peak = 4TRs * 1.6 = 6.4s (or so)
+                            ax.set_title('bar pass TR = %d'%(sig_peaks[0][k]-4))
+                            ax.set(adjustable='box-forced',aspect='equal') 
+                            fig.add_subplot(ax)
+                            k += 1
+          
             fig.savefig(os.path.join(figure_out,'RF_singvoxfit_%s.svg'%roi), dpi=100,bbox_inches = 'tight')
+
+            #############################
 
 
     # redo vertice list (repetitive but quick fix for now)
@@ -479,14 +526,20 @@ if sj != 'median': # doesn't work for median subject
         c = ['r','g','b']
         new_data = data[roi_verts[str(ROIs[i])]] # data from ROI
 
-        plt.plot(time_sec,np.nanmedian(new_data[rsq[roi_verts[str(ROIs[i])]]>0.2],axis=0),c=c[i],label=str(ROIs[i]))
+        plt.plot(time_sec,np.nanmedian(new_data[rsq[roi_verts[str(ROIs[i])]]>rsq_threshold],axis=0),c=c[i],label=str(ROIs[i]))
         plt.legend(loc=0)
     plt.xlabel('Time (s)',fontsize=18)
     plt.ylabel('BOLD signal change (%)',fontsize=18)
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
     plt.xlim(0,90*TR)
-    plt.show()    
+    # plot axis vertical bar on background to indicate stimulus display time
+    ax_count = 0
+    for h in range(4):
+        plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1]+TR, facecolor='r', alpha=0.1)
+        ax_count += 2
+
+    #plt.show()    
     fig.savefig(os.path.join(figure_out,'pRF_median_timeseries_allROIs.svg'), dpi=100,bbox_inches = 'tight')
 
     
@@ -497,31 +550,33 @@ ROIs = [['V1','V2','V3'],'sPCS','iPCS']
 num_bins = 10 # number of bins
 bin_array = np.linspace(0,16,num=num_bins+1) # array that goes from 2 to 2, then bin will be values between 0-2, 2-4 etc
 
-f, s = plt.subplots(1, 1, figsize=(12,6))
-c = ['r','g','b']
+appended_df = []
 for idx,roi in enumerate(ROIs):
     # get datapoints for RF only belonging to roi
     new_size = size[roi_verts[str(roi)]]
     new_ecc = eccentricity[roi_verts[str(roi)]]
+    new_rsq = rsq[roi_verts[str(roi)]]
 
     size_binned = []
     std_bin = []
     for i in range(num_bins): # append median size value for bin
-        size_binned.append(np.nanmedian(new_size[np.where((new_ecc>bin_array[i])&(new_ecc<bin_array[i+1]))[0]]))
-        std_bin.append(np.std(new_size[np.where((new_ecc>bin_array[i])&(new_ecc<bin_array[i+1]))[0]]))
+        # define indices of voxels within region to plot
+        # should be within ecc bin, with rsq >0.2 - some size values are huge but the rsq is low -, and where value not nan
+        indices4plot = np.where((new_ecc>bin_array[i]) & (new_ecc<bin_array[i+1]) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))[0]
+        
+        size_binned.append(np.average(new_size[indices4plot],
+                                     weights=new_rsq[indices4plot])) # weighted average by rsq
+        #std_bin.append(np.std(new_size[indices4plot]))
 
-    z = np.polyfit(range(num_bins), size_binned, 1)
-    p = np.poly1d(z)
-    plt.scatter(range(num_bins),size_binned,c=c[idx])
-    #plt.errorbar(range(num_bins),size_binned,yerr=std_bin, linestyle="None",c=c[idx])
-    plt.plot(range(num_bins),p(range(num_bins)),color=c[idx],linestyle='--',label=str(str(roi)))
+    df = pd.DataFrame({'size': np.array(size_binned),'bins':range(num_bins),'roi':np.tile(str(roi),len(size_binned))})
+    appended_df.append(df)
 
-plt.legend(loc=0)
-plt.xlabel('pRF eccentricity [bins]',fontsize=18)
-plt.ylabel('pRF size [dva]',fontsize=18)
-s.set(adjustable='box-forced', aspect='equal')    
-plt.show()   
-f.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
+appended_data = pd.concat(appended_df)
+ax = sns.lmplot(x='bins', y='size', hue='roi',data=appended_data,height=8, aspect=1)
+ax.set(xlabel='pRF eccentricity [bins]', ylabel='pRF size [dva]')
+plt.show()
+ax.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
+ 
 
 
 # combined timecourse, new form of showing it
@@ -531,9 +586,6 @@ roi_verts = {} #empty dictionary
 for i,val in enumerate(ROIs):   
     if type(val)==str: # if string, we can directly get the ROI vertices  
         roi_verts[val] = cortex.get_roi_verts('fsaverage',val)[val]
-
-# times where bar is on screen [1st on, last on, 1st on, last on, etc] 
-bar_onset = np.array([14,22,25,41,55,71,74,82])*TR
 
 red_color = ['#591420','#d12e4c']
 data_color = ['#262626','#8a8a8a']
@@ -575,7 +627,7 @@ for idx,roi in enumerate(ROIs):
         if roi == 'sPCS': axis = axis.twinx() 
         
         # plot data with model
-        axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label='model',zorder=1)
+        axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label='prf model',zorder=1)
         axis.scatter(time_sec,timeseries, marker='.',c=data_color[idx],label=roi)
         axis.set_xlabel('Time (s)',fontsize=18)
         axis.set_ylabel('BOLD signal change (%)',fontsize=18)
