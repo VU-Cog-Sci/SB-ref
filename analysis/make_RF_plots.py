@@ -45,13 +45,14 @@ else:
             analysis_params = json.load(json_file)	
 
 
+with_smooth = 'False'#'False'#analysis_params['with_smooth']
+
 # define paths
 figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','sub-{sj}'.format(sj=sj))
+if with_smooth =='True': figure_out = os.path.join(figure_out,'smooth%d'%analysis_params['smooth_fwhm'])
 
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
-
-with_smooth = 'False'#analysis_params['with_smooth']
 
 ## Load PRF estimates ##
 if sj=='median':
@@ -545,10 +546,12 @@ if sj != 'median': # doesn't work for median subject
     
 # make plot to show relationship between ecc and size for different regions
 # redo vertice list (repetitive but quick fix for now)
-ROIs = [['V1','V2','V3'],'sPCS','iPCS']
+ROIs = ['V1','V2','V3','sPCS','iPCS']#[['V1','V2','V3'],'sPCS','iPCS']
 # bin the data   
-num_bins = 10 # number of bins
-bin_array = np.linspace(0,16,num=num_bins+1) # array that goes from 2 to 2, then bin will be values between 0-2, 2-4 etc
+num_bins = 8 # number of bins
+bin_array = np.linspace(0,2.5,num=num_bins+1) # array that goes from 2 to 2, then bin will be values between 0-2, 2-4 etc
+#bin_array = np.linspace(0,16,num=num_bins+1) 
+
 
 appended_df = []
 for idx,roi in enumerate(ROIs):
@@ -564,8 +567,11 @@ for idx,roi in enumerate(ROIs):
         # should be within ecc bin, with rsq >0.2 - some size values are huge but the rsq is low -, and where value not nan
         indices4plot = np.where((new_ecc>bin_array[i]) & (new_ecc<bin_array[i+1]) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))[0]
         
-        size_binned.append(np.average(new_size[indices4plot],
-                                     weights=new_rsq[indices4plot])) # weighted average by rsq
+        if indices4plot.size == 0: # if index array empty - No values for conditions above defined
+            size_binned.append(np.nan)
+        else:
+            size_binned.append(np.average(new_size[indices4plot],
+                                         weights=new_rsq[indices4plot])) # weighted average by rsq
         #std_bin.append(np.std(new_size[indices4plot]))
 
     df = pd.DataFrame({'size': np.array(size_binned),'bins':range(num_bins),'roi':np.tile(str(roi),len(size_binned))})
@@ -574,85 +580,88 @@ for idx,roi in enumerate(ROIs):
 appended_data = pd.concat(appended_df)
 ax = sns.lmplot(x='bins', y='size', hue='roi',data=appended_data,height=8, aspect=1)
 ax.set(xlabel='pRF eccentricity [bins]', ylabel='pRF size [dva]')
+ax = plt.gca()
+ax.set_title('ecc vs size plot, %d bins from 0-%.1f ecc [dva]'%(num_bins,max(bin_array)))
 plt.show()
-ax.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
+plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
  
 
 
-# combined timecourse, new form of showing it
+if sj != 'median':
+    # combined timecourse, new form of showing it
 
-ROIs = ['V1','sPCS']
-roi_verts = {} #empty dictionary 
-for i,val in enumerate(ROIs):   
-    if type(val)==str: # if string, we can directly get the ROI vertices  
-        roi_verts[val] = cortex.get_roi_verts('fsaverage',val)[val]
+    ROIs = ['V1','sPCS']
+    roi_verts = {} #empty dictionary 
+    for i,val in enumerate(ROIs):   
+        if type(val)==str: # if string, we can directly get the ROI vertices  
+            roi_verts[val] = cortex.get_roi_verts('fsaverage',val)[val]
 
-red_color = ['#591420','#d12e4c']
-data_color = ['#262626','#8a8a8a']
+    red_color = ['#591420','#d12e4c']
+    data_color = ['#262626','#8a8a8a']
 
-fig, axis = plt.subplots(1,figsize=(15,7.5),dpi=100)
-for idx,roi in enumerate(ROIs):
-    if type(roi)!=str: # if list
-        print('skipping list ROI %s for timeseries plot'%str(roi))
-    else:
-        new_rsq = rsq[roi_verts[roi]]
-
-        new_xx = xx[roi_verts[roi]]
-        new_yy = yy[roi_verts[roi]]
-        new_size = size[roi_verts[roi]]
-
-        new_beta = beta[roi_verts[roi]]
-        new_baseline = baseline[roi_verts[roi]]
-
-        new_ecc = eccentricity[roi_verts[roi]]
-        new_polar_angle = polar_angle[roi_verts[roi]]
-
-
-        new_data = data[roi_verts[roi]] # data from ROI
-
-        new_index =np.where(new_rsq==max(new_rsq))[0][0]# index for max rsq within ROI
-
-        timeseries = new_data[new_index]
-
-        model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index],
-                                                     beta=new_beta[new_index],baseline=new_baseline[new_index])
-        model_it_prfpy = model_it_prfpy[0]
-
-        print('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
-
-        # plot data with model
-        time_sec = np.linspace(0,len(timeseries)*TR,num=len(timeseries)) # array with 90 timepoints, in seconds
-        
-        # instantiate a second axes that shares the same x-axis
-        if roi == 'sPCS': axis = axis.twinx() 
-        
-        # plot data with model
-        axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label='prf model',zorder=1)
-        axis.scatter(time_sec,timeseries, marker='.',c=data_color[idx],label=roi)
-        axis.set_xlabel('Time (s)',fontsize=18)
-        axis.set_ylabel('BOLD signal change (%)',fontsize=18)
-        axis.tick_params(axis='both', labelsize=14)
-        axis.tick_params(axis='y', labelcolor=red_color[idx])
-        axis.set_xlim(0,len(timeseries)*TR)
-        #plt.title('voxel %d (%s) , MSE = %.3f, rsq = %.3f' %(vertex[i],task[i],mse,r2))
-        
-        if idx == 0:
-            handles,labels = axis.axes.get_legend_handles_labels()
+    fig, axis = plt.subplots(1,figsize=(15,7.5),dpi=100)
+    for idx,roi in enumerate(ROIs):
+        if type(roi)!=str: # if list
+            print('skipping list ROI %s for timeseries plot'%str(roi))
         else:
-            a,b = axis.axes.get_legend_handles_labels()
-            handles = handles+a
-            labels = labels+b
+            new_rsq = rsq[roi_verts[roi]]
 
-        # plot axis vertical bar on background to indicate stimulus display time
-        ax_count = 0
-        for h in range(4):
-            plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1]+TR, facecolor=red_color[idx], alpha=0.1)
-            ax_count += 2
+            new_xx = xx[roi_verts[roi]]
+            new_yy = yy[roi_verts[roi]]
+            new_size = size[roi_verts[roi]]
 
-        
-axis.legend(handles,labels,loc='upper left')  # doing this to guarantee that legend is how I want it   
+            new_beta = beta[roi_verts[roi]]
+            new_baseline = baseline[roi_verts[roi]]
 
-fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%str(ROIs)), dpi=100,bbox_inches = 'tight')
+            new_ecc = eccentricity[roi_verts[roi]]
+            new_polar_angle = polar_angle[roi_verts[roi]]
+
+
+            new_data = data[roi_verts[roi]] # data from ROI
+
+            new_index =np.where(new_rsq==max(new_rsq))[0][0]# index for max rsq within ROI
+
+            timeseries = new_data[new_index]
+
+            model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index],
+                                                         beta=new_beta[new_index],baseline=new_baseline[new_index])
+            model_it_prfpy = model_it_prfpy[0]
+
+            print('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
+
+            # plot data with model
+            time_sec = np.linspace(0,len(timeseries)*TR,num=len(timeseries)) # array with 90 timepoints, in seconds
+            
+            # instantiate a second axes that shares the same x-axis
+            if roi == 'sPCS': axis = axis.twinx() 
+            
+            # plot data with model
+            axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label='prf model',zorder=1)
+            axis.scatter(time_sec,timeseries, marker='.',c=data_color[idx],label=roi)
+            axis.set_xlabel('Time (s)',fontsize=18)
+            axis.set_ylabel('BOLD signal change (%)',fontsize=18)
+            axis.tick_params(axis='both', labelsize=14)
+            axis.tick_params(axis='y', labelcolor=red_color[idx])
+            axis.set_xlim(0,len(timeseries)*TR)
+            #plt.title('voxel %d (%s) , MSE = %.3f, rsq = %.3f' %(vertex[i],task[i],mse,r2))
+            
+            if idx == 0:
+                handles,labels = axis.axes.get_legend_handles_labels()
+            else:
+                a,b = axis.axes.get_legend_handles_labels()
+                handles = handles+a
+                labels = labels+b
+
+            # plot axis vertical bar on background to indicate stimulus display time
+            ax_count = 0
+            for h in range(4):
+                plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1]+TR, facecolor=red_color[idx], alpha=0.1)
+                ax_count += 2
+
+            
+    axis.legend(handles,labels,loc='upper left')  # doing this to guarantee that legend is how I want it   
+
+    fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%str(ROIs)), dpi=100,bbox_inches = 'tight')
 
 
 
