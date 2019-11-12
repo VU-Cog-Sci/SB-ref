@@ -36,9 +36,7 @@ else:
 
     with open('analysis_params.json','r') as json_file:	
             analysis_params = json.load(json_file)	
-            
-    with_smooth = 'False'
-    
+                
     run_type = str(sys.argv[3])
 
 
@@ -57,10 +55,11 @@ orig_filename = [run for run in orig_filepath if 'task-'+task in run and 'fsaver
 orig_filename.sort()
 
 post_filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], task, 'sub-{sj}'.format(sj=sj), '*'))
-if with_smooth == 'True':
-    file_extension = 'sg_smooth%d.func.gii'%analysis_params['smooth_fwhm']
-else:
+
 # last part of filename to use
+if task=='prf':
+    file_extension = 'cropped_sg.func.gii'
+else:
     file_extension = '_sg.func.gii'
 
 post_filename = [run for run in post_filepath if task in run and 'fsaverage' in run and run.endswith(file_extension)]
