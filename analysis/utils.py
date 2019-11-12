@@ -1104,3 +1104,33 @@ def shift_DM(prf_dm):
                             avg_prf_dm[avg_end_pos-i,vert_min_pix:vert_max_pix,j]=255
 
     return avg_prf_dm #(x,y,t)
+
+
+def crop_gii(gii_path,num_TR,outpath):
+    ##################################################
+    #    inputs:
+    #        gii_path - (str) absolute filename for gii file
+    #        num_TR - (int) number of TRs to remove from beginning of file
+    #        outpath - (str) path to save new file
+    #    outputs:
+    #        crop_gii_path - (str) absolute filename for cropped gii file
+    ##################################################
+
+    # load with nibabel instead to save outputs always as gii
+    gii_in = nb.load(gii_path)
+    data_in = np.array([gii_in.darrays[i].data for i in range(len(gii_in.darrays))]) #load surface data
+
+    crop_data = data_in[num_TR:,:] # crop initial TRs
+    print('original file with %d TRs, now cropped and has %d TRs' %(data_in.shape[0],crop_data.shape[0]))
+
+    # save as gii again
+    darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in crop_data]
+    gii_out = nb.gifti.gifti.GiftiImage(header=gii_in.header, extra=gii_in.extra, darrays=darrays)
+
+    crop_gii_path = os.path.join(outpath,os.path.split(gii_path)[-1].replace('.func.gii','_cropped.func.gii'))
+
+    nb.save(gii_out,crop_gii_path) # save as gii file
+    print('new file saved in %s'%crop_gii_path)
+
+    return crop_gii_path
+
