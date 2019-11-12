@@ -84,13 +84,13 @@ elif str(sys.argv[2]) == 'aeneas':
 # changes depending on data used
 if with_smooth == 'True':
     # last part of filename to use
-    file_extension = '_sg_psc_smooth%d.func.gii' % analysis_params['smooth_fwhm']
+    file_extension = 'cropped_sg_psc_smooth%d.func.gii' % analysis_params['smooth_fwhm']
     # compute median run, per hemifield
     median_path = os.path.join(
         out_dir, 'sub-{sj}'.format(sj=sj), 'run-median', 'smooth%d' % analysis_params['smooth_fwhm'],'iterative_fit')
 else:
     # last part of filename to use
-    file_extension = '_sg_psc.func.gii'
+    file_extension = 'cropped_sg_psc.func.gii'
     # compute median run, per hemifield
     median_path = os.path.join(out_dir, 'sub-{sj}'.format(sj=sj), 'run-median','iterative_fit')
 
@@ -137,6 +137,12 @@ print('computed %s' % (dm_filename))
 prf_dm = np.load(dm_filename)
 prf_dm = prf_dm.T # then it'll be (x, y, t)
 
+# change DM to see if fit is better like that
+# do new one which is average of every 2 TRs
+
+prf_dm = shift_DM(prf_dm)
+
+prf_dm = prf_dm[:,:,analysis_params['crop_pRF_TR']:] # crop DM because functional data also cropped now
 
 # define model params
 fit_model = analysis_params["fit_model"]
@@ -157,7 +163,7 @@ gg = Iso2DGaussianGridder(stimulus=prf_stim,
                           filter_predictions=False,
                           window_length=analysis_params["sg_filt_window_length"],
                           polyorder=analysis_params["sg_filt_polyorder"],
-                          highpass=True)
+                          highpass=False)
 
 # set grid parameters
 grid_nr = analysis_params["grid_steps"]
@@ -187,13 +193,12 @@ for gii_file in med_gii:
               size = gf.gridsearch_params[..., 2],
               betas = gf.gridsearch_params[...,3],
               baseline = gf.gridsearch_params[..., 4],
-              ns = gf.gridsearch_params[..., 5],
-              r2 = gf.gridsearch_params[..., 6])
+              r2 = gf.gridsearch_params[..., 5])
 
 
     loaded_gf_pars = np.load(grid_estimates_filename)
 
-    gf.gridsearch_params = np.array([loaded_gf_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline','ns','r2']]) 
+    gf.gridsearch_params = np.array([loaded_gf_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline','r2']]) 
     gf.gridsearch_params = np.transpose(gf.gridsearch_params)
 
     # do iterative fit
