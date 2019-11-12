@@ -23,7 +23,7 @@ else:
     
 # define paths and list of files
 filepath = glob.glob(os.path.join(analysis_params['fmriprep_dir'],'sub-{sj}'.format(sj=sj),'*','func/*'))
-tasks = ['fn','prf','soma','rlb','rli','rs']
+tasks = ['prf']#['fn','prf','soma','rlb','rli','rs']
 
 for t,cond in enumerate(tasks):
 
@@ -56,6 +56,10 @@ for t,cond in enumerate(tasks):
             
             # plot all steps as sanity check
             #plot_tSNR(file,hemi,os.path.join(outpath,'tSNR'),mesh='fsaverage')
+
+            if cond in ('prf'): # if pRF we cut out first 7TRs from "raw file" to make further analysis better
+
+                file = crop_gii(file,analysis_params['crop_pRF_TR'],outpath)
             
             # high pass filter all runs (savgoy-golay)
             filt_gii,filt_gii_pth = highpass_gii(file,analysis_params['sg_filt_polyorder'],analysis_params['sg_filt_deriv'],
@@ -67,7 +71,7 @@ for t,cond in enumerate(tasks):
                 clean_gii = filt_gii
                 clean_gii_pth = filt_gii_pth
 
-            else: #regress out PCA of confounds from data
+            else: #regress out confounds from data (not doing pca)
             # to get run number, hence making sure that subtracting right confounds
                 run_str = '_run-'
                 run_num = os.path.split(file)[-1][os.path.split(file)[-1].index(run_str)+len(run_str):][0:2]
