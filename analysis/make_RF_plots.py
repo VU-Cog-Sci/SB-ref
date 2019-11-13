@@ -32,6 +32,7 @@ from popeye import utilities
 import matplotlib.gridspec as gridspec
 import scipy
 
+import matplotlib.patches as patches
 
 # define participant number and open json parameter file
 if len(sys.argv)<2:	
@@ -48,15 +49,15 @@ else:
 with_smooth = 'False'#'False'#analysis_params['with_smooth']
 
 # define paths
-figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','sub-{sj}'.format(sj=sj))
-if with_smooth =='True': figure_out = os.path.join(figure_out,'smooth%d'%analysis_params['smooth_fwhm'])
+figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','shift_crop','sub-{sj}'.format(sj=sj))
 
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
 
+
 ## Load PRF estimates ##
 if sj=='median':
-    estimates = median_iterative_pRFestimates(analysis_params['pRF_outdir'],with_smooth=bool(strtobool(with_smooth)))
+    estimates = median_iterative_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=bool(strtobool(with_smooth)))
     print('computed median estimates for %s'%str(estimates['subs']))
     xx = estimates['x']
     yy = estimates['y']
@@ -67,9 +68,9 @@ if sj=='median':
     
 else:
     if with_smooth=='True':    
-        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+        median_path = os.path.join(analysis_params['pRF_outdir'],'shift_crop','sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
     else:
-        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','iterative_fit')
+        median_path = os.path.join(analysis_params['pRF_outdir'],'shift_crop','sub-{sj}'.format(sj=sj),'run-median','iterative_fit')
 
     estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
     estimates_list.sort() #sort to make sure pRFs not flipped
@@ -80,8 +81,9 @@ else:
         estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
         
     xx = np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0]))
-    yy = -np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1]))
-    #yy = -yy # Need to do this for now, CHANGE ONCE BUG FIXED
+    yy = -np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])) # Need to do this for now, CHANGE ONCE BUG FIXED
+    
+    ###########################
 
     size = np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2]))
     beta = np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3]))
@@ -90,33 +92,58 @@ else:
     rsq = np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5])) 
 
 
-# now construct polar angle and eccentricity values
-rsq_threshold = 0.2#analysis_params['rsq_threshold']
+# set limits for xx and yy, forcing it to be within the screen boundaries
 
-complex_location = xx + yy * 1j
-polar_angle = np.angle(complex_location)
-eccentricity = np.abs(complex_location)
+vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
+hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
+
+# make new variables that are masked 
+masked_xx = np.zeros(xx.shape); masked_xx[:]=np.nan
+masked_yy = np.zeros(yy.shape); masked_yy[:]=np.nan
+masked_size = np.zeros(size.shape); masked_size[:]=np.nan
+masked_beta = np.zeros(beta.shape); masked_beta[:]=np.nan
+masked_baseline = np.zeros(baseline.shape); masked_baseline[:]=np.nan
+masked_rsq = np.zeros(rsq.shape); masked_rsq[:]=np.nan
+
+for i in range(len(xx)):
+    if xx[i] < hor_lim_dva and xx[i] > -hor_lim_dva: # if x within horizontal screen dim
+        if yy[i] < vert_lim_dva and yy[i] > -vert_lim_dva: # if y within vertical screen dim
+            
+            # save values
+            masked_xx[i]=xx[i]
+            masked_yy[i]=yy[i]
+            masked_size[i]=size[i]
+            masked_beta[i]=beta[i]
+            masked_baseline[i]=baseline[i]
+            masked_rsq[i]=rsq[i]
+               
+# now construct polar angle and eccentricity values
+rsq_threshold = 0.15#0.2#analysis_params['rsq_threshold']
+
+complex_location = masked_xx + masked_yy * 1j
+masked_polar_angle = np.angle(complex_location)
+masked_eccentricity = np.abs(complex_location)
 
 # normalize polar angles to have values in circle between 0 and 1
-polar_ang_norm = (polar_angle + np.pi) / (np.pi * 2.0)
+masked_polar_ang_norm = (masked_polar_angle + np.pi) / (np.pi * 2.0)
 
 # use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
 # why have an offset?
 angle_offset = 0.85#0.1
-polar_ang_norm = np.fmod(polar_ang_norm+angle_offset, 1.0)
+masked_polar_ang_norm = np.fmod(masked_polar_ang_norm+angle_offset, 1.0)
 
 # convert angles to colors, using correlations as weights
-hsv = np.zeros(list(polar_ang_norm.shape) + [3])
-hsv[..., 0] = polar_ang_norm # different hue value for each angle
-hsv[..., 1] = (rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
-hsv[..., 2] = (rsq > rsq_threshold).astype(float) # value weighted by rsq
+hsv = np.zeros(list(masked_polar_ang_norm.shape) + [3])
+hsv[..., 0] = masked_polar_ang_norm # different hue value for each angle
+hsv[..., 1] = (masked_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
+hsv[..., 2] = (masked_rsq > rsq_threshold).astype(float) # value weighted by rsq
 
 # convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
 rgb = colors.hsv_to_rgb(hsv)
 
 # define alpha channel - which specifies the opacity for a color
 # 0 = transparent = values with rsq below thresh and 1 = opaque = values above thresh
-alpha_mask = (rsq <= rsq_threshold).T #why transpose? because of orientation of pycortex volume?
+alpha_mask = np.array([True if val<= rsq_threshold or np.isnan(val) else False for _,val in enumerate(masked_rsq)]).T #why transpose? because of orientation of pycortex volume?
 alpha = np.ones(alpha_mask.shape)
 alpha[alpha_mask] = np.nan
 
@@ -133,7 +160,7 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
 
 # vertex for rsq
-images['rsq'] = cortex.Vertex2D(rsq.T, alpha, 'fsaverage',
+images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha, 'fsaverage',
                            vmin=0, vmax=1.0,
                            vmin2=0, vmax2=1.0, cmap='Reds_cov')
 #cortex.quickshow(images['rsq'],with_curvature=True,with_sulci=True)
@@ -143,9 +170,8 @@ _ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorba
 
 
 # vertex for ecc
-ecc4plot = np.zeros(eccentricity.shape); ecc4plot[:]=np.nan
-ecc4plot[rsq>=rsq_threshold]= eccentricity[rsq>=rsq_threshold]
-
+ecc4plot = masked_eccentricity.copy()
+ecc4plot[alpha_mask] = np.nan
 
 images['ecc'] = cortex.Vertex(ecc4plot.T, 'fsaverage',
                            vmin=0, vmax=analysis_params['max_eccen'],
@@ -158,9 +184,8 @@ _ = cortex.quickflat.make_png(filename, images['ecc'], recache=True,with_colorba
 
 
 # vertex for ecc
-size4plot = np.zeros(size.shape); size4plot[:]=np.nan
-size4plot[rsq>=rsq_threshold]= size[rsq>=rsq_threshold]
-
+size4plot = masked_size.copy()
+size4plot[alpha_mask] = np.nan
 
 # vertex for size
 images['size'] = cortex.dataset.Vertex(size4plot.T, 'fsaverage',
@@ -199,14 +224,14 @@ for idx,roi in enumerate(ROIs):
     if type(roi)!=str: # if list
         roi = str(roi)
     # get datapoints for RF only belonging to roi
-    new_rsq = rsq[roi_verts[roi]]
+    new_rsq = masked_rsq[roi_verts[roi]]
 
-    new_xx = xx[roi_verts[roi]]
-    new_yy = yy[roi_verts[roi]]
-    new_size = size[roi_verts[roi]]
+    new_xx = masked_xx[roi_verts[roi]]
+    new_yy = masked_yy[roi_verts[roi]]
+    new_size = masked_size[roi_verts[roi]]
     
-    new_ecc = eccentricity[roi_verts[roi]]
-    new_polar_angle = polar_angle[roi_verts[roi]]
+    new_ecc = masked_eccentricity[roi_verts[roi]]
+    new_polar_angle = masked_polar_angle[roi_verts[roi]]
     
     # do scatter plot, with RF positions and alpha scaled by rsq
     rgba_colors = np.zeros((new_xx.shape[0], 4))
@@ -230,6 +255,13 @@ for idx,roi in enumerate(ROIs):
 
     s[0].set_xlabel('horizontal space [dva]')
     s[0].set_ylabel('vertical space [dva]')
+    
+    # Create a Rectangle patch
+    rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
+
+    # Add the patch to the Axes
+    s[0].add_patch(rect)
+
     s[1].set_title('%s pRF size vs eccentricity'%roi)
     s[1].set_xlim([0,15])
     s[1].set_ylim([0,analysis_params["max_size"]])
@@ -254,14 +286,14 @@ for idx,roi in enumerate(ROIs):
     if type(roi)!=str: # if list
         roi = str(roi)
     # get datapoints for RF only belonging to roi
-    new_rsq = rsq[roi_verts[roi]]
+    new_rsq = masked_rsq[roi_verts[roi]]
 
-    new_xx = xx[roi_verts[roi]]
-    new_yy = yy[roi_verts[roi]]
-    new_size = size[roi_verts[roi]]
+    new_xx = masked_xx[roi_verts[roi]]
+    new_yy = masked_yy[roi_verts[roi]]
+    new_size = masked_size[roi_verts[roi]]
     
-    new_ecc = eccentricity[roi_verts[roi]]
-    new_polar_angle = polar_angle[roi_verts[roi]]
+    new_ecc = masked_eccentricity[roi_verts[roi]]
+    new_polar_angle = masked_polar_angle[roi_verts[roi]]
     
     #####
     # normalize polar angles to have values in circle between 0 and 1
@@ -274,11 +306,16 @@ for idx,roi in enumerate(ROIs):
     # convert angles to colors, using correlations as weights
     hsv_colors = np.zeros(list(new_pa_norm.shape) + [3])
     hsv_colors[..., 0] = new_pa_norm # different hue value for each angle
-    hsv_colors[..., 1] = new_rsq#1#(new_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
+    hsv_colors[..., 1] = 1#(new_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
     hsv_colors[..., 2] = 1#(new_rsq > rsq_threshold).astype(float) # value weighted by rsq
 
     # convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
-    rgba_colors = colors.hsv_to_rgb(hsv_colors)
+    rgb_col = colors.hsv_to_rgb(hsv_colors)
+    rgba_colors = np.zeros((rgb_col.shape[0], 4))
+    rgba_colors[:,0] = rgb_col[:,0]
+    rgba_colors[:,1] = rgb_col[:,1]
+    rgba_colors[:,2] = rgb_col[:,2]
+    rgba_colors[:,3] = new_rsq/20
     ######## 
 
     edgecolors = np.zeros((new_xx.shape[0], 4))
@@ -298,6 +335,13 @@ for idx,roi in enumerate(ROIs):
      
     s[idx][0].set_xlabel('horizontal space [dva]')
     s[idx][0].set_ylabel('vertical space [dva]')
+    
+    # Create a Rectangle patch
+    rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
+
+    # Add the patch to the Axes
+    s[idx][0].add_patch(rect)
+    
     s[idx][1].set_title('%s pRF size vs eccentricity'%roi)
     s[idx][1].set_xlim([0,15])
     s[idx][1].set_ylim([0,analysis_params["max_size"]])
@@ -312,6 +356,7 @@ for idx,roi in enumerate(ROIs):
 f.savefig(os.path.join(figure_out,'RF_pa_scatter_allROIs.png'), dpi=100,bbox_inches = 'tight')
 #plt.show() 
 
+
 # now do single voxel fits, choosing voxels with highest rsq 
 # from each ROI (early visual vs sPCS vs iPCS)
 # and plot all in same figure (usefull for fig1)
@@ -322,14 +367,14 @@ if sj != 'median': # doesn't work for median subject
     print('functional files from %s' % os.path.split(filepath[0])[0])
 
     # last part of filename to use
-    file_extension = '_sg_psc.func.gii'
+    file_extension = 'cropped_sg_psc.func.gii'
 
     # list of functional files (5 runs)
     filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith(file_extension)]
     filename.sort()
 
     # path to save fits, for testing
-    out_dir = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'tests')
+    out_dir = os.path.join(analysis_params['pRF_outdir'],'shift_crop','sub-{sj}'.format(sj=sj),'tests')
 
     if not os.path.exists(out_dir):  # check if path exists
         os.makedirs(out_dir)
@@ -382,7 +427,13 @@ if sj != 'median': # doesn't work for median subject
 
     prf_dm = np.load(dm_filename)
     prf_dm = prf_dm.T # then it'll be (x, y, t)
+    
+    # change DM to see if fit is better like that
+    # do new one which is average of every 2 TRs
 
+    prf_dm = shift_DM(prf_dm)
+
+    prf_dm = prf_dm[:,:,analysis_params['crop_pRF_TR']:] # crop DM because functional data also cropped now
 
     # define model params
     fit_model = analysis_params["fit_model"]
@@ -403,7 +454,7 @@ if sj != 'median': # doesn't work for median subject
                               filter_predictions=False,
                               window_length=analysis_params["sg_filt_window_length"],
                               polyorder=analysis_params["sg_filt_polyorder"],
-                              highpass=True)
+                              highpass=False)
 
 
 
@@ -412,8 +463,7 @@ if sj != 'median': # doesn't work for median subject
     ############ SHOW FIT FOR SINGLE VOXEL AND PLOT IT OVER DATA ##############
 
     # times where bar is on screen [1st on, last on, 1st on, last on, etc] 
-    bar_onset = np.array([14,22,25,41,55,71,74,82])*TR
-
+    bar_onset = (np.array([14,22,25,41,55,71,74,82])-analysis_params['crop_pRF_TR'])*TR
 
     # get single voxel data from ROI where rsq is max 
     # get datapoints for RF only belonging to roi
@@ -421,17 +471,17 @@ if sj != 'median': # doesn't work for median subject
         if type(roi)!=str: # if list
             print('skipping list ROI %s for timeseries plot'%str(roi))
         else:
-            new_rsq = rsq[roi_verts[roi]]
+            new_rsq = masked_rsq[roi_verts[roi]]
 
-            new_xx = xx[roi_verts[roi]]
-            new_yy = yy[roi_verts[roi]]
-            new_size = size[roi_verts[roi]]
+            new_xx = masked_xx[roi_verts[roi]]
+            new_yy = masked_yy[roi_verts[roi]]
+            new_size = masked_size[roi_verts[roi]]
 
-            new_beta = beta[roi_verts[roi]]
-            new_baseline = baseline[roi_verts[roi]]
+            new_beta = masked_beta[roi_verts[roi]]
+            new_baseline = masked_baseline[roi_verts[roi]]
 
-            new_ecc = eccentricity[roi_verts[roi]]
-            new_polar_angle = polar_angle[roi_verts[roi]]
+            new_ecc = masked_eccentricity[roi_verts[roi]]
+            new_polar_angle = masked_polar_angle[roi_verts[roi]]
 
 
             new_data = data[roi_verts[roi]] # data from ROI
@@ -440,7 +490,7 @@ if sj != 'median': # doesn't work for median subject
 
             timeseries = new_data[new_index]
 
-            model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index],
+            model_it_prfpy = gg.return_single_prediction(new_xx[new_index],-new_yy[new_index],new_size[new_index], #because we also added - before, so will be actual yy val from fit
                                                          beta=new_beta[new_index],baseline=new_baseline[new_index])
             model_it_prfpy = model_it_prfpy[0]
 
@@ -449,21 +499,22 @@ if sj != 'median': # doesn't work for median subject
             # plot data with model
             time_sec = np.linspace(0,len(timeseries)*TR,num=len(timeseries)) # array with 90 timepoints, in seconds
             fig= plt.figure(figsize=(15,7.5),dpi=100)
-            plt.plot(time_sec,model_it_prfpy,c='#db3050',lw=3,label='model fit',zorder=1)
-            plt.scatter(time_sec,timeseries, marker='.',c='k',label='data')
+            plt.plot(time_sec,model_it_prfpy,c='#db3050',lw=3,label='prf model',zorder=1)
+            plt.scatter(time_sec,timeseries, marker='v',c='k',label='data')
             plt.xlabel('Time (s)',fontsize=18)
             plt.ylabel('BOLD signal change (%)',fontsize=18)
             plt.xticks(fontsize=14)
             plt.yticks(fontsize=14)
             plt.xlim(0,len(timeseries)*TR)
             plt.title('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
-            plt.legend(loc=0)
 
             # plot axis vertical bar on background to indicate stimulus display time
             ax_count = 0
             for h in range(4):
                 plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1]+TR, facecolor='r', alpha=0.1)
                 ax_count += 2
+            
+            plt.legend(loc=0)
 
             fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%roi), dpi=100,bbox_inches = 'tight')
 
@@ -506,8 +557,8 @@ if sj != 'median': # doesn't work for median subject
 
                         for w in range(2):
                             ax = plt.Subplot(fig, inner1[w])#inner[j,w])
-                            ax.imshow(prf_dm[:,:,sig_peaks[0][k]-4].T) # subtract 4 TRs because hemodynamic response takes 6s to peak = 4TRs * 1.6 = 6.4s (or so)
-                            ax.set_title('bar pass TR = %d'%(sig_peaks[0][k]-4))
+                            ax.imshow(prf_dm[:,:,sig_peaks[0][k]-3].T) # subtract 3 TRs because hemodynamic response takes 4-6s to peak = 3TRs * 1.6 = 4.8s (or so)
+                            ax.set_title('bar pass TR = %d'%(sig_peaks[0][k]-3))
                             ax.set(adjustable='box-forced',aspect='equal') 
                             fig.add_subplot(ax)
                             k += 1
@@ -549,16 +600,16 @@ if sj != 'median': # doesn't work for median subject
 ROIs = ['V1','V2','V3','sPCS','iPCS']#[['V1','V2','V3'],'sPCS','iPCS']
 # bin the data   
 num_bins = 8 # number of bins
-bin_array = np.linspace(0,2.5,num=num_bins+1) # array that goes from 2 to 2, then bin will be values between 0-2, 2-4 etc
+bin_array = np.linspace(0.5,5,num=num_bins+1) # array that goes from 2 to 2, then bin will be values between 0-2, 2-4 etc
 #bin_array = np.linspace(0,16,num=num_bins+1) 
 
 
 appended_df = []
 for idx,roi in enumerate(ROIs):
     # get datapoints for RF only belonging to roi
-    new_size = size[roi_verts[str(roi)]]
-    new_ecc = eccentricity[roi_verts[str(roi)]]
-    new_rsq = rsq[roi_verts[str(roi)]]
+    new_size = masked_size[roi_verts[str(roi)]]
+    new_ecc = masked_eccentricity[roi_verts[str(roi)]]
+    new_rsq = masked_rsq[roi_verts[str(roi)]]
 
     size_binned = []
     std_bin = []
@@ -579,13 +630,14 @@ for idx,roi in enumerate(ROIs):
 
 appended_data = pd.concat(appended_df)
 ax = sns.lmplot(x='bins', y='size', hue='roi',data=appended_data,height=8, aspect=1)
-ax.set(xlabel='pRF eccentricity [bins]', ylabel='pRF size [dva]')
+ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
 ax = plt.gca()
-ax.set_title('ecc vs size plot, %d bins from 0-%.1f ecc [dva]'%(num_bins,max(bin_array)))
+ax.set_title('ecc vs size plot, %d bins from %.1f-%.1f ecc [dva]'%(num_bins,min(bin_array),max(bin_array)))
+ax.axes.set_xlim(0,)
+ax.axes.set(xticks=range(len(bin_array)),xticklabels=bin_array)
 plt.show()
 plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
  
-
 
 if sj != 'median':
     # combined timecourse, new form of showing it
@@ -604,17 +656,17 @@ if sj != 'median':
         if type(roi)!=str: # if list
             print('skipping list ROI %s for timeseries plot'%str(roi))
         else:
-            new_rsq = rsq[roi_verts[roi]]
+            new_rsq = masked_rsq[roi_verts[roi]]
 
-            new_xx = xx[roi_verts[roi]]
-            new_yy = yy[roi_verts[roi]]
-            new_size = size[roi_verts[roi]]
+            new_xx = masked_xx[roi_verts[roi]]
+            new_yy = masked_yy[roi_verts[roi]]
+            new_size = masked_size[roi_verts[roi]]
 
-            new_beta = beta[roi_verts[roi]]
-            new_baseline = baseline[roi_verts[roi]]
+            new_beta = masked_beta[roi_verts[roi]]
+            new_baseline = masked_baseline[roi_verts[roi]]
 
-            new_ecc = eccentricity[roi_verts[roi]]
-            new_polar_angle = polar_angle[roi_verts[roi]]
+            new_ecc = masked_eccentricity[roi_verts[roi]]
+            new_polar_angle = masked_polar_angle[roi_verts[roi]]
 
 
             new_data = data[roi_verts[roi]] # data from ROI
@@ -623,7 +675,7 @@ if sj != 'median':
 
             timeseries = new_data[new_index]
 
-            model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index],
+            model_it_prfpy = gg.return_single_prediction(new_xx[new_index],-new_yy[new_index],new_size[new_index], #because we also added - before, so will be actual yy val from fit
                                                          beta=new_beta[new_index],baseline=new_baseline[new_index])
             model_it_prfpy = model_it_prfpy[0]
 
@@ -636,8 +688,8 @@ if sj != 'median':
             if roi == 'sPCS': axis = axis.twinx() 
             
             # plot data with model
-            axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label='prf model',zorder=1)
-            axis.scatter(time_sec,timeseries, marker='.',c=data_color[idx],label=roi)
+            axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label=roi,zorder=1)
+            axis.scatter(time_sec,timeseries, marker='v',s=15,c=red_color[idx])#,label=roi)
             axis.set_xlabel('Time (s)',fontsize=18)
             axis.set_ylabel('BOLD signal change (%)',fontsize=18)
             axis.tick_params(axis='both', labelsize=14)
@@ -662,13 +714,3 @@ if sj != 'median':
     axis.legend(handles,labels,loc='upper left')  # doing this to guarantee that legend is how I want it   
 
     fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%str(ROIs)), dpi=100,bbox_inches = 'tight')
-
-
-
-
-
-
-
-
-
-
