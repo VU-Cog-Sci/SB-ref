@@ -217,6 +217,7 @@ fig.savefig(os.path.join(figure_out,'predictors_convolved_all.svg'), dpi=100,bbo
 
 # not sure of what run_glm does and how to access betas from the regression results
 # so get regression results from numpy least squares linear regress function
+task = ['face','upper_limb','lower_limb']
 
 for i in range(len(vertex)):
     
@@ -225,11 +226,19 @@ for i in range(len(vertex)):
     
     mse = np.mean((model_sig - data[vertex[i]]) ** 2) # calculate mean of squared residuals
     r2 = pearsonr(model_sig, data[vertex[i]])[0] ** 2 # and the rsq
+
+    # legend labels for data
+    if task[i]=='face':
+        dlabel = 'face' 
+    elif task[i]=='upper_limb':
+        dlabel = 'hand'
+    else:
+        dlabel = 'leg'
     
     # plot data with model
     fig= plt.figure(figsize=(15,7.5),dpi=100)
-    plt.plot(time_sec,model_sig,c='#0093b7',lw=3,label='model fit',zorder=1)
-    plt.scatter(time_sec,data[vertex[i]], marker='.',c='k',label='data')
+    plt.plot(time_sec,model_sig,c='#0093b7',lw=3,label='GLM',zorder=1)
+    plt.scatter(time_sec,data[vertex[i]], marker='.',c='k',label=dlabel)
     plt.xlabel('Time (s)',fontsize=18)
     plt.ylabel('BOLD signal change (%)',fontsize=18)
     plt.xticks(fontsize=14)
@@ -237,6 +246,23 @@ for i in range(len(vertex)):
     plt.xlim(0,len(data[vertex[i]])*TR)
     plt.title('voxel %d (%s) , MSE = %.3f, rsq = %.3f' %(vertex[i],task[i],mse,r2))
     plt.legend(loc=0)
+
+
+    if dlabel!='leg': # issue for leg timing, check later
+        # plot axis vertical bar on background to indicate stimulus display time
+        stim_onset = []
+        for w in range(len(events_avg)):
+            if events_avg['trial_type'][w] in analysis_params['all_contrasts'][task[i]]:
+                stim_onset.append(events_avg['onset'][w])
+        stim_onset = list(set(stim_onset)); stim_onset.sort()  # to remove duplicate values (both hands situation)
+                
+        ax_count = 0
+        for h in range(6):
+            incr = 3 if task[i]=='face' else 4 # increment for vertical bar (to plot it from index 0 to index 4)
+            plt.axvspan(stim_onset[ax_count], stim_onset[ax_count+3]+2.25, facecolor='b', alpha=0.1)
+            ax_count += 4 if task[i]=='face' else 5
+
+
     fig.savefig(os.path.join(figure_out,'soma_singvoxfit_timeseries_%s.svg'%task[i]), dpi=100,bbox_inches = 'tight')
 
 
@@ -257,8 +283,8 @@ for i in range(len(task)):
     dlabel = 'face' if task[i]=='face' else 'hand'
     
     # plot data with model
-    axis.plot(time_sec,model_sig,c=blue_color[i],lw=3,label='model',zorder=1)
-    axis.scatter(time_sec,data[vertex[i]], marker='.',c=data_color[i],label=dlabel)
+    axis.plot(time_sec,model_sig,c=blue_color[i],lw=3,label=dlabel,zorder=1)
+    axis.scatter(time_sec,data[vertex[i]], marker='v',s=15,c=blue_color[i])#,label=dlabel)
     axis.set_xlabel('Time (s)',fontsize=18)
     axis.set_ylabel('BOLD signal change (%)',fontsize=18)
     axis.tick_params(axis='both', labelsize=14)
@@ -279,8 +305,8 @@ for i in range(len(task)):
         ax_count += 4 if task[i]=='face' else 5
 
 handles,labels = axis.axes.get_legend_handles_labels()
-axis.legend([handles[0],handles[2],handles[1],handles[3]],
-            [labels[0],labels[2],labels[1],labels[3]],loc='upper left')  # doing this to guarantee that legend is how I want it   
+axis.legend([handles[0],handles[1]],
+            [labels[0],labels[1]],loc='upper left')  # doing this to guarantee that legend is how I want it   
 fig.savefig(os.path.join(figure_out,'soma_singvoxfit_timeseries_%s.svg'%str(task)), dpi=100,bbox_inches = 'tight')
 
 
