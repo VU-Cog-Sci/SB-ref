@@ -1134,3 +1134,20 @@ def crop_gii(gii_path,num_TR,outpath):
 
     return crop_gii_path
 
+# calculate degrees of visual angle per pixel, to use for screen boundaries when plotting/masking
+def dva_per_pix(height_cm,distance_cm,vert_res_pix):
+    ##################################################
+    #    inputs:
+    #        height_cm - screen height
+    #        distance_cm - screen distance (save unit as height)
+    #        vert_res_pix - vertical resolution of screen
+    #    outputs:
+    #        deg_per_px - degree (dva) per pixel
+    ##################################################
+    
+    height_cm = analysis_params['screen_width']
+    distance_cm = analysis_params['screen_distance']
+    vert_res_pix = analysis_params['screenRes'][-1]
+    deg_per_px = math.degrees(math.atan2(0.5*height_cm,distance_cm))/(0.5*vert_res_pix)
+
+    return deg_per_px
