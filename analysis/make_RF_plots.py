@@ -46,7 +46,7 @@ else:
             analysis_params = json.load(json_file)	
 
 
-with_smooth = 'False'#'False'#analysis_params['with_smooth']
+with_smooth = 'False'#'False'#'False'#analysis_params['with_smooth']
 
 # define paths
 if with_smooth=='True':
@@ -490,7 +490,7 @@ if sj != 'median': # doesn't work for median subject
 
             new_data = data[roi_verts[roi]] # data from ROI
 
-            new_index =np.where(new_rsq==max(new_rsq))[0][0]# index for max rsq within ROI
+            new_index =np.where(new_rsq==np.nanmax(new_rsq))[0][0]# index for max rsq within ROI
 
             timeseries = new_data[new_index]
 
@@ -675,7 +675,7 @@ if sj != 'median':
 
             new_data = data[roi_verts[roi]] # data from ROI
 
-            new_index =np.where(new_rsq==max(new_rsq))[0][0]# index for max rsq within ROI
+            new_index =np.where(new_rsq==np.nanmax(new_rsq))[0][0]# index for max rsq within ROI
 
             timeseries = new_data[new_index]
 
