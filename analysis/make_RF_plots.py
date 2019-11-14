@@ -49,7 +49,11 @@ else:
 with_smooth = 'False'#'False'#analysis_params['with_smooth']
 
 # define paths
-figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','shift_crop','sub-{sj}'.format(sj=sj))
+if with_smooth=='True':
+    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','shift_crop','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
+else:
+    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','shift_crop','sub-{sj}'.format(sj=sj))
+
 
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
