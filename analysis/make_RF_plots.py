@@ -101,25 +101,17 @@ else:
 vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
 hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
 
-# make new variables that are masked 
-masked_xx = np.zeros(xx.shape); masked_xx[:]=np.nan
-masked_yy = np.zeros(yy.shape); masked_yy[:]=np.nan
-masked_size = np.zeros(size.shape); masked_size[:]=np.nan
-masked_beta = np.zeros(beta.shape); masked_beta[:]=np.nan
-masked_baseline = np.zeros(baseline.shape); masked_baseline[:]=np.nan
-masked_rsq = np.zeros(rsq.shape); masked_rsq[:]=np.nan
+# make new variables that are masked (cebter of RF within screen limits and only positive pRFs)
+print('masking variables to be within screen and only show positive RF')
+new_estimates = mask_estimates(xx,yy,size,beta,baseline,rsq,vert_lim_dva,hor_lim_dva)
 
-for i in range(len(xx)):
-    if xx[i] < hor_lim_dva and xx[i] > -hor_lim_dva: # if x within horizontal screen dim
-        if yy[i] < vert_lim_dva and yy[i] > -vert_lim_dva: # if y within vertical screen dim
-            
-            # save values
-            masked_xx[i]=xx[i]
-            masked_yy[i]=yy[i]
-            masked_size[i]=size[i]
-            masked_beta[i]=beta[i]
-            masked_baseline[i]=baseline[i]
-            masked_rsq[i]=rsq[i]
+masked_xx = new_estimates['x']
+masked_yy = new_estimates['y']
+masked_size = new_estimates['size']
+masked_beta = new_estimates['beta']
+masked_baseline = new_estimates['baseline']
+masked_rsq = new_estimates['rsq']
+
                
 # now construct polar angle and eccentricity values
 rsq_threshold = 0.15#0.2#analysis_params['rsq_threshold']
@@ -146,11 +138,16 @@ hsv[..., 2] = (masked_rsq > rsq_threshold).astype(float) # value weighted by rsq
 rgb = colors.hsv_to_rgb(hsv)
 
 # define alpha channel - which specifies the opacity for a color
-# 0 = transparent = values with rsq below thresh and 1 = opaque = values above thresh
+# define mask for alpha, to be all values where rsq below threshold or nan 
 alpha_mask = np.array([True if val<= rsq_threshold or np.isnan(val) else False for _,val in enumerate(masked_rsq)]).T #why transpose? because of orientation of pycortex volume?
-alpha = np.ones(alpha_mask.shape)
+
+# create alpha array weighted by rsq values
+alpha = masked_rsq.copy() #np.ones(alpha_mask.shape)
 alpha[alpha_mask] = np.nan
 
+# create alpha array with nan = transparent = values with rsq below thresh and 1 = opaque = values above thresh
+alpha_ones = np.ones(alpha_mask.shape)
+alpha_ones[alpha_mask] = np.nan
 
 images = {}
 
@@ -164,7 +161,7 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
 
 # vertex for rsq
-images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha, 'fsaverage',
+images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage',
                            vmin=0, vmax=1.0,
                            vmin2=0, vmax2=1.0, cmap='Reds_cov')
 #cortex.quickshow(images['rsq'],with_curvature=True,with_sulci=True)
@@ -692,13 +689,21 @@ if sj != 'median':
             if roi == 'sPCS': axis = axis.twinx() 
             
             # plot data with model
-            axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label=roi,zorder=1)
+            axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label=roi+', R$^2$=%.2f'%new_rsq[new_index],zorder=1)
             axis.scatter(time_sec,timeseries, marker='v',s=15,c=red_color[idx])#,label=roi)
             axis.set_xlabel('Time (s)',fontsize=18)
             axis.set_ylabel('BOLD signal change (%)',fontsize=18)
             axis.tick_params(axis='both', labelsize=14)
             axis.tick_params(axis='y', labelcolor=red_color[idx])
             axis.set_xlim(0,len(timeseries)*TR)
+            #plt.title('voxel %d (%s) , MSE = %.3f, rsq = %.3f' %(vertex[i],task[i],mse,r2))
+
+            #axis.axhline(y=0, xmin=0, xmax=len(timeseries)*TR,linestyle='--',c=red_color[idx])
+
+            #if roi == 'sPCS':
+            #    axis.set_ylim(-2,5) 
+            #else:
+            #    axis.set_ylim(-4,10)
             #plt.title('voxel %d (%s) , MSE = %.3f, rsq = %.3f' %(vertex[i],task[i],mse,r2))
             
             if idx == 0:

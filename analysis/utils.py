@@ -938,18 +938,19 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
 
 
 
-def median_iterative_pRFestimates(subdir,with_smooth=True):
+def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
 
 ####################
 #    inputs
 # subdir - absolute path to all subject dir (where fits are)
 # with_smooth - boolean, use smooth data?
+# exclude_subs=['subjects to be excluded from list']
 #   outputs
 # estimates - dictionary with average estimated parameters
 
     allsubs = [folder for _,folder in enumerate(os.listdir(subdir)) if 'sub-' in folder]
     allsubs.sort()
-    print('averaging %d subjects' %(len(allsubs)))
+    print('averaging %d/%d subjects' %((len(allsubs)-len(exclude_subs)),len(allsubs)))
 
     rsq = []
     xx = []
@@ -958,31 +959,39 @@ def median_iterative_pRFestimates(subdir,with_smooth=True):
     baseline = []
     beta = []
 
+    exclude_counter = 0
+    exclude_subs.sort() #then in order
+
     #load estimates and append
     for _,sub in enumerate(allsubs):
 
-        # load prf estimates
-        if with_smooth==True:    
-            median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+        if sub==exclude_subs[exclude_counter]:
+            print('skipping %s, not included in average'%exclude_subs[exclude_counter])
+            exclude_counter += 1
         else:
-            median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','iterative_fit')
 
-        estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
-        estimates_list.sort() #sort to make sure pRFs not flipped
+            # load prf estimates
+            if with_smooth==True:    
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+            else:
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','iterative_fit')
 
-        estimates = []
-        for _,val in enumerate(estimates_list) :
-            print('appending %s'%val)
-            estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
+            estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
+            estimates_list.sort() #sort to make sure pRFs not flipped
 
-        xx.append(np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0])))
-        yy.append(-(np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])))) # Need to do this (-) for now, CHANGE ONCE BUG FIXED
+            estimates = []
+            for _,val in enumerate(estimates_list) :
+                print('appending %s'%val)
+                estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
 
-        size.append(np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2])))
-        beta.append(np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3])))
-        baseline.append(np.concatenate((estimates[0]['it_output'][...,4],estimates[1]['it_output'][...,4])))
+            xx.append(np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0])))
+            yy.append(-(np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])))) # Need to do this (-) for now, CHANGE ONCE BUG FIXED
 
-        rsq.append(np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5]))) 
+            size.append(np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2])))
+            beta.append(np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3])))
+            baseline.append(np.concatenate((estimates[0]['it_output'][...,4],estimates[1]['it_output'][...,4])))
+
+            rsq.append(np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5]))) 
 
 
     xx = np.nanmedian(np.array(xx),axis=0)   
@@ -1148,3 +1157,44 @@ def dva_per_pix(height_cm,distance_cm,vert_res_pix):
     deg_per_px = math.degrees(math.atan2(0.5*height_cm,distance_cm))/(0.5*vert_res_pix)
 
     return deg_per_px
+
+
+# make masking function
+
+def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dva):
+    
+    ### inputs ######
+    # estimates (np.array)
+    # vertical_lim_dva (float) - vertical limit of screen in degrees
+    # horizontal_lim_dva (float) - vertical limit of screen in degrees
+    ## output ###
+    # masked_estimates - dictionary with new arrays
+    
+    # make new variables that are masked 
+    masked_xx = np.zeros(x.shape); masked_xx[:]=np.nan
+    masked_yy = np.zeros(y.shape); masked_yy[:]=np.nan
+    masked_size = np.zeros(size.shape); masked_size[:]=np.nan
+    masked_beta = np.zeros(beta.shape); masked_beta[:]=np.nan
+    masked_baseline = np.zeros(baseline.shape); masked_baseline[:]=np.nan
+    masked_rsq = np.zeros(rsq.shape); masked_rsq[:]=np.nan
+
+    for i in range(len(x)): #for all vertices
+        if x[i] <= horizontal_lim_dva and x[i] >= -horizontal_lim_dva: # if x within horizontal screen dim
+            if y[i] <= vertical_lim_dva and y[i] >= -vertical_lim_dva: # if y within vertical screen dim
+                if beta[i]>=0: # only account for positive RF
+
+                    # save values
+                    masked_xx[i]=x[i]
+                    masked_yy[i]=y[i]
+                    masked_size[i]=size[i]
+                    masked_beta[i]=beta[i]
+                    masked_baseline[i]=baseline[i]
+                    masked_rsq[i]=rsq[i]
+
+    masked_estimates = {'x':masked_xx,'y':masked_yy,'size':masked_size,'beta':masked_beta,'baseline':masked_baseline,'rsq':masked_rsq}
+    
+    return masked_estimates
+
+
+
+    
