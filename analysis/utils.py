@@ -965,9 +965,9 @@ def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'
     #load estimates and append
     for _,sub in enumerate(allsubs):
 
-        if sub==exclude_subs[exclude_counter]:
+        if sub in exclude_subs[exclude_counter]:
             print('skipping %s, not included in average'%exclude_subs[exclude_counter])
-            exclude_counter += 1
+            if len(exclude_subs)>(exclude_counter+1): exclude_counter += 1 # if more subs in list, increment counter
         else:
 
             # load prf estimates
