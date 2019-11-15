@@ -46,7 +46,7 @@ else:
             analysis_params = json.load(json_file)	
 
 
-with_smooth = 'False'#'False'#'False'#analysis_params['with_smooth']
+with_smooth = 'True'#'False'#'False'#analysis_params['with_smooth']
 
 # define paths
 if with_smooth=='True':
@@ -61,8 +61,8 @@ if not os.path.exists(figure_out): # check if path to save figures exists
 
 ## Load PRF estimates ##
 if sj=='median':
-    estimates = median_iterative_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=bool(strtobool(with_smooth)))
-    print('computed median estimates for %s'%str(estimates['subs']))
+    estimates = median_iterative_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=bool(strtobool(with_smooth)),exclude_subs=['sub-07'])
+    print('computed median estimates for %s excluded %s'%(str(estimates['subs']),'sub-07'))
     xx = estimates['x']
     yy = estimates['y']
     rsq = estimates['r2']
@@ -114,7 +114,7 @@ masked_rsq = new_estimates['rsq']
 
                
 # now construct polar angle and eccentricity values
-rsq_threshold = 0.15#0.2#analysis_params['rsq_threshold']
+rsq_threshold = 0.2#0.2#analysis_params['rsq_threshold']
 
 complex_location = masked_xx + masked_yy * 1j
 masked_polar_angle = np.angle(complex_location)
@@ -159,6 +159,16 @@ images['polar'] = cortex.VertexRGB(rgb[..., 0].T,
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.svg' %rsq_threshold)
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
+
+images['polar_noalpha'] = cortex.VertexRGB(rgb[..., 0].T, 
+                                 rgb[..., 1].T, 
+                                 rgb[..., 2].T, 
+                                 subject='fsaverage', alpha=alpha_ones)
+#cortex.quickshow(images['polar_noalpha'],with_curvature=True,with_sulci=True,with_colorbar=False)
+filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle_noalpha.svg' %rsq_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['polar_noalpha'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
+
 
 # vertex for rsq
 images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage',
@@ -273,7 +283,7 @@ for idx,roi in enumerate(ROIs):
     # make sure that plots have proportional size
     s[0].set(adjustable='box-forced', aspect='equal')
     s[1].set(adjustable='box-forced', aspect='equal')
-    f.savefig(os.path.join(figure_out,'RF_scatter_ROI-%s.svg'%roi), dpi=100,bbox_inches = 'tight')
+    f.savefig(os.path.join(figure_out,'RF_scatter_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
     
 #plt.show() 
 
@@ -354,7 +364,7 @@ for idx,roi in enumerate(ROIs):
     s[idx][0].set(adjustable='box-forced', aspect='equal')
     s[idx][1].set(adjustable='box-forced', aspect='equal')
 
-f.savefig(os.path.join(figure_out,'RF_pa_scatter_allROIs.png'), dpi=100,bbox_inches = 'tight')
+f.savefig(os.path.join(figure_out,'RF_pa_scatter_allROIs_rsq-%0.2f.png'%rsq_threshold), dpi=100,bbox_inches = 'tight')
 #plt.show() 
 
 
@@ -517,7 +527,7 @@ if sj != 'median': # doesn't work for median subject
             
             plt.legend(loc=0)
 
-            fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%roi), dpi=100,bbox_inches = 'tight')
+            fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
 
             ################# get receptive field for that voxel ###################################
@@ -564,7 +574,7 @@ if sj != 'median': # doesn't work for median subject
                             fig.add_subplot(ax)
                             k += 1
           
-            fig.savefig(os.path.join(figure_out,'RF_singvoxfit_%s.svg'%roi), dpi=100,bbox_inches = 'tight')
+            fig.savefig(os.path.join(figure_out,'RF_singvoxfit_%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
             #############################
 
@@ -593,7 +603,7 @@ if sj != 'median': # doesn't work for median subject
         ax_count += 2
 
     #plt.show()    
-    fig.savefig(os.path.join(figure_out,'pRF_median_timeseries_allROIs.svg'), dpi=100,bbox_inches = 'tight')
+    fig.savefig(os.path.join(figure_out,'pRF_median_timeseries_allROIs_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
 
     
 # make plot to show relationship between ecc and size for different regions
@@ -637,7 +647,7 @@ ax.set_title('ecc vs size plot, %d bins from %.1f-%.1f ecc [dva]'%(num_bins,min(
 ax.axes.set_xlim(0,)
 ax.axes.set(xticks=range(len(bin_array)),xticklabels=bin_array)
 plt.show()
-plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned.svg'), dpi=100,bbox_inches = 'tight')
+plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
  
 
 if sj != 'median':
@@ -722,4 +732,4 @@ if sj != 'median':
             
     axis.legend(handles,labels,loc='upper left')  # doing this to guarantee that legend is how I want it   
 
-    fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s.svg'%str(ROIs)), dpi=100,bbox_inches = 'tight')
+    fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s_rsq-%0.2f.svg'%(str(ROIs),rsq_threshold)), dpi=100,bbox_inches = 'tight')
