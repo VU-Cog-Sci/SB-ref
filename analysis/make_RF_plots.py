@@ -33,6 +33,7 @@ import matplotlib.gridspec as gridspec
 import scipy
 
 import matplotlib.patches as patches
+from statsmodels.stats import weightstats
 
 # define participant number and open json parameter file
 if len(sys.argv)<2:	
@@ -154,7 +155,7 @@ images = {}
 images['polar'] = cortex.VertexRGB(rgb[..., 0].T, 
                                  rgb[..., 1].T, 
                                  rgb[..., 2].T, 
-                                 subject='fsaverage', alpha=alpha)
+                                 subject='fsaverage_gross', alpha=alpha)
 #cortex.quickshow(images['polar'],with_curvature=True,with_sulci=True,with_colorbar=False)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.svg' %rsq_threshold)
 print('saving %s' %filename)
@@ -163,7 +164,7 @@ _ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_color
 images['polar_noalpha'] = cortex.VertexRGB(rgb[..., 0].T, 
                                  rgb[..., 1].T, 
                                  rgb[..., 2].T, 
-                                 subject='fsaverage', alpha=alpha_ones)
+                                 subject='fsaverage_gross', alpha=alpha_ones)
 #cortex.quickshow(images['polar_noalpha'],with_curvature=True,with_sulci=True,with_colorbar=False)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle_noalpha.svg' %rsq_threshold)
 print('saving %s' %filename)
@@ -171,7 +172,7 @@ _ = cortex.quickflat.make_png(filename, images['polar_noalpha'], recache=True,wi
 
 
 # vertex for rsq
-images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage',
+images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage_gross',
                            vmin=0, vmax=1.0,
                            vmin2=0, vmax2=1.0, cmap='Reds_cov')
 #cortex.quickshow(images['rsq'],with_curvature=True,with_sulci=True)
@@ -184,7 +185,7 @@ _ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorba
 ecc4plot = masked_eccentricity.copy()
 ecc4plot[alpha_mask] = np.nan
 
-images['ecc'] = cortex.Vertex(ecc4plot.T, 'fsaverage',
+images['ecc'] = cortex.Vertex(ecc4plot.T, 'fsaverage_gross',
                            vmin=0, vmax=analysis_params['max_eccen'],
                            cmap='J4')
 #cortex.quickshow(images['ecc'],with_curvature=True,with_sulci=True)
@@ -199,7 +200,7 @@ size4plot = masked_size.copy()
 size4plot[alpha_mask] = np.nan
 
 # vertex for size
-images['size'] = cortex.dataset.Vertex(size4plot.T, 'fsaverage',
+images['size'] = cortex.dataset.Vertex(size4plot.T, 'fsaverage_gross',
                            vmin=0, vmax=analysis_params['max_size'],
                            cmap='J4')
 #cortex.quickshow(images['size'],with_curvature=True,with_sulci=True)
@@ -217,12 +218,12 @@ roi_verts = {} #empty dictionary
 for i,val in enumerate(ROIs):
     
     if type(val)==str: # if string, we can directly get the ROI vertices  
-        roi_verts[val] = cortex.get_roi_verts('fsaverage',val)[val]
+        roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
 
     else: # if list
         indice = []
         for w in range(len(ROIs[0])): # load vertices for each region of list
-            indice.append(cortex.get_roi_verts('fsaverage',val[w])[val[w]])
+            indice.append(cortex.get_roi_verts('fsaverage_gross',val[w])[val[w]])
         
         roi_verts[str(val)] = np.hstack(indice)
 
@@ -609,44 +610,53 @@ if sj != 'median': # doesn't work for median subject
 # make plot to show relationship between ecc and size for different regions
 # redo vertice list (repetitive but quick fix for now)
 ROIs = ['V1','V2','V3','sPCS','iPCS']#[['V1','V2','V3'],'sPCS','iPCS']
-# bin the data   
-num_bins = 8 # number of bins
-bin_array = np.linspace(0.5,5,num=num_bins+1) # array that goes from 2 to 2, then bin will be values between 0-2, 2-4 etc
-#bin_array = np.linspace(0,16,num=num_bins+1) 
 
+# create empty dataframe to store all relevant values for rois
+all_roi = pd.DataFrame(columns=['mean_ecc','mean_ecc_std','mean_size','mean_size_std','roi'])
+n_bins = 10
+min_ecc = 0.25
+max_ecc = 4
 
-appended_df = []
 for idx,roi in enumerate(ROIs):
+    
+    df = pd.DataFrame(columns=['ecc','size','rsq'])
+    
     # get datapoints for RF only belonging to roi
     new_size = masked_size[roi_verts[str(roi)]]
     new_ecc = masked_eccentricity[roi_verts[str(roi)]]
     new_rsq = masked_rsq[roi_verts[str(roi)]]
+    
+    # define indices of voxels within region to plot
+    # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
+    indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))
+    df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                           'rsq':new_rsq[indices4plot]})
+    # sort values by eccentricity
+    df = df.sort_values(by=['ecc'])  
+    
+    bin_size = int(len(df)/n_bins) #divide in equally sized bins
+    mean_ecc = []
+    mean_ecc_std = []
+    mean_size = []
+    mean_size_std = []
+    for j in range(n_bins): # for each bin calculate rsq-weighted means and errors of binned ecc/size 
+        mean_size.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+        mean_size_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+        mean_ecc.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+        mean_ecc_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+    
+    if idx== 0:
+        all_roi = pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)})
+    else:
+        all_roi = all_roi.append(pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)}),ignore_index=True)
 
-    size_binned = []
-    std_bin = []
-    for i in range(num_bins): # append median size value for bin
-        # define indices of voxels within region to plot
-        # should be within ecc bin, with rsq >0.2 - some size values are huge but the rsq is low -, and where value not nan
-        indices4plot = np.where((new_ecc>bin_array[i]) & (new_ecc<bin_array[i+1]) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))[0]
-        
-        if indices4plot.size == 0: # if index array empty - No values for conditions above defined
-            size_binned.append(np.nan)
-        else:
-            size_binned.append(np.average(new_size[indices4plot],
-                                         weights=new_rsq[indices4plot])) # weighted average by rsq
-        #std_bin.append(np.std(new_size[indices4plot]))
-
-    df = pd.DataFrame({'size': np.array(size_binned),'bins':range(num_bins),'roi':np.tile(str(roi),len(size_binned))})
-    appended_df.append(df)
-
-appended_data = pd.concat(appended_df)
-ax = sns.lmplot(x='bins', y='size', hue='roi',data=appended_data,height=8, aspect=1)
+ax = sns.lmplot(x='mean_ecc', y='mean_size', hue='roi',data=all_roi,height=8, aspect=1)
 ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
 ax = plt.gca()
-ax.set_title('ecc vs size plot, %d bins from %.1f-%.1f ecc [dva]'%(num_bins,min(bin_array),max(bin_array)))
 ax.axes.set_xlim(0,)
-ax.axes.set(xticks=range(len(bin_array)),xticklabels=bin_array)
-plt.show()
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
 plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
  
 
@@ -657,7 +667,7 @@ if sj != 'median':
     roi_verts = {} #empty dictionary 
     for i,val in enumerate(ROIs):   
         if type(val)==str: # if string, we can directly get the ROI vertices  
-            roi_verts[val] = cortex.get_roi_verts('fsaverage',val)[val]
+            roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
 
     red_color = ['#591420','#d12e4c']
     data_color = ['#262626','#8a8a8a']
