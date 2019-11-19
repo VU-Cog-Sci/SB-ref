@@ -1,4 +1,3 @@
-
 # make retino plots
 # which will take as input subject number (01 or median)
 # and produce relevant plots to check retinotopy
@@ -35,19 +34,20 @@ import scipy
 import matplotlib.patches as patches
 from statsmodels.stats import weightstats
 
+
 # define participant number and open json parameter file
-if len(sys.argv)<2:	
-    raise NameError('Please add subject number (ex:01) '	
-                    'as 1st argument in the command line!')	
+if len(sys.argv)<2: 
+    raise NameError('Please add subject number (ex:01) '    
+                    'as 1st argument in the command line!') 
 
-else:	
-    sj = str(sys.argv[1]).zfill(2) #fill subject number with 0 in case user forgets	
+else:   
+    sj = str(sys.argv[1]).zfill(2) #fill subject number with 0 in case user forgets 
 
-    with open('analysis_params.json','r') as json_file:	
-            analysis_params = json.load(json_file)	
+    with open('analysis_params.json','r') as json_file: 
+            analysis_params = json.load(json_file)  
 
 
-with_smooth = 'False'#'False'#'False'#analysis_params['with_smooth']
+with_smooth = analysis_params['with_smooth']
 
 # define paths
 if with_smooth=='True':
@@ -62,7 +62,7 @@ if not os.path.exists(figure_out): # check if path to save figures exists
 
 ## Load PRF estimates ##
 if sj=='median':
-    estimates = median_iterative_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=bool(strtobool(with_smooth)),exclude_subs=['sub-07'])
+    estimates = median_iterative_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=False,exclude_subs=['sub-07']) # load unsmoothed estimates, will smooth later
     print('computed median estimates for %s excluded %s'%(str(estimates['subs']),'sub-07'))
     xx = estimates['x']
     yy = estimates['y']
@@ -97,6 +97,7 @@ else:
     rsq = np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5])) 
 
 
+
 # set limits for xx and yy, forcing it to be within the screen boundaries
 
 vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
@@ -113,9 +114,108 @@ masked_beta = new_estimates['beta']
 masked_baseline = new_estimates['baseline']
 masked_rsq = new_estimates['rsq']
 
-               
+
+# to make smoothed plots for median subject, need to convert estimates into gii
+# and then smooth images
+if sj=='median' and with_smooth=='True':
+    # empty array to save smoothed filenames
+    smooth_filename = []
+
+    # load random subject, just to get header to save median estimates as gii
+
+    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-11', '*'))
+    print('loading first run to get header info from %s' % os.path.split(filepath[0])[0])
+
+    # last part of filename to use
+    file_extension = 'cropped_sg_psc.func.gii'
+
+    # load first run of subject
+    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and 'run-01' in run and run.endswith(file_extension)]
+    filename.sort()
+
+    # path to save fits, for testing
+    out_dir = figure_out
+
+    for field in ['hemi-L', 'hemi-R']:
+        hemi = [h for h in filename if field in h]
+        
+        num_vert_hemi = int(masked_xx.shape[0]/2) #number of vertices in one hemisphere
+        median_filename = 'sub-{sj}'.format(sj=sj)+'_task-prf_run-median_space-fsaverage_'+field+'_'+file_extension
+        
+        if field=='hemi-L':
+            xx_4smoothing = masked_xx[0:num_vert_hemi]
+            yy_4smoothing = masked_yy[0:num_vert_hemi]
+            size_4smoothing = masked_size[0:num_vert_hemi]
+            beta_4smoothing = masked_beta[0:num_vert_hemi]
+            baseline_4smoothing = masked_baseline[0:num_vert_hemi]
+            rsq_4smoothing = masked_rsq[0:num_vert_hemi]
+            
+        else:
+            xx_4smoothing = masked_xx[num_vert_hemi::]
+            yy_4smoothing = masked_yy[num_vert_hemi::]
+            size_4smoothing = masked_size[num_vert_hemi::]
+            beta_4smoothing = masked_beta[num_vert_hemi::]
+            baseline_4smoothing = masked_baseline[num_vert_hemi::]
+            rsq_4smoothing = masked_rsq[num_vert_hemi::]
+          
+        # reunite them in same array
+        estimates4smoothing = {'xx':xx_4smoothing,'yy':yy_4smoothing,'size':size_4smoothing,
+                               'beta':beta_4smoothing,'baseline':baseline_4smoothing,'rsq':rsq_4smoothing}
+        
+        img_load = nb.load(hemi[0]) # load run just to get header
+        
+        for _,arr in enumerate(estimates4smoothing):
+            new_filename = os.path.join(out_dir,median_filename.replace('.func.gii','_estimates-%s.func.gii'%arr))
+            
+            print('saving %s'%new_filename)
+            est_array_tiled = np.tile(estimates4smoothing[arr][np.newaxis,...],(83,1)) # NEED TO DO THIS 4 MGZ to actually be read (header is of func file)
+            darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
+            estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
+                                               extra=img_load.extra,
+                                               darrays=darrays) # need to save as gii
+            
+            nb.save(estimates_gii,new_filename)
+            
+            _,smo_estimates_path = smooth_gii(new_filename,out_dir,fwhm=analysis_params['smooth_fwhm'])
+            
+            smooth_filename.append(smo_estimates_path)
+            print('saving %s'%smo_estimates_path)
+        
+    # load files save as new masked estimates, to be analogous to other situations
+    smooth_filename.sort()
+    smooth_xx = []
+    smooth_yy = []
+    smooth_size = []
+    smooth_beta = []
+    smooth_baseline = []
+    smooth_rsq = []
+
+    for _,name in enumerate(smooth_filename): # not elegant but works
+        img_load = nb.load(name)
+        if '_estimates-xx_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
+            smooth_xx.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+        elif '_estimates-yy_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
+            smooth_yy.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+        elif '_estimates-size_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
+            smooth_size.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+        elif '_estimates-beta_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
+            smooth_beta.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+        elif '_estimates-baseline_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
+            smooth_baseline.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+        elif '_estimates-rsq_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
+            smooth_rsq.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+
+    # concatenate both hemis in one array
+    masked_xx = np.concatenate((smooth_xx[0][0],smooth_xx[1][0]))  
+    masked_yy = np.concatenate((smooth_yy[0][0],smooth_yy[1][0])) 
+    masked_size = np.concatenate((smooth_size[0][0],smooth_size[1][0])) 
+    masked_beta = np.concatenate((smooth_beta[0][0],smooth_beta[1][0])) 
+    masked_baseline = np.concatenate((smooth_baseline[0][0],smooth_baseline[1][0])) 
+    masked_rsq = np.concatenate((smooth_rsq[0][0],smooth_rsq[1][0])) 
+    
+
 # now construct polar angle and eccentricity values
-rsq_threshold = 0.17#0.2#analysis_params['rsq_threshold']
+rsq_threshold = analysis_params['rsq_threshold']
 
 complex_location = masked_xx + masked_yy * 1j
 masked_polar_angle = np.angle(complex_location)
@@ -149,6 +249,7 @@ alpha[alpha_mask] = np.nan
 # create alpha array with nan = transparent = values with rsq below thresh and 1 = opaque = values above thresh
 alpha_ones = np.ones(alpha_mask.shape)
 alpha_ones[alpha_mask] = np.nan
+
 
 images = {}
 
@@ -245,11 +346,29 @@ for idx,roi in enumerate(ROIs):
     new_ecc = masked_eccentricity[roi_verts[roi]]
     new_polar_angle = masked_polar_angle[roi_verts[roi]]
     
-    # do scatter plot, with RF positions and alpha scaled by rsq
-    rgba_colors = np.zeros((new_xx.shape[0], 4))
-    rgba_colors[:,0] = 0.8 # make red
-    rgba_colors[:,3] = new_rsq/20 #new_rsq/5 #12# the rsq is alpha
-    
+    #####
+    # normalize polar angles to have values in circle between 0 and 1
+    new_pa_norm = (new_polar_angle + np.pi) / (np.pi * 2.0)
+
+    # use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
+    # why have an offset?
+    new_pa_norm = np.fmod(new_pa_norm+angle_offset, 1.0)
+
+    # convert angles to colors, using correlations as weights
+    hsv_colors = np.zeros(list(new_pa_norm.shape) + [3])
+    hsv_colors[..., 0] = new_pa_norm # different hue value for each angle
+    hsv_colors[..., 1] = 1#(new_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
+    hsv_colors[..., 2] = 1#(new_rsq > rsq_threshold).astype(float) # value weighted by rsq
+
+    # convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
+    rgb_col = colors.hsv_to_rgb(hsv_colors)
+    rgba_colors = np.zeros((rgb_col.shape[0], 4))
+    rgba_colors[:,0] = rgb_col[:,0]
+    rgba_colors[:,1] = rgb_col[:,1]
+    rgba_colors[:,2] = rgb_col[:,2]
+    rgba_colors[:,3] = new_rsq/20
+    ######## 
+
     edgecolors = np.zeros((new_xx.shape[0], 4))
     edgecolors[:,:3] = 1#0.8 # make gray
     edgecolors[:,3] = new_rsq/10 #12# the rsq is alpha
@@ -286,86 +405,6 @@ for idx,roi in enumerate(ROIs):
     s[1].set(adjustable='box-forced', aspect='equal')
     f.savefig(os.path.join(figure_out,'RF_scatter_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
     
-#plt.show() 
-
-
-# Do similar plots, but combined in same image
-# using polar angle as hue (more for checking if everything coeherent)
-
-# plot
-f, s = plt.subplots(len(ROIs), 2, figsize=(24,48))
-for idx,roi in enumerate(ROIs):
-    if type(roi)!=str: # if list
-        roi = str(roi)
-    # get datapoints for RF only belonging to roi
-    new_rsq = masked_rsq[roi_verts[roi]]
-
-    new_xx = masked_xx[roi_verts[roi]]
-    new_yy = masked_yy[roi_verts[roi]]
-    new_size = masked_size[roi_verts[roi]]
-    
-    new_ecc = masked_eccentricity[roi_verts[roi]]
-    new_polar_angle = masked_polar_angle[roi_verts[roi]]
-    
-    #####
-    # normalize polar angles to have values in circle between 0 and 1
-    new_pa_norm = (new_polar_angle + np.pi) / (np.pi * 2.0)
-
-    # use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
-    # why have an offset?
-    new_pa_norm = np.fmod(new_pa_norm+angle_offset, 1.0)
-
-    # convert angles to colors, using correlations as weights
-    hsv_colors = np.zeros(list(new_pa_norm.shape) + [3])
-    hsv_colors[..., 0] = new_pa_norm # different hue value for each angle
-    hsv_colors[..., 1] = 1#(new_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
-    hsv_colors[..., 2] = 1#(new_rsq > rsq_threshold).astype(float) # value weighted by rsq
-
-    # convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
-    rgb_col = colors.hsv_to_rgb(hsv_colors)
-    rgba_colors = np.zeros((rgb_col.shape[0], 4))
-    rgba_colors[:,0] = rgb_col[:,0]
-    rgba_colors[:,1] = rgb_col[:,1]
-    rgba_colors[:,2] = rgb_col[:,2]
-    rgba_colors[:,3] = new_rsq/20
-    ######## 
-
-    edgecolors = np.zeros((new_xx.shape[0], 4))
-    edgecolors[:,:3] = 1#0.8 # make gray
-    edgecolors[:,3] = new_rsq/10 #12# the rsq is alpha
-    
-    s[idx][0].set_title('%s pRFs in visual field'%roi)
-    s[idx][0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    s[idx][0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    s[idx][0].axvline(0, -15, 15, c='k', lw=0.25)
-    s[idx][0].axhline(0, -15, 15, c='k', lw=0.25)
-    # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
-    for w in range(len(new_xx)):
-        if new_rsq[w]>rsq_threshold:
-            s[idx][0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
-            #s[idx][0].scatter(new_xx[w], new_yy[w], s=new_size[w])
-     
-    s[idx][0].set_xlabel('horizontal space [dva]')
-    s[idx][0].set_ylabel('vertical space [dva]')
-    
-    # Create a Rectangle patch
-    rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
-
-    # Add the patch to the Axes
-    s[idx][0].add_patch(rect)
-    
-    s[idx][1].set_title('%s pRF size vs eccentricity'%roi)
-    s[idx][1].set_xlim([0,15])
-    s[idx][1].set_ylim([0,analysis_params["max_size"]])
-    s[idx][1].set_xlabel('pRF eccentricity [dva]')
-    s[idx][1].set_ylabel('pRF size [dva]')
-    s[idx][1].scatter(new_ecc[new_rsq>rsq_threshold], new_size[new_rsq>rsq_threshold])#color=rgba_colors, edgecolors=edgecolors, linewidths=2);  # this size is made up - beware.
-    
-    # make sure that plots have proportional size
-    s[idx][0].set(adjustable='box-forced', aspect='equal')
-    s[idx][1].set(adjustable='box-forced', aspect='equal')
-
-f.savefig(os.path.join(figure_out,'RF_pa_scatter_allROIs_rsq-%0.2f.png'%rsq_threshold), dpi=100,bbox_inches = 'tight')
 #plt.show() 
 
 
@@ -605,64 +644,8 @@ if sj != 'median': # doesn't work for median subject
 
     #plt.show()    
     fig.savefig(os.path.join(figure_out,'pRF_median_timeseries_allROIs_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
-
     
-# make plot to show relationship between ecc and size for different regions
-# redo vertice list (repetitive but quick fix for now)
-ROIs = ['V1','V2','V3','sPCS','iPCS']#[['V1','V2','V3'],'sPCS','iPCS']
-
-# create empty dataframe to store all relevant values for rois
-all_roi = pd.DataFrame(columns=['mean_ecc','mean_ecc_std','mean_size','mean_size_std','roi'])
-n_bins = 10
-min_ecc = 0.25
-max_ecc = 4
-
-for idx,roi in enumerate(ROIs):
     
-    df = pd.DataFrame(columns=['ecc','size','rsq'])
-    
-    # get datapoints for RF only belonging to roi
-    new_size = masked_size[roi_verts[str(roi)]]
-    new_ecc = masked_eccentricity[roi_verts[str(roi)]]
-    new_rsq = masked_rsq[roi_verts[str(roi)]]
-    
-    # define indices of voxels within region to plot
-    # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
-    indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))
-    df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
-                           'rsq':new_rsq[indices4plot]})
-    # sort values by eccentricity
-    df = df.sort_values(by=['ecc'])  
-    
-    bin_size = int(len(df)/n_bins) #divide in equally sized bins
-    mean_ecc = []
-    mean_ecc_std = []
-    mean_size = []
-    mean_size_std = []
-    for j in range(n_bins): # for each bin calculate rsq-weighted means and errors of binned ecc/size 
-        mean_size.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
-        mean_size_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
-        mean_ecc.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
-        mean_ecc_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
-    
-    if idx== 0:
-        all_roi = pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
-                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)})
-    else:
-        all_roi = all_roi.append(pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
-                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)}),ignore_index=True)
-
-ax = sns.lmplot(x='mean_ecc', y='mean_size', hue='roi',data=all_roi,height=8, aspect=1)
-ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
-ax = plt.gca()
-ax.axes.set_xlim(0,)
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
-plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
- 
-
-if sj != 'median':
-    # combined timecourse, new form of showing it
-
     ROIs = ['V1','sPCS']
     roi_verts = {} #empty dictionary 
     for i,val in enumerate(ROIs):   
@@ -744,53 +727,61 @@ if sj != 'median':
 
     fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s_rsq-%0.2f.svg'%(str(ROIs),rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
-if sj=='median':
-    # load random subject, just to get header to save median estimates as gii
 
-    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-11', '*'))
-    print('loading first run to get header info from %s' % os.path.split(filepath[0])[0])
-
-    # last part of filename to use
-    file_extension = 'cropped_sg_psc.func.gii'
-
-    # load first run of subject
-    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and 'run-01' in run and run.endswith(file_extension)]
-    filename.sort()
-
-    # path to save fits, for testing
-    out_dir = figure_out
-
-    for field in ['hemi-L', 'hemi-R']:
-        hemi = [h for h in filename if field in h]
-        
-        num_vert_hemi = int(masked_xx.shape[0]/2) #number of vertices in one hemisphere
-        median_filename = 'sub-{sj}'.format(sj=sj)+'_task-prf_run-median_space-fsaverage_'+field+'_'+file_extension
-        
-        if field=='hemi-L':
-            xx_4smoothing = masked_xx[0:num_vert_hemi] * masked_rsq[0:num_vert_hemi]
-            yy_4smoothing = masked_yy[0:num_vert_hemi] * masked_rsq[0:num_vert_hemi] #* 1j 
-        else:
-            xx_4smoothing = masked_xx[num_vert_hemi::] * masked_rsq[num_vert_hemi::]
-            yy_4smoothing = masked_yy[num_vert_hemi::] * masked_rsq[num_vert_hemi::] #* 1j 
-        
-        estimates4smoothing = [xx_4smoothing,yy_4smoothing] # reunite them in same array
-        
-        img_load = nb.load(hemi[0]) # load run just to get header
-        
-        for w in range(len(estimates4smoothing)):
-            if w==0:
-                new_filename = os.path.join(out_dir,median_filename.replace('.func.gii','_estimates-real.func.gii'))
-            else:
-                new_filename = os.path.join(out_dir,median_filename.replace('.func.gii','_estimates-imag.func.gii'))
+# make plot to show relationship between ecc and size for different regions
+# redo vertice list (repetitive but quick fix for now)
+ROIs = ['V1','V2','V3','sPCS','iPCS']#[['V1','V2','V3'],'sPCS','iPCS']
+roi_verts = {} #empty dictionary 
+    for i,val in enumerate(ROIs):   
+        if type(val)==str: # if string, we can directly get the ROI vertices  
+            roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
             
-            print('saving %s'%new_filename)
-            est_array_tiled = np.tile(estimates4smoothing[w][np.newaxis,...],(83,1)) # NEED TO DO THIS 4 MGZ
-            darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
-            estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
-                                               extra=img_load.extra,
-                                               darrays=darrays) # need to save as gii
+# create empty dataframe to store all relevant values for rois
+all_roi = pd.DataFrame(columns=['mean_ecc','mean_ecc_std','mean_size','mean_size_std','roi'])
+n_bins = 10
+min_ecc = 0.25
+max_ecc = 4
 
-            nb.save(estimates_gii,new_filename)
-            
-            _,estimates_smoothed = smooth_gii(new_filename,out_dir,fwhm=analysis_params['smooth_fwhm'])
-            print('saving %s'%estimates_smoothed)
+for idx,roi in enumerate(ROIs):
+    
+    df = pd.DataFrame(columns=['ecc','size','rsq'])
+    
+    # get datapoints for RF only belonging to roi
+    new_size = masked_size[roi_verts[str(roi)]]
+    new_ecc = masked_eccentricity[roi_verts[str(roi)]]
+    new_rsq = masked_rsq[roi_verts[str(roi)]]
+    
+    # define indices of voxels within region to plot
+    # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
+    indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))
+    df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                           'rsq':new_rsq[indices4plot]})
+    # sort values by eccentricity
+    df = df.sort_values(by=['ecc'])  
+    
+    bin_size = int(len(df)/n_bins) #divide in equally sized bins
+    mean_ecc = []
+    mean_ecc_std = []
+    mean_size = []
+    mean_size_std = []
+    for j in range(n_bins): # for each bin calculate rsq-weighted means and errors of binned ecc/size 
+        mean_size.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+        mean_size_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+        mean_ecc.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+        mean_ecc_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+    
+    if idx== 0:
+        all_roi = pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)})
+    else:
+        all_roi = all_roi.append(pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)}),ignore_index=True)
+
+ax = sns.lmplot(x='mean_ecc', y='mean_size', hue='roi',data=all_roi,height=8, aspect=1)
+ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
+ax = plt.gca()
+ax.axes.set_xlim(0,)
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
+plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
+ 
+
