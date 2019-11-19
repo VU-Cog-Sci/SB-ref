@@ -47,7 +47,7 @@ else:
             analysis_params = json.load(json_file)	
 
 
-with_smooth = 'True'#'False'#'False'#analysis_params['with_smooth']
+with_smooth = 'False'#'False'#'False'#analysis_params['with_smooth']
 
 # define paths
 if with_smooth=='True':
@@ -115,7 +115,7 @@ masked_rsq = new_estimates['rsq']
 
                
 # now construct polar angle and eccentricity values
-rsq_threshold = 0.2#0.2#analysis_params['rsq_threshold']
+rsq_threshold = 0.17#0.2#analysis_params['rsq_threshold']
 
 complex_location = masked_xx + masked_yy * 1j
 masked_polar_angle = np.angle(complex_location)
@@ -143,7 +143,7 @@ rgb = colors.hsv_to_rgb(hsv)
 alpha_mask = np.array([True if val<= rsq_threshold or np.isnan(val) else False for _,val in enumerate(masked_rsq)]).T #why transpose? because of orientation of pycortex volume?
 
 # create alpha array weighted by rsq values
-alpha = masked_rsq.copy() #np.ones(alpha_mask.shape)
+alpha = np.sqrt(masked_rsq.copy())#np.ones(alpha_mask.shape)
 alpha[alpha_mask] = np.nan
 
 # create alpha array with nan = transparent = values with rsq below thresh and 1 = opaque = values above thresh
@@ -743,3 +743,54 @@ if sj != 'median':
     axis.legend(handles,labels,loc='upper left')  # doing this to guarantee that legend is how I want it   
 
     fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s_rsq-%0.2f.svg'%(str(ROIs),rsq_threshold)), dpi=100,bbox_inches = 'tight')
+
+if sj=='median':
+    # load random subject, just to get header to save median estimates as gii
+
+    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-11', '*'))
+    print('loading first run to get header info from %s' % os.path.split(filepath[0])[0])
+
+    # last part of filename to use
+    file_extension = 'cropped_sg_psc.func.gii'
+
+    # load first run of subject
+    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and 'run-01' in run and run.endswith(file_extension)]
+    filename.sort()
+
+    # path to save fits, for testing
+    out_dir = figure_out
+
+    for field in ['hemi-L', 'hemi-R']:
+        hemi = [h for h in filename if field in h]
+        
+        num_vert_hemi = int(masked_xx.shape[0]/2) #number of vertices in one hemisphere
+        median_filename = 'sub-{sj}'.format(sj=sj)+'_task-prf_run-median_space-fsaverage_'+field+'_'+file_extension
+        
+        if field=='hemi-L':
+            xx_4smoothing = masked_xx[0:num_vert_hemi] * masked_rsq[0:num_vert_hemi]
+            yy_4smoothing = masked_yy[0:num_vert_hemi] * masked_rsq[0:num_vert_hemi] #* 1j 
+        else:
+            xx_4smoothing = masked_xx[num_vert_hemi::] * masked_rsq[num_vert_hemi::]
+            yy_4smoothing = masked_yy[num_vert_hemi::] * masked_rsq[num_vert_hemi::] #* 1j 
+        
+        estimates4smoothing = [xx_4smoothing,yy_4smoothing] # reunite them in same array
+        
+        img_load = nb.load(hemi[0]) # load run just to get header
+        
+        for w in range(len(estimates4smoothing)):
+            if w==0:
+                new_filename = os.path.join(out_dir,median_filename.replace('.func.gii','_estimates-real.func.gii'))
+            else:
+                new_filename = os.path.join(out_dir,median_filename.replace('.func.gii','_estimates-imag.func.gii'))
+            
+            print('saving %s'%new_filename)
+            est_array_tiled = np.tile(estimates4smoothing[w][np.newaxis,...],(83,1)) # NEED TO DO THIS 4 MGZ
+            darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
+            estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
+                                               extra=img_load.extra,
+                                               darrays=darrays) # need to save as gii
+
+            nb.save(estimates_gii,new_filename)
+            
+            _,estimates_smoothed = smooth_gii(new_filename,out_dir,fwhm=analysis_params['smooth_fwhm'])
+            print('saving %s'%estimates_smoothed)

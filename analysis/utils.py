@@ -1161,7 +1161,7 @@ def dva_per_pix(height_cm,distance_cm,vert_res_pix):
 
 # make masking function
 
-def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dva):
+def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dva,max_size=10):
     
     ### inputs ######
     # estimates (np.array)
@@ -1182,14 +1182,15 @@ def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dv
         if x[i] <= horizontal_lim_dva and x[i] >= -horizontal_lim_dva: # if x within horizontal screen dim
             if y[i] <= vertical_lim_dva and y[i] >= -vertical_lim_dva: # if y within vertical screen dim
                 if beta[i]>=0: # only account for positive RF
+                    if size[i]<=max_size: # limit size to max size defined in fit
 
-                    # save values
-                    masked_xx[i]=x[i]
-                    masked_yy[i]=y[i]
-                    masked_size[i]=size[i]
-                    masked_beta[i]=beta[i]
-                    masked_baseline[i]=baseline[i]
-                    masked_rsq[i]=rsq[i]
+                        # save values
+                        masked_xx[i]=x[i]
+                        masked_yy[i]=y[i]
+                        masked_size[i]=size[i]
+                        masked_beta[i]=beta[i]
+                        masked_baseline[i]=baseline[i]
+                        masked_rsq[i]=rsq[i]
 
     masked_estimates = {'x':masked_xx,'y':masked_yy,'size':masked_size,'beta':masked_beta,'baseline':masked_baseline,'rsq':masked_rsq}
     
