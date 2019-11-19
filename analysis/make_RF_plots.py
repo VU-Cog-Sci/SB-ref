@@ -732,10 +732,10 @@ if sj != 'median': # doesn't work for median subject
 # redo vertice list (repetitive but quick fix for now)
 ROIs = ['V1','V2','V3','sPCS','iPCS']#[['V1','V2','V3'],'sPCS','iPCS']
 roi_verts = {} #empty dictionary 
-    for i,val in enumerate(ROIs):   
-        if type(val)==str: # if string, we can directly get the ROI vertices  
-            roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
-            
+for i,val in enumerate(ROIs):   
+    if type(val)==str: # if string, we can directly get the ROI vertices  
+        roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
+        
 # create empty dataframe to store all relevant values for rois
 all_roi = pd.DataFrame(columns=['mean_ecc','mean_ecc_std','mean_size','mean_size_std','roi'])
 n_bins = 10
