@@ -40,6 +40,7 @@ import nilearn.plotting as ni_plt
 import nipype.interfaces.freesurfer as fs
 
 import math
+from scipy.stats import pearsonr, t, norm
 
 with open('analysis_params.json','r') as json_file:
             analysis_params = json.load(json_file)
@@ -1197,5 +1198,100 @@ def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dv
     return masked_estimates
 
 
+def fit_glm(voxel, dm):
+    #### inputs ####
+    #
+    # voxel - single voxel timecourse
+    # dm - design matrix (TRs,predictors)
+    #
+    #### outputs ####
+    #
+    # model - model fit for voxel
+    # betas - betas for model
+    # r2 - coefficient of determination
+    # mse - mean of the squared residuals
+    
+    if np.isnan(voxel).any():
+        betas = np.nan
+        model = np.nan
+        mse = np.nan
+        r2 = np.nan
+    else:   # if not nan (some vertices might have nan values)
+        betas = np.linalg.lstsq(dm, voxel)[0]
+        model = dm.dot(betas)
 
+        mse = np.mean((model - voxel) ** 2) # calculate mean of squared residuals
+        r2 = pearsonr(model, voxel)[0] ** 2 # and the rsq
+    
+    return model,betas,r2,mse
+    
+
+def compute_stats(voxel, dm, contrast,betas):
+    #### inputs ####
+    #
+    # voxel - single voxel timecourse
+    # dm - design matrix (TRs,predictors)
+    # contrast - contrast vector
+    # betas - beta values for voxel
+    #
+    #### outputs ####
+    #
+    # t_val - t-value
+    # p_val - p-value
+    # z_score 
+    
+    def design_variance(X, which_predictor=1):
+        ''' Returns the design variance of a predictor (or contrast) in X.
+
+        Parameters
+        ----------
+        X : numpy array
+            Array of shape (N, P)
+        which_predictor : int or list/array
+            The index of the predictor you want the design var from
+            (or contrast vector as a list/array).
+
+        Returns
+        -------
+        des_var : float
+            Design variance of the specified predictor from X.
+        '''
+    
+        is_single = isinstance(which_predictor, int)
+        if is_single:
+            idx = which_predictor
+        else:
+            idx = np.array(which_predictor) != 0
+
+        c = np.zeros(X.shape[1])
+        c[idx] = 1 if is_single == 1 else which_predictor[idx]
+        des_var = c.dot(np.linalg.pinv(X.T.dot(X))).dot(c.T)
+        return des_var
+
+    
+    if np.isnan(voxel).any():
+        t_val = np.nan
+        p_val = np.nan
+        z_score = np.nan
+
+    else:   # if not nan (some vertices might have nan values)
+        
+        # calculate design variance
+        design_var = design_variance(dm, contrast)
+        
+        # t stat formula with sum of squared errors
+        t_sse = ((voxel - (dm.dot(betas))) ** 2).sum() / (dm.shape[0] - dm.shape[1]) #dof = timepoints - predictores
+        
+        # t value for vertex
+        t_val = contrast.dot(betas) / np.sqrt(t_sse * design_var)
+        
+        # p-value for voxel
+        # t.sf() ALWAYS returns the right-tailed p-value
+        # For negative t-values, however, you'd want the left-tailed p-value
+        # hence passing the absolute t-value to the t.sf() function
+        p_val = t.sf(np.abs(t_val), (dm.shape[0] - dm.shape[1])) * 2
+        
+        z_score = norm.ppf(p_val)
+
+    return t_val,p_val,z_score
     
