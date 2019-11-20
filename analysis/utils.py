@@ -1279,19 +1279,33 @@ def compute_stats(voxel, dm, contrast,betas):
         # calculate design variance
         design_var = design_variance(dm, contrast)
         
-        # t stat formula with sum of squared errors
-        t_sse = ((voxel - (dm.dot(betas))) ** 2).sum() / (dm.shape[0] - dm.shape[1]) #dof = timepoints - predictores
+        # sum of squared errors
+        sse = ((voxel - (dm.dot(betas))) ** 2).sum() 
+        #degrees of freedom = timepoints - predictores
+        df = (dm.shape[0] - dm.shape[1]) 
         
-        # t value for vertex
-        t_val = contrast.dot(betas) / np.sqrt(t_sse * design_var)
+        # t statistic for vertex
+        t_val = contrast.dot(betas) / np.sqrt((sse/df) * design_var)
         
         # p-value for voxel
         # t.sf() ALWAYS returns the right-tailed p-value
         # For negative t-values, however, you'd want the left-tailed p-value
         # hence passing the absolute t-value to the t.sf() function
-        p_val = t.sf(np.abs(t_val), (dm.shape[0] - dm.shape[1])) * 2
+        #p_val = t.sf(np.abs(t_val), (dm.shape[0] - dm.shape[1])) * 2
         
-        z_score = norm.ppf(p_val)
+        #z_score = norm.ppf(p_val)
+        
+        # to ensure that zstats will not reach infinity, use this conversion:
+        # (see http://www.stats.uwo.ca/faculty/aim/2010/JSSSnipets/V23N1.pdf)
+        # This is because a p of .9999956 will be less precies than .0000044, 
+        # as the latter is internally represented as 4.4e-6,
+        # which leaves much more room for decimals.
+        # To get pvals close to zero, make sure the t-stat is negative
+        # and the cumulative distribution is taken up to that point
+        p_val = 2*t.cdf(-np.abs(t_val), df = (dm.shape[0]-dm.shape[1]))
+        ts = np.array(np.sign(t_val))
+        z_score = -ts*norm.ppf(p_val)
 
     return t_val,p_val,z_score
+    
     
