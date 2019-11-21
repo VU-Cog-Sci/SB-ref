@@ -95,7 +95,7 @@ soma_params = Parallel(n_jobs=16)(delayed(fit_glm)(vert, design_matrix.values) f
 soma_params = np.vstack(soma_params)
 
 # save estimates in dir 
-estimates_filename = gii_file.replace('_hemi-R','_hemi-both')
+estimates_filename = 'sub-{sj}_ses-01_task-soma_run-median_space-fsaverage_hemi-both_{ext}'.format(sj=sj,ext=file_extension)
 estimates_filename = estimates_filename.replace('.func.gii','_estimates.npz')
 
 np.savez(estimates_filename,
