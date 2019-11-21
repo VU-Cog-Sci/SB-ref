@@ -1308,4 +1308,110 @@ def compute_stats(voxel, dm, contrast,betas):
 
     return t_val,p_val,z_score
     
+
+def make_median_soma_sub(all_subs,file_extension,out_dir,median_gii=median_gii):
+    # input sub list, file extension, out_dir, function to make median run
+
+    for idx,sub in enumerate(all_subs):
+        # path to functional files
+        filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=sub), '*'))
+        print('functional files from %s' % os.path.split(filepath[0])[0])
+
+        # list of functional files (5 runs)
+        filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
+        filename.sort()
+
+        ##### compute median run for soma and load data #####
+
+        # loads median run functional files and saves the absolute path name in list
+        med_gii = [] 
+        for field in ['hemi-L', 'hemi-R']:
+            hemi = [h for h in filename if field in h]
+
+            # set name for median run (now numpy array)
+            med_file = os.path.join(out_dir, re.sub(
+                'run-\d{2}_', 'run-median_', os.path.split(hemi[0])[-1]))
+            # if file doesn't exist
+            if not os.path.exists(med_file):
+                med_gii.append(median_gii(hemi, out_dir))  # create it
+                print('computed %s' % (med_gii))
+            else:
+                med_gii.append(med_file)
+                print('median file %s already exists, skipping' % (med_gii))
+
+        # load data for median run, one hemisphere 
+        hemi = ['hemi-L','hemi-R']
+
+        data = []
+        for _,h in enumerate(hemi):
+            gii_file = med_gii[0] if h == 'hemi-L' else  med_gii[1]
+            print('using %s' %gii_file)
+            data.append(np.array(surface.load_surf_data(gii_file)))
+
+        data = np.vstack(data) # will be (vertex, TR)
+
+        if idx == 0:
+            median_sub = data[np.newaxis,:,:]
+        else:
+            median_sub = np.vstack((median_sub,data[np.newaxis,:,:]))
+
+
+    print('computed median subject, from averaging %d subs'%median_sub.shape[0])
+    median_data_all = np.median(median_sub,axis=0)
+
+    return median_data_all
+
+def make_median_soma_events(all_subs):
+    # input sub list, file extension, out_dir, function to make median run
     
+    # make function that makes median event data frame for x runs of sub or for median sub
+    # now this will do
+    onsets_allsubs = []
+    durations_allsubs = []
+
+    for idx,sub in enumerate(all_subs):
+        # path to events
+        eventdir = os.path.join(analysis_params['sourcedata_dir'],'sub-{sj}'.format(sj=str(sub).zfill(2)),'ses-01','func')
+        print('event files from %s' % eventdir)
+
+        # list of stimulus onsets
+        events = [os.path.join(eventdir,run) for run in os.listdir(eventdir) if 'soma' in run and run.endswith('events.tsv')]
+        events.sort()
+
+
+        ##### median events df for each sub #####
+
+        all_events = []
+        for _,val in enumerate(events):
+
+            events_pd = pd.read_csv(val,sep = '\t')
+
+            new_events = []
+
+            for ev in events_pd.iterrows():
+                row = ev[1]   
+                if row['trial_type'][0] == 'b': # if both hand/leg then add right and left events with same timings
+                    new_events.append([row['onset'],row['duration'],'l'+row['trial_type'][1:]])
+                    new_events.append([row['onset'],row['duration'],'r'+row['trial_type'][1:]])
+                else:
+                    new_events.append([row['onset'],row['duration'],row['trial_type']])
+
+            df = pd.DataFrame(new_events, columns=['onset','duration','trial_type'])  #make sure only relevant columns present
+            all_events.append(df)
+
+        # make median event dataframe
+        onsets = []
+        durations = []
+        for w in range(len(all_events)):
+            onsets.append(all_events[w]['onset'])
+            durations.append(all_events[w]['duration'])
+
+        # append median event for sub, in all sub list
+        onsets_allsubs.append(np.median(np.array(onsets),axis=0)) #append average onset of all runs
+        durations_allsubs.append(np.median(np.array(durations),axis=0))
+
+    # all subjects in one array, use this to compute contrasts
+    events_avg = pd.DataFrame({'onset':np.median(np.array(onsets_allsubs),axis=0),'duration':np.median(np.array(durations_allsubs),axis=0),'trial_type':all_events[0]['trial_type']})
+    print('computed median events, from averaging events of %d subs'%np.array(onsets_allsubs).shape[0])
+
+    return events_avg    

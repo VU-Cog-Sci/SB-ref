@@ -41,12 +41,6 @@ rsq_threshold = 0.5
 z_threshold = analysis_params['z_threshold']
 
 
-# path to functional files
-filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=sj), '*'))
-print('functional files from %s' % os.path.split(filepath[0])[0])
-eventdir = os.path.join(analysis_params['sourcedata_dir'],'sub-{sj}'.format(sj=str(sj).zfill(2)),'ses-01','func')
-print('event files from %s' % eventdir)
-
 # changes depending on data used
 if with_smooth=='True':
     # soma out path
@@ -59,10 +53,6 @@ else:
     # last part of filename to use
     file_extension = 'sg_psc.func.gii'
 
-# list of functional files (5 runs)
-filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
-filename.sort()
-
 
 # path to save fits, for testing
 if not os.path.exists(out_dir):  # check if path exists
@@ -71,83 +61,20 @@ if not os.path.exists(out_dir):  # check if path exists
 print('files will be saved in %s'%out_dir)
 
 
-##### compute median run for soma and load data #####
+if sj == 'median':
 
-# loads median run functional files and saves the absolute path name in list
-med_gii = [] 
-for field in ['hemi-L', 'hemi-R']:
-    hemi = [h for h in filename if field in h]
+    all_subs = ['01','02','03','04','05','08','09','11','12','13']
 
-    # set name for median run (now numpy array)
-    med_file = os.path.join(out_dir, re.sub(
-        'run-\d{2}_', 'run-median_', os.path.split(hemi[0])[-1]))
-    # if file doesn't exist
-    if not os.path.exists(med_file):
-        med_gii.append(median_gii(hemi, out_dir))  # create it
-        print('computed %s' % (med_gii))
-    else:
-        med_gii.append(med_file)
-        print('median file %s already exists, skipping' % (med_gii))
+else:
+    all_subs = [sj]
 
-# load data for median run, one hemisphere 
-hemi = ['hemi-L','hemi-R']
-
-data = []
-for _,h in enumerate(hemi):
-    gii_file = med_gii[0] if h == 'hemi-L' else  med_gii[1]
-    print('using %s' %gii_file)
-    data.append(np.array(surface.load_surf_data(gii_file)))
-
-data = np.vstack(data) # will be (vertex, TR)
-
-##
-
+data = make_median_soma_sub(all_subs,file_extension,out_dir,median_gii=median_gii)
+    
+events_avg = make_median_soma_events(all_subs)
 
 # make DM
 
-# list of stimulus onsets
-events = [os.path.join(eventdir,run) for run in os.listdir(eventdir) if 'soma' in run and run.endswith('events.tsv')]
-events.sort()
-
 TR = analysis_params["TR"]
-
-
-# make function that makes median event data frame for x runs of sub or for median sub
-# now this will do
-onsets_allsubs = []
-durations_allsubs = []
-
-all_events = []
-for _,val in enumerate(events):
-
-    events_pd = pd.read_csv(val,sep = '\t')
-
-    new_events = []
-
-    for ev in events_pd.iterrows():
-        row = ev[1]   
-        if row['trial_type'][0] == 'b': # if both hand/leg then add right and left events with same timings
-            new_events.append([row['onset'],row['duration'],'l'+row['trial_type'][1:]])
-            new_events.append([row['onset'],row['duration'],'r'+row['trial_type'][1:]])
-        else:
-            new_events.append([row['onset'],row['duration'],row['trial_type']])
-
-    df = pd.DataFrame(new_events, columns=['onset','duration','trial_type'])  #make sure only relevant columns present
-    all_events.append(df)
-
-# make median event dataframe
-onsets = []
-durations = []
-for w in range(len(all_events)):
-    onsets.append(all_events[w]['onset'])
-    durations.append(all_events[w]['duration'])
-
-onsets_allsubs.append(np.median(np.array(onsets),axis=0)) #append average onset of all runs
-durations_allsubs.append(np.median(np.array(durations),axis=0))
-
-
-# all subjects in one array, use this to compute contrasts
-events_avg = pd.DataFrame({'onset':np.median(np.array(onsets_allsubs),axis=0),'duration':np.median(np.array(durations_allsubs),axis=0),'trial_type':all_events[0]['trial_type']})
 
 # specifying the timing of fMRI frames
 frame_times = TR * (np.arange(data.shape[-1]))
