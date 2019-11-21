@@ -214,6 +214,19 @@ if sj=='median' and with_smooth=='True':
     masked_rsq = np.concatenate((smooth_rsq[0][0],smooth_rsq[1][0])) 
     
 
+# save masked estimates in numpy array to load later
+# saved in same folder as figures (for now, might change that later)
+
+masked_estimates_filename = os.path.join(figure_out,'masked_estimates.npz')
+np.savez(masked_estimates_filename,
+              masked_xx = masked_xx,
+              masked_yy = masked_yy,
+              masked_size = masked_size,
+              masked_beta = masked_beta,
+              masked_baseline = masked_baseline,
+              masked_rsq = masked_rsq
+              )
+
 # now construct polar angle and eccentricity values
 rsq_threshold = analysis_params['rsq_threshold']
 
