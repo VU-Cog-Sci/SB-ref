@@ -34,7 +34,7 @@ else:
 
 # define paths and relevant variables
 
-with_smooth = analysis_params['with_smooth']
+with_smooth = 'False'#analysis_params['with_smooth']
 rsq_threshold = 0.5 
 z_threshold = analysis_params['z_threshold']
 
@@ -154,7 +154,7 @@ for i in range(len(task)):
     dlabel = 'face' if task[i]=='face' else 'hand'
     
     # instantiate a second axes that shares the same x-axis
-    if task[i]=='upper_limb': axis = axis.twinx() 
+    #if task[i]=='upper_limb': axis = axis.twinx() 
     
     # plot data with model
     axis.plot(time_sec,estimates['model'][vertex[i]],c=blue_color[i],lw=3,label=dlabel+', R$^2$=%.2f'%estimates['r2'][vertex[i]],zorder=1)
