@@ -712,7 +712,19 @@ if sj != 'median': # doesn't work for median subject
             axis.tick_params(axis='both', labelsize=14)
             axis.tick_params(axis='y', labelcolor=red_color[idx])
             axis.set_xlim(0,len(timeseries)*TR)
+            plt.gca().set_ylim(bottom=0)
+
             #plt.title('voxel %d (%s) , MSE = %.3f, rsq = %.3f' %(vertex[i],task[i],mse,r2))
+            
+            # to align axis centering it at 0
+            if idx == 0:
+                if sj=='11':
+                    axis.set_ylim(-3,9)
+                ax1 = axis
+            else:
+                if sj=='11':
+                    axis.set_ylim(-1.5,3.5)
+                align_yaxis(ax1, 0, axis, 0)
 
             #axis.axhline(y=0, xmin=0, xmax=len(timeseries)*TR,linestyle='--',c=red_color[idx])
 
@@ -755,20 +767,48 @@ n_bins = 10
 min_ecc = 0.25
 max_ecc = 4
 
+if sj == 'median':
+    all_estimates = append_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=False,exclude_subs=['sub-07'])
+
 for idx,roi in enumerate(ROIs):
     
     df = pd.DataFrame(columns=['ecc','size','rsq'])
+
+    if sj == 'median':
+        for s in range(np.array(all_estimates['x']).shape[0]): # loop over all subjects that were appended
+        
+            #print('masking variables to be within screen and only show positive RF')
+            sub_masked_estimates = mask_estimates(all_estimates['x'][s],all_estimates['y'][s],
+                                                  all_estimates['size'][s],all_estimates['betas'][s],
+                                                  all_estimates['baseline'][s],all_estimates['r2'][s],vert_lim_dva,hor_lim_dva)
+        
+            # get datapoints for RF only belonging to roi
+            new_size = sub_masked_estimates['size'][roi_verts[str(roi)]]
+            new_ecc = np.abs(sub_masked_estimates['x'][roi_verts[str(roi)]] + sub_masked_estimates['y'][roi_verts[str(roi)]] * 1j)        
+            new_rsq = sub_masked_estimates['rsq'][roi_verts[str(roi)]]
+            
+            # define indices of voxels within region to plot
+            # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
+            indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))[0]
+            
+            if s == 0:
+                df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                                       'rsq':new_rsq[indices4plot]})
+            else:
+                df.append(pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                                       'rsq':new_rsq[indices4plot]}))
+    else: 
     
-    # get datapoints for RF only belonging to roi
-    new_size = masked_size[roi_verts[str(roi)]]
-    new_ecc = masked_eccentricity[roi_verts[str(roi)]]
-    new_rsq = masked_rsq[roi_verts[str(roi)]]
-    
-    # define indices of voxels within region to plot
-    # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
-    indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))
-    df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
-                           'rsq':new_rsq[indices4plot]})
+        # get datapoints for RF only belonging to roi
+        new_size = masked_size[roi_verts[str(roi)]]
+        new_ecc = masked_eccentricity[roi_verts[str(roi)]]
+        new_rsq = masked_rsq[roi_verts[str(roi)]]
+        
+        # define indices of voxels within region to plot
+        # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
+        indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))
+        df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                               'rsq':new_rsq[indices4plot]})
     # sort values by eccentricity
     df = df.sort_values(by=['ecc'])  
     
@@ -794,6 +834,7 @@ ax = sns.lmplot(x='mean_ecc', y='mean_size', hue='roi',data=all_roi,height=8, as
 ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
 ax = plt.gca()
 ax.axes.set_xlim(0,)
+ax.axes.set_ylim(0,)
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
 plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
  

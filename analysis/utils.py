@@ -1460,4 +1460,80 @@ def make_raw_vertex_image(data2plot,cmap,vmin,vmax,subject='fsaverage_gross'):
 
     return vx_fin
     
+
+# function to align twin axis in same plot
+def align_yaxis(ax1, v1, ax2, v2):
+    """adjust ax2 ylimit so that v2 in ax2 is aligned to v1 in ax1"""
+    _, y1 = ax1.transData.transform((0, v1))
+    _, y2 = ax2.transData.transform((0, v2))
+    inv = ax2.transData.inverted()
+    _, dy = inv.transform((0, 0)) - inv.transform((0, y1-y2))
+    miny, maxy = ax2.get_ylim()
+    ax2.set_ylim(miny+dy, maxy+dy)
+
+
+# make function to retrieve estimates from list of subs and 
+# return appended estimates
+# to make proper ecc vs size plots for "subject median"
+
+
+def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
+
+####################
+#    inputs
+# subdir - absolute path to all subject dir (where fits are)
+# with_smooth - boolean, use smooth data?
+# exclude_subs=['subjects to be excluded from list']
+#   outputs
+# estimates - dictionary with appended estimated parameters
+
+    allsubs = [folder for _,folder in enumerate(os.listdir(subdir)) if 'sub-' in folder]
+    allsubs.sort()
+    print('appeding %d/%d subjects' %((len(allsubs)-len(exclude_subs)),len(allsubs)))
+
+    rsq = []
+    xx = []
+    yy = []
+    size = []
+    baseline = []
+    beta = []
+
+    exclude_counter = 0
+    exclude_subs.sort() #then in order
+
+    #load estimates and append
+    for _,sub in enumerate(allsubs):
+
+        if sub in exclude_subs[exclude_counter]:
+            print('skipping %s, not included '%exclude_subs[exclude_counter])
+            if len(exclude_subs)>(exclude_counter+1): exclude_counter += 1 # if more subs in list, increment counter
+        else:
+
+            # load prf estimates
+            if with_smooth==True:    
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+            else:
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','iterative_fit')
+
+            estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
+            estimates_list.sort() #sort to make sure pRFs not flipped
+
+            estimates = []
+            for _,val in enumerate(estimates_list) :
+                print('appending %s'%val)
+                estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
+
+            xx.append(np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0])))
+            yy.append(-(np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])))) # Need to do this (-) for now, CHANGE ONCE BUG FIXED
+
+            size.append(np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2])))
+            beta.append(np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3])))
+            baseline.append(np.concatenate((estimates[0]['it_output'][...,4],estimates[1]['it_output'][...,4])))
+
+            rsq.append(np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5]))) 
     
+    estimates = {'subs':allsubs,'r2':rsq,'x':xx,'y':yy,
+                 'size':size,'baseline':baseline,'betas':beta}
+
+    return estimates
+
