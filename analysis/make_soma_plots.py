@@ -19,6 +19,10 @@ from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.cm as matcm
 import matplotlib.pyplot as plt
 
+from statsmodels.stats import weightstats
+from nistats.design_matrix import make_first_level_design_matrix
+from nistats.contrasts import compute_contrast
+
 
 # define participant number and open json parameter file
 if len(sys.argv)<2:	
@@ -417,6 +421,86 @@ images['v_facecombined'] = cortex.Vertex(allface_COM.T, 'fsaverage',
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-eyebrows-eyes-mouth-tongue.svg' %(rsq_threshold,z_threshold))
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
+
+
+# make beta weights for different ROIs
+
+# get vertices for subject fsaverage
+# for later plotting
+
+ROIs = ['Medial','Frontal','Parietal']#,'Insula'] # list will combine those areas, string only accounts for 1 ROI
+
+roi_verts = {} #empty dictionary 
+for i,val in enumerate(ROIs):
+    roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
+
+# get betas and rsq values for later
+betas = estimates['betas']
+rsq = estimates['r2']
+
+# get DM predictor keys
+
+# specifying the timing of fMRI frames
+frame_times = TR * (np.arange(data.shape[-1]))
+# Create the design matrix, hrf model containing Glover model 
+design_matrix = make_first_level_design_matrix(frame_times,
+                                               events=events_avg,
+                                               hrf_model='glover'
+                                               )
+
+regressors =np.array(design_matrix.keys()).astype(str)
+# make and save average beta weights for different ROIs
+for idx,roi in enumerate(ROIs):
+    # plot beta weights for single voxel
+    fig, axis = plt.subplots(1,figsize=(25,7.5),dpi=100)
+    
+    # get the average values 
+    # weight voxels based on rsq of fit
+    beta_avg = weightstats.DescrStatsW(betas[roi_verts[roi]],weights=rsq[roi_verts[roi]]).mean
+
+    # need to do this to get weighted standard deviations of the mean for each regressor
+    beta_std = []
+    for w in range(len(regressors)):
+        beta_pred =  np.array([betas[roi_verts[roi]][x][w] for x in range(len(betas[roi_verts[roi]]))])
+        beta_std.append(weightstats.DescrStatsW(beta_pred,weights=rsq[roi_verts[roi]]).std_mean) 
+                         
+
+    y_pos = np.arange(len(regressors))
+    plt.bar(y_pos,beta_avg,yerr=np.array(beta_std), align='center')
+    plt.xticks(y_pos, regressors)
+    
+    axis.set_title('Averaged beta weights for each regressor in ROI %s'%(roi))
+    #plt.show()
+    fig.savefig(os.path.join(figure_out,'average_betas_all_regressors_ROI-%s.svg'%roi), dpi=100,bbox_inches = 'tight')
+
+
+# now combine predictors of same region in bar plots 
+
+reg_keys = list(analysis_params['all_contrasts'].keys()); reg_keys.sort() # list of key names (of different body regions)
+for idx,roi in enumerate(ROIs):
+  fig, axis = plt.subplots(1,figsize=(25,7.5),dpi=100)
+  region_beta_avg = []
+  region_beta_std = []
+  for idx,region in enumerate(reg_keys):#reg_keys):
+      region_betas = []
+      region_rsq = []
+      for f,regr in enumerate(regressors): # join all betas for region in same array (and rsq for weights)
+          if regr in analysis_params['all_contrasts'][region]:
+              region_betas.append(np.array([betas[roi_verts[roi]][x][f] for x in range(len(betas[roi_verts[roi]]))]))
+              region_rsq.append(np.array(rsq[roi_verts[roi]]))
+              
+      region_beta_avg.append(weightstats.DescrStatsW(np.array(region_betas).ravel(),weights=np.array(region_rsq).ravel()).mean)
+      region_beta_std.append(weightstats.DescrStatsW(np.array(region_betas).ravel(),weights=np.array(region_rsq).ravel()).std_mean)
+      
+      
+  y_pos = np.arange(len(reg_keys))
+  plt.bar(y_pos,region_beta_avg,yerr=np.array(region_beta_std), align='center')
+  plt.xticks(y_pos, reg_keys)
+
+  axis.set_title('Averaged beta weights for regressors of regions combined in ROI %s'%(roi))
+  fig.savefig(os.path.join(figure_out,'average_betas_combined_regressors_ROI-%s.svg'%roi), dpi=100,bbox_inches = 'tight')
+  #plt.show()
+
 
 
 print('Done!')
