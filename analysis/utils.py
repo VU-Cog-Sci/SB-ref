@@ -1537,3 +1537,48 @@ def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
 
     return estimates
 
+
+def make_raw_vertex2D_image(data2plot1,data2plot2,cmap,vmin,vmax,vmin2,vmax2,subject='fsaverage_gross'):
+    ## function to fix web browser bug in pycortex ##
+    # allows masking of data with nans #
+    
+    # INPUTS #
+    # data2plot
+    # cmap - string with colormap name
+    # vmin
+    # vmax
+    # subjects
+    
+    # OUTPUT
+    # vertex object to call in webgl 
+    
+    # Get curvature
+    curv = cortex.db.get_surfinfo(subject)
+    # Adjust curvature contrast / color. Alternately, you could work
+    # with curv.data, maybe threshold it, and apply a color map. 
+    curv.vmin = -1
+    curv.vmax = 1
+    curv.cmap = 'gray'
+    
+    # Create display data (Face, HANDS, legs)
+    vx = cortex.Vertex2D(data2plot1,data2plot2, subject, 
+                         cmap=cmap, vmin=vmin, vmax=vmax,
+                        vmin2=vmin2, vmax2=vmax2)
+
+    # Map to RGB
+    vx_rgb = np.vstack([vx.raw.red.data, vx.raw.green.data, vx.raw.blue.data])
+    curv_rgb = np.vstack([curv.raw.red.data, curv.raw.green.data, curv.raw.blue.data])
+
+    # Pick an arbitrary region to mask out
+    # (in your case you could use np.isnan on your data in similar fashion)
+    #alpha = (data2plot1 == 0) | (data2plot2 == 0)
+    #alpha = alpha.astype(np.float)
+
+    # Alpha mask
+    display_data = vx_rgb + curv_rgb #vx_rgb * alpha + curv_rgb * (1-alpha)
+
+    # Create vertex RGB object out of R, G, B channels
+    vx_fin = cortex.VertexRGB(*display_data, subject)
+
+    return vx_fin
+    

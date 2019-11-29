@@ -478,7 +478,7 @@ for idx,roi in enumerate(ROIs):
 
 reg_keys = list(analysis_params['all_contrasts'].keys()); reg_keys.sort() # list of key names (of different body regions)
 for idx,roi in enumerate(ROIs):
-  fig, axis = plt.subplots(1,figsize=(25,7.5),dpi=100)
+  fig, axis = plt.subplots(1,figsize=(15,7.5),dpi=100)
   region_beta_avg = []
   region_beta_std = []
   for idx,region in enumerate(reg_keys):#reg_keys):
@@ -502,6 +502,56 @@ for idx,roi in enumerate(ROIs):
   #plt.show()
 
 
+# repetitive, fix once defined which plots should stay from these beta bar plots ######
+
+reg_keys = list(analysis_params['all_contrasts'].keys()) # list of key names (of different body regions)
+for idx,roi in enumerate(ROIs):
+    fig, axis = plt.subplots(1,figsize=(15,7.5),dpi=100)
+  
+    region_beta_avg = []
+    region_beta_std = []
+    labels = []
+    for idx,region in enumerate(reg_keys):#reg_keys):
+        #region_betas = []
+        #region_rsq = []
+        for f,regr in enumerate(regressors): # join all betas for region in same array (and rsq for weights)
+    
+            if regr in analysis_params['all_contrasts'][region]:
+                print('computing avg betas for %s'%regr)
+                region_betas = np.array([betas[roi_verts[roi]][x][f] for x in range(len(betas[roi_verts[roi]]))])
+                region_rsq = np.array(rsq[roi_verts[roi]])
+                
+                region_beta_avg.append(weightstats.DescrStatsW(np.array(region_betas).ravel(),weights=np.array(region_rsq).ravel()).mean)
+                region_beta_std.append(weightstats.DescrStatsW(np.array(region_betas).ravel(),weights=np.array(region_rsq).ravel()).std_mean)
+                
+                labels.append(regr)
+
+    left_beta_avg = [x for ind,x in enumerate(region_beta_avg) if ('rhand' not in labels[ind]) if ('rleg' not in labels[ind])]
+    left_beta_std = [x for ind,x in enumerate(region_beta_std) if ('rhand' not in labels[ind]) if ('rleg' not in labels[ind])]
+    left_labels = [x for ind,x in enumerate(labels) if ('rhand' not in labels[ind]) if ('rleg' not in labels[ind])]
+
+    right_beta_avg = [x for ind,x in enumerate(region_beta_avg) if ('lhand' not in labels[ind]) if ('lleg' not in labels[ind])]
+    right_beta_std = [x for ind,x in enumerate(region_beta_std) if ('lhand' not in labels[ind]) if ('lleg' not in labels[ind])]
+    right_labels = [x for ind,x in enumerate(labels) if ('lhand' not in labels[ind]) if ('lleg' not in labels[ind])]
+
+    # width of the bars
+    barWidth = 0.3
+
+    # The x position of bars
+    y_pos = np.arange(len(left_labels))
+    y_pos2 = [x + barWidth for x in y_pos]
+
+    plt.bar(y_pos,left_beta_avg,yerr=np.array(left_beta_std), align='center',color = 'yellow', edgecolor = 'black',width = barWidth,label='left')
+    plt.bar(y_pos2,right_beta_avg,yerr=np.array(right_beta_std), align='center',color = 'blue', edgecolor = 'black',width = barWidth,label='right')
+
+    plt.xticks([r + barWidth for r in y_pos], ['eyebrows','eyeblinks','mouth','tongue','fing1','fing2','fing3','fing4','fing5','leg'])#left_labels)
+    axis.set_ylim(-0.5,1.25)
+    #plt.xticks(y_pos, left_labels)
+    axis.set_title('Averaged beta weights for relevant regressors in ROI %s'%(roi))
+    plt.legend()
+    #plt.show()
+
+    fig.savefig(os.path.join(figure_out,'average_betas_ordered_regressors_ROI-%s.svg'%roi), dpi=100,bbox_inches = 'tight')
 
 print('Done!')
 
