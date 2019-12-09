@@ -1582,3 +1582,44 @@ def make_raw_vertex2D_image(data2plot1,data2plot2,cmap,vmin,vmax,vmin2,vmax2,sub
 
     return vx_fin
     
+
+def make_2D_colormap(rgb_color='101',bins=50):
+    # generate 2D basic colormap
+    # and save to pycortex filestore
+    
+    ##generating grid of x bins
+    x,y = np.meshgrid(
+        np.linspace(0,1,bins),
+        np.linspace(0,1,bins)) 
+    
+    # define color combination for plot
+    if rgb_color=='101': #red blue
+        col_grid = np.dstack((x,np.zeros_like(x), y))
+        name='RB'
+    elif rgb_color=='110': # red green
+        col_grid = np.dstack((x, y,np.zeros_like(x)))
+        name='RG'
+    elif rgb_color=='011': # green blue
+        col_grid = np.dstack((np.zeros_like(x),x, y))
+        name='GB'
+    
+    fig = plt.figure(figsize=(1,1))
+    ax = fig.add_axes([0,0,1,1])
+    # plot 
+    plt.imshow(col_grid,
+    extent = (0,1,0,1),
+    origin = 'lower')
+    ax.axis('off')
+
+    rgb_fn = os.path.join(os.path.split(cortex.database.default_filestore)[
+                          0], 'colormaps', 'costum2D_'+name+'_bins_%d.png'%bins)
+
+    plt.savefig(rgb_fn, dpi = 200)
+       
+    return rgb_fn  
+
+
+##normalize data:
+def normalize(M):
+    return (M-np.nanmin(M))/(np.nanmax(M)-np.nanmin(M))
+
