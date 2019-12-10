@@ -381,7 +381,7 @@ for idx,roi in enumerate(ROIs):
     rgba_colors[:,0] = rgb_col[:,0]
     rgba_colors[:,1] = rgb_col[:,1]
     rgba_colors[:,2] = rgb_col[:,2]
-    rgba_colors[:,3] = new_rsq/20
+    rgba_colors[:,3] = normalize(new_rsq)/2 # alpha will be normalized rsq scaled in half
     ######## 
     
     s[0].set_title('%s pRFs in visual field'%roi)
@@ -418,6 +418,62 @@ for idx,roi in enumerate(ROIs):
     s[0].set(adjustable='box-forced', aspect='equal')
     s[1].set(adjustable='box-forced', aspect='equal')
     f.savefig(os.path.join(figure_out,'RF_scatter_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+
+    # plot left and right hemi coverage separetly
+    
+    if roi!=str(['V1','V2','V3']): # if single roi
+        f, s = plt.subplots(1, 2, figsize=(24,48))
+        
+        # get roi indices for each hemisphere
+        left_roi_verts = roi_verts[roi][roi_verts[roi]<int(len(masked_rsq)/2)]
+        right_roi_verts = roi_verts[roi][roi_verts[roi]>=int(len(masked_rsq)/2)]
+
+        # LEFT VISUAL FIELD
+        s[0].set_title('%s pRFs in visual field for left hemisphere'%roi)
+        s[0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        s[0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        s[0].axvline(0, -15, 15, c='k', lw=0.25)
+        s[0].axhline(0, -15, 15, c='k', lw=0.25)
+
+        # RIGHT VISUAL FIELD
+        s[1].set_title('%s pRFs in visual field for right hemisphere'%roi)
+        s[1].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        s[1].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        s[1].axvline(0, -15, 15, c='k', lw=0.25)
+        s[1].axhline(0, -15, 15, c='k', lw=0.25)
+
+        # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
+        # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
+        plot_ind = [k for k in range(len(roi_verts[roi]))]
+        random.shuffle(plot_ind) # randomize indices to plot, avoids biases
+        for _,w in enumerate(plot_ind):
+            if new_rsq[w]>rsq_threshold:
+                if w<len(left_roi_verts): # then its left hemisphere
+                    s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
+                else:
+                    s[1].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
+
+        s[0].set_xlabel('horizontal space [dva]')
+        s[0].set_ylabel('vertical space [dva]')
+
+        s[1].set_xlabel('horizontal space [dva]')
+        s[1].set_ylabel('vertical space [dva]')
+
+        # Create a Rectangle patch
+        rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
+        rect2 = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
+
+        # Add the patch to the Axes
+        s[0].add_patch(rect)
+        # Add the patch to the Axes
+        s[1].add_patch(rect2)
+
+        # make sure that plots have proportional size
+        s[0].set(adjustable='box-forced', aspect='equal')
+        s[1].set(adjustable='box-forced', aspect='equal')
+
+        f.savefig(os.path.join(figure_out,'RF_scatter_LRhemi_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+
     
 #plt.show() 
 
