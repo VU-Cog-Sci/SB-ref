@@ -34,6 +34,8 @@ import scipy
 import matplotlib.patches as patches
 from statsmodels.stats import weightstats
 
+import random
+
 
 # define participant number and open json parameter file
 if len(sys.argv)<2: 
@@ -381,10 +383,6 @@ for idx,roi in enumerate(ROIs):
     rgba_colors[:,2] = rgb_col[:,2]
     rgba_colors[:,3] = new_rsq/20
     ######## 
-
-    edgecolors = np.zeros((new_xx.shape[0], 4))
-    edgecolors[:,:3] = 1#0.8 # make gray
-    edgecolors[:,3] = new_rsq/10 #12# the rsq is alpha
     
     s[0].set_title('%s pRFs in visual field'%roi)
     s[0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
@@ -392,9 +390,12 @@ for idx,roi in enumerate(ROIs):
     s[0].axvline(0, -15, 15, c='k', lw=0.25)
     s[0].axhline(0, -15, 15, c='k', lw=0.25)
     # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
-    for w in range(len(new_xx)):
+    # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
+    plot_ind = [k for k in range(len(new_xx))]
+    random.shuffle(plot_ind) # randomize indices to plot, avoids biases
+    for _,w in enumerate(plot_ind):
         if new_rsq[w]>rsq_threshold:
-            s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], edgecolor=edgecolors[w]))#,alpha=new_rsq))
+            s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
         #s[0].scatter(new_xx[w], new_yy[w], s=new_size[w])
 
     s[0].set_xlabel('horizontal space [dva]')
