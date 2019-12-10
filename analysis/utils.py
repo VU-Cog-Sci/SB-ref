@@ -1623,3 +1623,23 @@ def make_2D_colormap(rgb_color='101',bins=50):
 def normalize(M):
     return (M-np.nanmin(M))/(np.nanmax(M)-np.nanmin(M))
 
+
+def equal_bin(arr,num_bins=4):
+    # function to order array, divide in equally sized bins
+    # and return array of bin labels (each vertex will be given a label value indicating the bin it belongs to)
+    # essentially dividing in quantiles
+    
+    arr_sort = np.argsort(arr) # sort array and get indices
+    bin_max_ind = (len(arr)/num_bins)*np.arange(1,num_bins+1) # max bin indices
+    
+    bin_counter = 0
+    bin_labels = np.zeros(arr.shape)
+    
+    for k in range(len(arr)): # for all voxels
+
+        bin_labels[arr_sort[k]]=bin_counter+0.5 # making my life easier in the colorbars (label will be mid position of bin range)
+
+        if k==int(np.around(bin_max_ind[bin_counter]-1)): # if max index for bin reached, increment
+            bin_counter +=1
+
+    return bin_labels
