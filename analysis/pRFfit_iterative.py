@@ -71,7 +71,7 @@ if str(sys.argv[2]) == 'cartesius':
     filepath = glob.glob(os.path.join(
         analysis_params['post_fmriprep_outdir_cartesius'], 'prf', 'sub-{sj}'.format(sj=sj), '*'))
     print('functional files from %s' % os.path.split(filepath[0])[0])
-    out_dir = os.path.join(analysis_params['pRF_outdir_cartesius'],'shift_crop')
+    out_dir = os.path.join(analysis_params['pRF_outdir_cartesius'],'css','shift_crop')
 
 elif str(sys.argv[2]) == 'aeneas':
     print(os.path.join(
@@ -79,7 +79,7 @@ elif str(sys.argv[2]) == 'aeneas':
     filepath = glob.glob(os.path.join(
         analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=sj), '*'))
     print('functional files from %s' % os.path.split(filepath[0])[0])
-    out_dir = os.path.join(analysis_params['pRF_outdir'],'shift_crop')
+    out_dir = os.path.join(analysis_params['pRF_outdir'],'css','shift_crop')
 
 # changes depending on data used
 if with_smooth == 'True':
@@ -145,8 +145,6 @@ prf_dm = shift_DM(prf_dm)
 prf_dm = prf_dm[:,:,analysis_params['crop_pRF_TR']:] # crop DM because functional data also cropped now
 
 # define model params
-fit_model = analysis_params["fit_model"]
-
 TR = analysis_params["TR"]
 
 hrf = utilities.spm_hrf(0,TR)
@@ -163,21 +161,21 @@ gg = Iso2DGaussianGridder(stimulus=prf_stim,
                           filter_predictions=False,
                           window_length=analysis_params["sg_filt_window_length"],
                           polyorder=analysis_params["sg_filt_polyorder"],
-                          highpass=False,
-                          add_mean=False)
+                          highpass=False)
 
 # set grid parameters
 grid_nr = analysis_params["grid_steps"]
 sizes = analysis_params["max_size"] * np.linspace(np.sqrt(analysis_params["min_size"]/analysis_params["max_size"]),1,grid_nr)**2
 eccs = analysis_params["max_eccen"] * np.linspace(np.sqrt(analysis_params["min_eccen"]/analysis_params["max_eccen"]),1,grid_nr)**2
 polars = np.linspace(0, 2*np.pi, grid_nr)
+n_list = [0.25,0.5,0.75,1]
 
 for gii_file in med_gii:
     print('loading data from %s' % gii_file)
     data = np.array(surface.load_surf_data(gii_file))
     print('data array with shape %s'%str(data.shape))
 
-    gf = Iso2DGaussianFitter(data=data, gridder=gg, n_jobs=16, fit_css=False)
+    gf = Iso2DGaussianFitter(data=data, gridder=gg, n_jobs=16, fit_css=True)
 
     #filename for the numpy array with the estimates of the grid fit
     grid_estimates_filename = gii_file.replace('.func.gii', '_estimates.npz')
@@ -187,7 +185,8 @@ for gii_file in med_gii:
         # do grid fit and save estimates
         gf.grid_fit(ecc_grid=eccs,
                     polar_grid=polars,
-                    size_grid=sizes)
+                    size_grid=sizes,
+                    n_grid=n_list)
 
         np.savez(grid_estimates_filename,
               x = gf.gridsearch_params[..., 0],
@@ -209,20 +208,17 @@ for gii_file in med_gii:
 
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf.iterative_fit(rsq_threshold=0.1, verbose=False)
+        gf.iterative_fit(rsq_threshold=0.1, verbose=False,
+                         gridsearch_params = gf.gridsearch_params)
 
-        
         np.savez(iterative_out,
-                 it_output=gf.iterative_search_params)
+                 x = gf.iterative_search_params[..., 0],
+                 y = gf.iterative_search_params[..., 1],
+                 size = gf.iterative_search_params[..., 2],
+                 betas = gf.iterative_search_params[...,3],
+                 baseline = gf.iterative_search_params[..., 4],
+                 ns = gf.iterative_search_params[..., 5],
+                 r2 = gf.iterative_search_params[..., 6])
     else:
         print('%s already exists'%iterative_out)
-
-    ## do iterative fit again, now with css, n=1 (isn't that just gaussian?)
-    #print('doing iterative fit with css ')
-    #gf.fit_css = True
-    #gf.iterative_fit(rsq_threshold=0.1, verbose=False)
-
-    #iterative_css_out = gii_file.replace('.func.gii', '_iterative_css_output.npz')
-    #np.savez(iterative_css_out,
-    #         it_output=gf.iterative_search_params)
 
