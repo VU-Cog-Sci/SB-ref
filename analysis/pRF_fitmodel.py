@@ -170,7 +170,7 @@ css_bounds = [(-2*ss, 2*ss),  # x
               (eps, 2*ss),  # prf size
               (0, +inf),  # prf amplitude
               (0, +inf),  # bold baseline
-              (0.01, 3)]  # CSS exponent
+              (0.1, 1.1)]  # CSS exponent
 
 # sets up stimulus and hrf for this gaussian gridder
 gg = Iso2DGaussianGridder(stimulus=prf_stim,
