@@ -70,25 +70,25 @@ with_smooth = 'False'#analysis_params['with_smooth']
 if str(sys.argv[2]) == 'cartesius':
     filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir_cartesius'], 'prf', 'sub-{sj}'.format(sj=sj), '*'))
     print('functional files from %s' % os.path.split(filepath[0])[0])
-    out_dir = os.path.join(analysis_params['pRF_outdir_cartesius'],'css_v2','shift_crop')
+    out_dir = os.path.join(analysis_params['pRF_outdir_cartesius'],'css')
 
 elif str(sys.argv[2]) == 'aeneas':
     print(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=sj), '*'))
     filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=sj), '*'))
     print('functional files from %s' % os.path.split(filepath[0])[0])
-    out_dir = os.path.join(analysis_params['pRF_outdir'],'css_v2','shift_crop')
+    out_dir = os.path.join(analysis_params['pRF_outdir'],'css')
 
 # changes depending on data used
 if with_smooth == 'True':
     # last part of filename to use
     file_extension = 'cropped_sg_psc_smooth%d.func.gii' % analysis_params['smooth_fwhm']
     # compute median run, per hemifield
-    median_path = os.path.join(out_dir, 'sub-{sj}'.format(sj=sj), 'run-median', 'smooth%d' % analysis_params['smooth_fwhm'],'iterative_fit')
+    median_path = os.path.join(out_dir, 'sub-{sj}'.format(sj=sj), 'run-median', 'smooth%d' % analysis_params['smooth_fwhm'])
 else:
     # last part of filename to use
     file_extension = 'cropped_sg_psc.func.gii'
     # compute median run, per hemifield
-    median_path = os.path.join(out_dir, 'sub-{sj}'.format(sj=sj), 'run-median','iterative_fit')
+    median_path = os.path.join(out_dir, 'sub-{sj}'.format(sj=sj), 'run-median')
 
 # list of functional files
 filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and run.endswith(file_extension)]
@@ -126,7 +126,7 @@ print('computed %s' % (dm_filename))
 
 #else:
 #    print('loading %s' % dm_filename)
-prf_dm = np.load(dm_filename)
+prf_dm = np.load(dm_filename,allow_pickle=True)
 prf_dm = prf_dm.T # then it'll be (x, y, t)
 
 # change DM to see if fit is better like that
@@ -169,7 +169,7 @@ css_bounds = [(-2*ss, 2*ss),  # x
               (eps, 2*ss),  # prf size
               (0, +inf),  # prf amplitude
               (0, +inf),  # bold baseline
-              (0.1, 1.1)]  # CSS exponent
+              (0.01, 3)]  # CSS exponent
 
 # sets up stimulus and hrf for this gaussian gridder
 gg = Iso2DGaussianGridder(stimulus=prf_stim,
@@ -228,7 +228,7 @@ for gii_file in med_gii:
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf.iterative_fit(rsq_threshold=0.1, verbose=False,
+        gf.iterative_fit(rsq_threshold=0.05, verbose=False,
                          bounds=gauss_bounds)
             
         np.savez(iterative_out,
@@ -250,10 +250,16 @@ for gii_file in med_gii:
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf_css.iterative_fit(rsq_threshold=0.1, verbose=False,
+        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,
                          bounds=css_bounds)
             
         np.savez(iterative_out,
-                  params = gf_css.iterative_search_params)
+                  x = gf_css.iterative_search_params[..., 0],
+                  y = gf_css.iterative_search_params[..., 1],
+                  size = gf_css.iterative_search_params[..., 2],
+                  betas = gf_css.iterative_search_params[...,3],
+                  baseline = gf_css.iterative_search_params[..., 4],
+                  ns = gf_css.iterative_search_params[..., 5],
+                  r2 = gf_css.iterative_search_params[..., 6])
     else:
         print('%s already exists'%iterative_out)
