@@ -148,10 +148,9 @@ prf_stim = PRFStimulus2D(screen_size_cm=analysis_params["screen_width"],
 
 # set grid parameters
 grid_nr = analysis_params["grid_steps"]
-max_ecc_size = prf_stim.screen_size_degrees/2.0
-sizes, eccs, polars = max_ecc_size * np.linspace(0.25, 1, grid_nr)**2, \
-                        max_ecc_size * np.linspace(0.1, 1, grid_nr)**2, \
-                            np.linspace(0, 2*np.pi, grid_nr)
+sizes = analysis_params["max_size"] * np.linspace(np.sqrt(analysis_params["min_size"]/analysis_params["max_size"]),1,grid_nr)**2
+eccs = analysis_params["max_eccen"] * np.linspace(np.sqrt(analysis_params["min_eccen"]/analysis_params["max_eccen"]),1,grid_nr)**2
+polars = np.linspace(0, 2*np.pi, grid_nr)
 
 # to set up parameter bounds in iterfit
 inf = np.inf
