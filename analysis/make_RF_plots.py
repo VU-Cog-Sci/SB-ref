@@ -49,13 +49,19 @@ else:
             analysis_params = json.load(json_file)  
 
 
+# used smoothed data (or not) for plots
 with_smooth = analysis_params['with_smooth']
 
-# define paths
+# fit model to use (gauss or css)
+fit_model = analysis_params["fit_model"]
+# if using estimates from iterative fit
+iterative_fit = True
+
+# define paths to save plots
 if with_smooth=='True':
-    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','shift_crop','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
+    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model,'sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
 else:
-    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','shift_crop','sub-{sj}'.format(sj=sj))
+    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model,'sub-{sj}'.format(sj=sj))
 
 
 if not os.path.exists(figure_out): # check if path to save figures exists
@@ -64,50 +70,59 @@ if not os.path.exists(figure_out): # check if path to save figures exists
 
 ## Load PRF estimates ##
 if sj=='median':
-    estimates = median_iterative_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=False,exclude_subs=['sub-07']) # load unsmoothed estimates, will smooth later
-    print('computed median estimates for %s excluded %s'%(str(estimates['subs']),'sub-07'))
+    estimates = median_iterative_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
+                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07']) # load unsmoothed estimates, will smooth later
+    print('computed median estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
     xx = estimates['x']
     yy = estimates['y']
     rsq = estimates['r2']
     size = estimates['size']
     beta = estimates['betas']
     baseline = estimates['baseline']
+    ns = estimates['ns']
     
 else:
     if with_smooth=='True':    
-        median_path = os.path.join(analysis_params['pRF_outdir'],'shift_crop','sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
     else:
-        median_path = os.path.join(analysis_params['pRF_outdir'],'shift_crop','sub-{sj}'.format(sj=sj),'run-median','iterative_fit')
+        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
 
-    estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
+    if iterative==True: # if selecting params from iterative fit
+        estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(model+'_estimates.npz')]
+    else: # only look at grid fit
+        estimates_list = [x for x in os.listdir(median_path) if x.endswith(model+'_estimates.npz')]
     estimates_list.sort() #sort to make sure pRFs not flipped
 
     estimates = []
     for _,val in enumerate(estimates_list) :
         print('appending %s'%val)
         estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
-        
-    xx = np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0]))
-    yy = -np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])) # Need to do this for now, CHANGE ONCE BUG FIXED
+
+
+    xx = np.concatenate((estimates[0]['x'],estimates[1]['x']))
+    yy = np.concatenate((estimates[0]['y'],estimates[1]['y']))
+       
+    size = np.concatenate((estimates[0]['size'],estimates[1]['size']))
     
-    ###########################
+    beta = np.concatenate((estimates[0]['betas'],estimates[1]['betas']))
+    baseline = np.concatenate((estimates[0]['baseline'],estimates[1]['baseline']))
+    
+    if fit_model =='css': 
+        ns = np.concatenate((estimates[0]['ns'],estimates[1]['ns'])) # exponent of css
+    else: #if gauss
+        ns = np.ones(xx.shape)
 
-    size = np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2]))
-    beta = np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3]))
-    baseline = np.concatenate((estimates[0]['it_output'][...,4],estimates[1]['it_output'][...,4]))
-
-    rsq = np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5])) 
-
-
+    rsq = np.concatenate((estimates[0]['r2'],estimates[1]['r2']))
 
 # set limits for xx and yy, forcing it to be within the screen boundaries
 
 vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
 hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
 
-# make new variables that are masked (cebter of RF within screen limits and only positive pRFs)
+# make new variables that are masked (center of RF within screen limits and only positive pRFs)
+# also max size of RF is 10 dva
 print('masking variables to be within screen and only show positive RF')
-new_estimates = mask_estimates(xx,yy,size,beta,baseline,rsq,vert_lim_dva,hor_lim_dva)
+new_estimates = mask_estimates(xx,yy,size,beta,baseline,rsq,vert_lim_dva,hor_lim_dva,ns=ns)
 
 masked_xx = new_estimates['x']
 masked_yy = new_estimates['y']
@@ -115,6 +130,7 @@ masked_size = new_estimates['size']
 masked_beta = new_estimates['beta']
 masked_baseline = new_estimates['baseline']
 masked_rsq = new_estimates['rsq']
+masked_ns = new_estimates['ns']
 
 
 # to make smoothed plots for median subject, need to convert estimates into gii
@@ -557,8 +573,6 @@ if sj != 'median': # doesn't work for median subject
     prf_dm = prf_dm[:,:,analysis_params['crop_pRF_TR']:] # crop DM because functional data also cropped now
 
     # define model params
-    fit_model = analysis_params["fit_model"]
-
     TR = analysis_params["TR"]
 
     hrf = utilities.spm_hrf(0,TR)

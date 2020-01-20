@@ -939,7 +939,7 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
 
 
 
-def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
+def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'],model='css',iterative=True):
 
 ####################
 #    inputs
@@ -949,9 +949,11 @@ def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'
 #   outputs
 # estimates - dictionary with average estimated parameters
 
+    # make list of subject folders
     allsubs = [folder for _,folder in enumerate(os.listdir(subdir)) if 'sub-' in folder]
     allsubs.sort()
     print('averaging %d/%d subjects' %((len(allsubs)-len(exclude_subs)),len(allsubs)))
+    print('using estimates from %s fit'%model)
 
     rsq = []
     xx = []
@@ -959,6 +961,8 @@ def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'
     size = []
     baseline = []
     beta = []
+    ns = [] # for css
+    new_subs = []
 
     exclude_counter = 0
     exclude_subs.sort() #then in order
@@ -973,11 +977,14 @@ def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'
 
             # load prf estimates
             if with_smooth==True:    
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
             else:
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','iterative_fit')
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median')
 
-            estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
+            if iterative==True: # if selecting params from iterative fit
+                estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(model+'_estimates.npz')]
+            else: # only look at grid fit
+                estimates_list = [x for x in os.listdir(median_path) if x.endswith(model+'_estimates.npz')]
             estimates_list.sort() #sort to make sure pRFs not flipped
 
             estimates = []
@@ -985,28 +992,38 @@ def median_iterative_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'
                 print('appending %s'%val)
                 estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
 
-            xx.append(np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0])))
-            yy.append(-(np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])))) # Need to do this (-) for now, CHANGE ONCE BUG FIXED
 
-            size.append(np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2])))
-            beta.append(np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3])))
-            baseline.append(np.concatenate((estimates[0]['it_output'][...,4],estimates[1]['it_output'][...,4])))
+            xx.append(np.concatenate((estimates[0]['x'],estimates[1]['x'])))
+            yy.append(np.concatenate((estimates[0]['y'],estimates[1]['y'])))
+               
+            size.append(np.concatenate((estimates[0]['size'],estimates[1]['size'])))
+            
+            beta.append(np.concatenate((estimates[0]['betas'],estimates[1]['betas'])))
+            baseline.append(np.concatenate((estimates[0]['baseline'],estimates[1]['baseline'])))
+            
+            if model=='css': ns.append(np.concatenate((estimates[0]['ns'],estimates[1]['ns']))) # exponent of css
 
-            rsq.append(np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5]))) 
+            rsq.append(np.concatenate((estimates[0]['r2'],estimates[1]['r2'])))
 
+            new_subs.append(sub)
 
+    # get median values for each parameter
     xx = np.nanmedian(np.array(xx),axis=0)   
     yy = np.nanmedian(np.array(yy),axis=0)   
 
     size = np.nanmedian(np.array(size),axis=0)   
     beta = np.nanmedian(np.array(beta),axis=0)   
-    baseline = np.nanmedian(np.array(baseline),axis=0)   
+    baseline = np.nanmedian(np.array(baseline),axis=0)  
+
+    if model=='css': 
+        ns = np.nanmedian(np.array(ns),axis=0) 
+    else: #if gauss
+        ns = np.ones(xx.shape) 
 
     rsq = np.nanmedian(np.array(rsq),axis=0)
 
-
-    estimates = {'subs':allsubs,'r2':rsq,'x':xx,'y':yy,
-                 'size':size,'baseline':baseline,'betas':beta}
+    estimates = {'subs':new_subs,'exclude_subs':exclude_subs,'r2':rsq,'x':xx,'y':yy,
+                 'size':size,'baseline':baseline,'betas':beta,'ns':ns}
 
     return estimates
 
@@ -1162,7 +1179,7 @@ def dva_per_pix(height_cm,distance_cm,vert_res_pix):
 
 # make masking function
 
-def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dva,max_size=10):
+def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dva,ns=[1],max_size=10):
     
     ### inputs ######
     # estimates (np.array)
@@ -1178,6 +1195,7 @@ def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dv
     masked_beta = np.zeros(beta.shape); masked_beta[:]=np.nan
     masked_baseline = np.zeros(baseline.shape); masked_baseline[:]=np.nan
     masked_rsq = np.zeros(rsq.shape); masked_rsq[:]=np.nan
+    masked_ns = np.zeros(ns.shape); masked_ns[:]=np.nan
 
     for i in range(len(x)): #for all vertices
         if x[i] <= horizontal_lim_dva and x[i] >= -horizontal_lim_dva: # if x within horizontal screen dim
@@ -1192,8 +1210,12 @@ def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dv
                         masked_beta[i]=beta[i]
                         masked_baseline[i]=baseline[i]
                         masked_rsq[i]=rsq[i]
+                        if len(ns)>1:
+                            masked_ns[i]=ns[i]
 
-    masked_estimates = {'x':masked_xx,'y':masked_yy,'size':masked_size,'beta':masked_beta,'baseline':masked_baseline,'rsq':masked_rsq}
+    masked_estimates = {'x':masked_xx,'y':masked_yy,'size':masked_size,
+                        'beta':masked_beta,'baseline':masked_baseline,'ns':masked_ns,
+                        'rsq':masked_rsq}
     
     return masked_estimates
 
@@ -1643,3 +1665,59 @@ def equal_bin(arr,num_bins=4):
             bin_counter +=1
 
     return bin_labels
+
+
+# make function that takes array with shape (vertices,), with some soma estimate or relevant quantification4 plotting
+# for whole brain and smooths it
+
+def smooth_soma_array(header_dir,arr,out_dir,filestr,n_TR=141,file_extension='_sg_psc.func.gii'):
+    # header_dir - dir to get an example gii file for header (need it to convert arr to gii before smoothing)
+    # arr - array to smooth
+    # out_dir - absolute path to save new gii array (non smoothed and smoothed)
+    # filestr - string to add to name of new gii (identifier)
+    
+    # returns smoothed array
+    
+    smooth_filename = []
+    
+    for field in ['hemi-L', 'hemi-R']:
+        
+        num_vert_hemi = int(arr.shape[0]/2) #number of vertices in one hemisphere
+        
+        if field=='hemi-L':
+            arr_4smoothing = arr[0:num_vert_hemi]
+        else:
+            arr_4smoothing = arr[num_vert_hemi::]
+        
+        # load run just to get header
+        filename = [run for run in os.listdir(header_dir) if 'soma' in run and 'fsaverage' in run and field in run and run.endswith(file_extension)]
+        filename.sort()
+        
+        img_load = nb.load(os.path.join(header_dir,filename[0]))
+        
+        # absolute path of new gii
+        out_filename = os.path.join(out_dir,filestr+'_'+field+file_extension)
+        
+        print('saving %s'%out_filename)
+        est_array_tiled = np.tile(arr_4smoothing[np.newaxis,...],(n_TR,1)) # NEED TO DO THIS 4 MGZ to actually be read (header is of func file)
+        darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
+        estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
+                                           extra=img_load.extra,
+                                           darrays=darrays) # need to save as gii
+        
+        
+        nb.save(estimates_gii,out_filename)
+
+        _,smo_estimates_path = smooth_gii(out_filename,out_dir,fwhm=analysis_params['smooth_fwhm'])
+
+        smooth_filename.append(smo_estimates_path)
+        print('saving %s'%smo_estimates_path)
+        
+    # load both hemis and combine in one array
+    smooth_arr = []
+    for _,name in enumerate(smooth_filename): # not elegant but works
+        img_load = nb.load(name)
+        smooth_arr.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+    out_array = np.concatenate((smooth_arr[0][0],smooth_arr[1][0]))  
+        
+    return out_array
