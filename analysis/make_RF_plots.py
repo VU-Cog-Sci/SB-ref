@@ -988,7 +988,7 @@ for idx,roi in enumerate(ROIs):
             sub_masked_estimates = mask_estimates(all_estimates['x'][s],all_estimates['y'][s],
                                                   all_estimates['size'][s],all_estimates['betas'][s],
                                                   all_estimates['baseline'][s],all_estimates['r2'][s],
-                                                  vert_lim_dva,hor_lim_dva,ns=all_estimates['ns'])
+                                                  vert_lim_dva,hor_lim_dva,ns=all_estimates['ns'][s])
         
             # get datapoints for RF only belonging to roi
             new_size = sub_masked_estimates['size'][roi_verts[str(roi)]]
