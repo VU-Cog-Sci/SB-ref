@@ -252,7 +252,7 @@ np.savez(masked_estimates_filename,
               )
 
 # now construct polar angle and eccentricity values
-rsq_threshold = analysis_params['rsq_threshold']
+rsq_threshold = 0.17 #analysis_params['rsq_threshold']
 
 complex_location = masked_xx + masked_yy * 1j
 masked_polar_angle = np.angle(complex_location)
@@ -530,7 +530,7 @@ for idx,roi in enumerate(ROIs):
     
     axs.set(adjustable='box-forced', aspect='equal')
 
-    f.savefig(os.path.join(figure_out,'RF_coverage_hex_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+    fig.savefig(os.path.join(figure_out,'RF_coverage_hex_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
     # plot left and right hemi coverage separetly
     
@@ -607,7 +607,7 @@ for idx,roi in enumerate(ROIs):
 
         axs[1].set(adjustable='box-forced', aspect='equal')
 
-        f.savefig(os.path.join(figure_out,'RF_coverage_hex_LR_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+        fig.savefig(os.path.join(figure_out,'RF_coverage_hex_LR_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
 
 
