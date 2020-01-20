@@ -71,7 +71,7 @@ if not os.path.exists(figure_out): # check if path to save figures exists
 ## Load PRF estimates ##
 if sj=='median':
     estimates = median_iterative_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
-                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-05','sub-07']) # load unsmoothed estimates, will smooth later
+                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07']) # load unsmoothed estimates, will smooth later
     print('computed median estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
     xx = estimates['x']
     yy = estimates['y']
@@ -167,6 +167,7 @@ if sj=='median' and with_smooth=='True':
             beta_4smoothing = masked_beta[0:num_vert_hemi]
             baseline_4smoothing = masked_baseline[0:num_vert_hemi]
             rsq_4smoothing = masked_rsq[0:num_vert_hemi]
+            ns_4smoothing = masked_ns[0:num_vert_hemi]
             
         else:
             xx_4smoothing = masked_xx[num_vert_hemi::]
@@ -175,10 +176,11 @@ if sj=='median' and with_smooth=='True':
             beta_4smoothing = masked_beta[num_vert_hemi::]
             baseline_4smoothing = masked_baseline[num_vert_hemi::]
             rsq_4smoothing = masked_rsq[num_vert_hemi::]
+            ns_4smoothing = masked_ns[num_vert_hemi::]
           
         # reunite them in same array
         estimates4smoothing = {'xx':xx_4smoothing,'yy':yy_4smoothing,'size':size_4smoothing,
-                               'beta':beta_4smoothing,'baseline':baseline_4smoothing,'rsq':rsq_4smoothing}
+                               'beta':beta_4smoothing,'baseline':baseline_4smoothing,'rsq':rsq_4smoothing,'ns':ns_4smoothing}
         
         img_load = nb.load(hemi[0]) # load run just to get header
         
@@ -207,6 +209,7 @@ if sj=='median' and with_smooth=='True':
     smooth_beta = []
     smooth_baseline = []
     smooth_rsq = []
+    smooth_ns = []
 
     for _,name in enumerate(smooth_filename): # not elegant but works
         img_load = nb.load(name)
@@ -222,6 +225,8 @@ if sj=='median' and with_smooth=='True':
             smooth_baseline.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
         elif '_estimates-rsq_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
             smooth_rsq.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
+        elif '_estimates-ns_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
+            smooth_ns.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
 
     # concatenate both hemis in one array
     masked_xx = np.concatenate((smooth_xx[0][0],smooth_xx[1][0]))  
@@ -230,8 +235,9 @@ if sj=='median' and with_smooth=='True':
     masked_beta = np.concatenate((smooth_beta[0][0],smooth_beta[1][0])) 
     masked_baseline = np.concatenate((smooth_baseline[0][0],smooth_baseline[1][0])) 
     masked_rsq = np.concatenate((smooth_rsq[0][0],smooth_rsq[1][0])) 
-    
+    masked_ns = np.concatenate((smooth_ns[0][0],smooth_ns[1][0]))
 
+    
 # save masked estimates in numpy array to load later
 # saved in same folder as figures (for now, might change that later)
 
@@ -360,10 +366,11 @@ for i,val in enumerate(ROIs):
         roi_verts[str(val)] = np.hstack(indice)
 
 
-# plot
+# coverage plots - full VF also left vs right hemi
+# colored using polar angle
 for idx,roi in enumerate(ROIs):
     
-    f, s = plt.subplots(1, 2, figsize=(24,48))
+    f, s = plt.subplots(1, 1, figsize=(12,12))
 
     if type(roi)!=str: # if list
         roi = str(roi)
@@ -400,40 +407,30 @@ for idx,roi in enumerate(ROIs):
     rgba_colors[:,3] = normalize(new_rsq)/2 # alpha will be normalized rsq scaled in half
     ######## 
     
-    s[0].set_title('%s pRFs in visual field'%roi)
-    s[0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    s[0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    s[0].axvline(0, -15, 15, c='k', lw=0.25)
-    s[0].axhline(0, -15, 15, c='k', lw=0.25)
-    # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
+    s.set_title('%s pRFs in visual field'%roi)
+    s.set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+    s.set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+    s.axvline(0, -15, 15, c='k', lw=0.25)
+    s.axhline(0, -15, 15, c='k', lw=0.25)
     # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
     plot_ind = [k for k in range(len(new_xx))]
     random.shuffle(plot_ind) # randomize indices to plot, avoids biases
     for _,w in enumerate(plot_ind):
         if new_rsq[w]>rsq_threshold:
-            s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
-        #s[0].scatter(new_xx[w], new_yy[w], s=new_size[w])
+            s.add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
 
-    s[0].set_xlabel('horizontal space [dva]')
-    s[0].set_ylabel('vertical space [dva]')
+    s.set_xlabel('horizontal space [dva]')
+    s.set_ylabel('vertical space [dva]')
     
     # Create a Rectangle patch
     rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
 
     # Add the patch to the Axes
-    s[0].add_patch(rect)
+    s.add_patch(rect)
 
-    s[1].set_title('%s pRF size vs eccentricity'%roi)
-    s[1].set_xlim([0,15])
-    s[1].set_ylim([0,analysis_params["max_size"]])
-    s[1].set_xlabel('pRF eccentricity [dva]')
-    s[1].set_ylabel('pRF size [dva]')
-    s[1].scatter(new_ecc[new_rsq>rsq_threshold], new_size[new_rsq>rsq_threshold]) #color=rgba_colors, edgecolors=edgecolors, linewidths=2);  # this size is made up - beware.
-    
     # make sure that plots have proportional size
-    s[0].set(adjustable='box-forced', aspect='equal')
-    s[1].set(adjustable='box-forced', aspect='equal')
-    f.savefig(os.path.join(figure_out,'RF_scatter_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+    s.set(adjustable='box-forced', aspect='equal')
+    f.savefig(os.path.join(figure_out,'RF_coverage_pa_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
     # plot left and right hemi coverage separetly
     
@@ -458,7 +455,6 @@ for idx,roi in enumerate(ROIs):
         s[1].axvline(0, -15, 15, c='k', lw=0.25)
         s[1].axhline(0, -15, 15, c='k', lw=0.25)
 
-        # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
         # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
         plot_ind = [k for k in range(len(roi_verts[roi]))]
         random.shuffle(plot_ind) # randomize indices to plot, avoids biases
@@ -488,10 +484,131 @@ for idx,roi in enumerate(ROIs):
         s[0].set(adjustable='box-forced', aspect='equal')
         s[1].set(adjustable='box-forced', aspect='equal')
 
-        f.savefig(os.path.join(figure_out,'RF_scatter_LRhemi_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+        f.savefig(os.path.join(figure_out,'RF_coverage_pa_LR_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
+
+# similar but with hexabins
+# should be nicer to locate center position of RF
+
+for idx,roi in enumerate(ROIs):
     
-#plt.show() 
+    fig, axs = plt.subplots(1, 1, figsize=(12,12))
+
+    if type(roi)!=str: # if list
+        roi = str(roi)
+    # get datapoints for RF only belonging to roi
+    new_rsq = masked_rsq[roi_verts[roi]]
+
+    new_xx = masked_xx[roi_verts[roi]]
+    new_yy = masked_yy[roi_verts[roi]]
+    
+    hb = axs.hexbin(new_xx[new_rsq>rsq_threshold], 
+                    new_yy[new_rsq>rsq_threshold],
+                   #C=new_rsq[new_rsq>rsq_threshold],
+                   gridsize=30, 
+                   cmap='copper',#'YlOrRd_r',#'BuGn_r',
+                   extent= np.array([-1,1,-1,1]) * analysis_params["max_eccen"],
+                   #linewidths=0.00006,
+                   #edgecolors='black',
+                   alpha=.95)
+    axs.axis([-hor_lim_dva, hor_lim_dva, -vert_lim_dva, vert_lim_dva])
+    fig.colorbar(hb, ax=axs)
+    axs.set_title('%s pRFs location in visual field'%roi)
+    axs.set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+    axs.set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+    axs.set_xlabel('horizontal space [dva]')
+    axs.set_ylabel('vertical space [dva]')
+    
+    # Create a Rectangle patch
+    rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='w',facecolor='none',zorder=10)
+    # Add the patch to the Axes
+    axs.add_patch(rect)      
+    
+    # set middle lines
+    axs.axvline(0, -15, 15, lw=0.25, color='w')
+    axs.axhline(0, -15, 15, lw=0.25, color='w')
+    
+    axs.set(adjustable='box-forced', aspect='equal')
+
+    f.savefig(os.path.join(figure_out,'RF_coverage_hex_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+
+    # plot left and right hemi coverage separetly
+    
+    if roi!=str(['V1','V2','V3']): # if single roi
+        fig, axs = plt.subplots(1, 2, figsize=(24,48))
+        
+        # get roi indices for each hemisphere
+        left_roi_verts = roi_verts[roi][roi_verts[roi]<int(len(masked_rsq)/2)]
+        right_roi_verts = roi_verts[roi][roi_verts[roi]>=int(len(masked_rsq)/2)]
+        
+        # LEFT HEMI
+        newer_xx = masked_xx[left_roi_verts]
+        newer_yy = masked_yy[left_roi_verts]
+        newer_rsq = masked_rsq[left_roi_verts]
+        
+        hb = axs[0].hexbin(newer_xx[newer_rsq>rsq_threshold], 
+                       newer_yy[newer_rsq>rsq_threshold],
+                       #C=new_rsq[new_rsq>rsq_threshold],
+                       gridsize=30, 
+                       cmap='copper',#'YlOrRd_r',#'BuGn_r',
+                       extent= np.array([-1,1,-1,1]) * analysis_params["max_eccen"],
+                       #linewidths=0.00006,
+                       #edgecolors='black',
+                       alpha=.95)
+        axs[0].axis([-hor_lim_dva, hor_lim_dva, -vert_lim_dva, vert_lim_dva])
+        #fig.colorbar(hb, ax=axs[0])
+        axs[0].set_title('%s pRFs location in visual field for left hemisphere'%roi)
+        axs[0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        axs[0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        axs[0].set_xlabel('horizontal space [dva]')
+        axs[0].set_ylabel('vertical space [dva]')
+
+        # Create a Rectangle patch
+        rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='w',facecolor='none',zorder=10)
+        # Add the patch to the Axes
+        axs[0].add_patch(rect)      
+
+        # set middle lines
+        axs[0].axvline(0, -15, 15, lw=0.25, color='w')
+        axs[0].axhline(0, -15, 15, lw=0.25, color='w')
+
+        axs[0].set(adjustable='box-forced', aspect='equal')
+        
+        # RIGHT HEMI
+        newer_xx = masked_xx[right_roi_verts]
+        newer_yy = masked_yy[right_roi_verts]
+        newer_rsq = masked_rsq[right_roi_verts]
+        
+        hb = axs[1].hexbin(newer_xx[newer_rsq>rsq_threshold], 
+                       newer_yy[newer_rsq>rsq_threshold],
+                       #C=new_rsq[new_rsq>rsq_threshold],
+                       gridsize=30, 
+                       cmap='copper',#'YlOrRd_r',#'BuGn_r',
+                       extent= np.array([-1,1,-1,1]) * analysis_params["max_eccen"],
+                       #linewidths=0.00006,
+                       #edgecolors='black',
+                       alpha=.95)
+        axs[1].axis([-hor_lim_dva, hor_lim_dva, -vert_lim_dva, vert_lim_dva])
+        #fig.colorbar(hb, ax=axs[0])
+        axs[1].set_title('%s pRFs location in visual field for right hemisphere'%roi)
+        axs[1].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        axs[1].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
+        axs[1].set_xlabel('horizontal space [dva]')
+        axs[1].set_ylabel('vertical space [dva]')
+
+        # Create a Rectangle patch
+        rect2 = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='w',facecolor='none',zorder=10)
+        # Add the patch to the Axes
+        axs[1].add_patch(rect2)      
+
+        # set middle lines
+        axs[1].axvline(0, -15, 15, lw=0.25, color='w')
+        axs[1].axhline(0, -15, 15, lw=0.25, color='w')
+
+        axs[1].set(adjustable='box-forced', aspect='equal')
+
+        f.savefig(os.path.join(figure_out,'RF_coverage_hex_LR_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+
 
 
 # now do single voxel fits, choosing voxels with highest rsq 
@@ -511,11 +628,10 @@ if sj != 'median': # doesn't work for median subject
     filename.sort()
 
     # path to save fits, for testing
-    out_dir = os.path.join(analysis_params['pRF_outdir'],'shift_crop','sub-{sj}'.format(sj=sj),'tests')
+    out_dir = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'tests')
 
     if not os.path.exists(out_dir):  # check if path exists
         os.makedirs(out_dir)
-
 
     # loads median run functional files and saves the absolute path name in list
     med_gii = [] 
@@ -584,14 +700,21 @@ if sj != 'median': # doesn't work for median subject
                              TR=TR)
 
     # sets up stimulus and hrf for this gridder
-    gg = Iso2DGaussianGridder(stimulus=prf_stim,
-                              hrf=hrf,
-                              filter_predictions=False,
-                              window_length=analysis_params["sg_filt_window_length"],
-                              polyorder=analysis_params["sg_filt_polyorder"],
-                              highpass=False)
-
-
+    if fit_model=='gauss':
+        gg = Iso2DGaussianGridder(stimulus=prf_stim,
+                                  hrf=hrf,
+                                  filter_predictions=False,
+                                  window_length=analysis_params["sg_filt_window_length"],
+                                  polyorder=analysis_params["sg_filt_polyorder"],
+                                  highpass=False)
+    else:
+        # css gridder
+        gg = CSS_Iso2DGaussianGridder(stimulus=prf_stim,
+                                          hrf=hrf,
+                                          filter_predictions=False,
+                                          window_length=analysis_params["sg_filt_window_length"],
+                                          polyorder=analysis_params["sg_filt_polyorder"],
+                                          highpass=False)
 
     ##### #################################### #############
     
@@ -617,18 +740,23 @@ if sj != 'median': # doesn't work for median subject
 
             new_ecc = masked_eccentricity[roi_verts[roi]]
             new_polar_angle = masked_polar_angle[roi_verts[roi]]
+            
+            new_ns = masked_ns[roi_verts[roi]]
 
 
             new_data = data[roi_verts[roi]] # data from ROI
 
-            new_index =np.where(new_rsq==np.nanmax(new_rsq))[0][0]# index for max rsq within ROI
+            new_index = np.where(new_rsq==np.nanmax(new_rsq))[0][0]# index for max rsq within ROI
 
             timeseries = new_data[new_index]
-
-            model_it_prfpy = gg.return_single_prediction(new_xx[new_index],-new_yy[new_index],new_size[new_index], #because we also added - before, so will be actual yy val from fit
-                                                         beta=new_beta[new_index],baseline=new_baseline[new_index])
-            model_it_prfpy = model_it_prfpy[0]
-
+            
+            if fit_model=='gauss':
+                model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index], 
+                                                         new_beta[new_index],new_baseline[new_index])
+            else: #css
+                model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index], 
+                                                         new_beta[new_index],new_baseline[new_index],new_ns[new_index])
+                
             print('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
 
             # plot data with model
@@ -641,8 +769,11 @@ if sj != 'median': # doesn't work for median subject
             plt.xticks(fontsize=14)
             plt.yticks(fontsize=14)
             plt.xlim(0,len(timeseries)*TR)
-            plt.title('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
-
+            if fit_model=='gauss':
+                plt.title('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
+            else:
+                plt.title('voxel %d of ROI %s , rsq of fit is %.3f, n=%.2f' %(new_index,roi,new_rsq[new_index],new_ns[new_index]))
+                
             # plot axis vertical bar on background to indicate stimulus display time
             ax_count = 0
             for h in range(4):
@@ -755,7 +886,8 @@ if sj != 'median': # doesn't work for median subject
 
             new_ecc = masked_eccentricity[roi_verts[roi]]
             new_polar_angle = masked_polar_angle[roi_verts[roi]]
-
+            
+            new_ns = masked_ns[roi_verts[roi]]
 
             new_data = data[roi_verts[roi]] # data from ROI
 
@@ -763,10 +895,13 @@ if sj != 'median': # doesn't work for median subject
 
             timeseries = new_data[new_index]
 
-            model_it_prfpy = gg.return_single_prediction(new_xx[new_index],-new_yy[new_index],new_size[new_index], #because we also added - before, so will be actual yy val from fit
-                                                         beta=new_beta[new_index],baseline=new_baseline[new_index])
-            model_it_prfpy = model_it_prfpy[0]
-
+            if fit_model=='gauss':
+                model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index], 
+                                                         new_beta[new_index],new_baseline[new_index])
+            else: #css
+                model_it_prfpy = gg.return_single_prediction(new_xx[new_index],new_yy[new_index],new_size[new_index], 
+                                                         new_beta[new_index],new_baseline[new_index],new_ns[new_index])
+                
             print('voxel %d of ROI %s , rsq of fit is %.3f' %(new_index,roi,new_rsq[new_index]))
 
             # plot data with model
@@ -839,7 +974,8 @@ min_ecc = 0.25
 max_ecc = 4
 
 if sj == 'median':
-    all_estimates = append_pRFestimates(os.path.join(analysis_params['pRF_outdir'],'shift_crop'),with_smooth=False,exclude_subs=['sub-07'])
+    all_estimates = append_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
+                                        model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'])
 
 for idx,roi in enumerate(ROIs):
     
@@ -851,7 +987,8 @@ for idx,roi in enumerate(ROIs):
             #print('masking variables to be within screen and only show positive RF')
             sub_masked_estimates = mask_estimates(all_estimates['x'][s],all_estimates['y'][s],
                                                   all_estimates['size'][s],all_estimates['betas'][s],
-                                                  all_estimates['baseline'][s],all_estimates['r2'][s],vert_lim_dva,hor_lim_dva)
+                                                  all_estimates['baseline'][s],all_estimates['r2'][s],
+                                                  vert_lim_dva,hor_lim_dva,ns=all_estimates['ns'])
         
             # get datapoints for RF only belonging to roi
             new_size = sub_masked_estimates['size'][roi_verts[str(roi)]]
@@ -876,7 +1013,7 @@ for idx,roi in enumerate(ROIs):
         new_rsq = masked_rsq[roi_verts[str(roi)]]
         
         # define indices of voxels within region to plot
-        # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
+        # with rsq > threshold, and where value not nan, ecc values between 0.25 and 4
         indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))
         df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
                                'rsq':new_rsq[indices4plot]})
@@ -908,5 +1045,4 @@ ax.axes.set_xlim(0,)
 ax.axes.set_ylim(0,)
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
 plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
- 
 

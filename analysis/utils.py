@@ -1499,7 +1499,7 @@ def align_yaxis(ax1, v1, ax2, v2):
 # to make proper ecc vs size plots for "subject median"
 
 
-def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
+def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'],model='css',iterative=True):
 
 ####################
 #    inputs
@@ -1511,7 +1511,8 @@ def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
 
     allsubs = [folder for _,folder in enumerate(os.listdir(subdir)) if 'sub-' in folder]
     allsubs.sort()
-    print('appeding %d/%d subjects' %((len(allsubs)-len(exclude_subs)),len(allsubs)))
+    print('appending %d/%d subjects' %((len(allsubs)-len(exclude_subs)),len(allsubs)))
+    print('using estimates from %s fit'%model)
 
     rsq = []
     xx = []
@@ -1519,6 +1520,8 @@ def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
     size = []
     baseline = []
     beta = []
+    ns = [] # for css
+    new_subs = []
 
     exclude_counter = 0
     exclude_subs.sort() #then in order
@@ -1533,11 +1536,14 @@ def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
 
             # load prf estimates
             if with_smooth==True:    
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'iterative_fit')
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
             else:
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','iterative_fit')
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median')
 
-            estimates_list = [x for x in os.listdir(median_path) if x.endswith('iterative_output.npz')]
+            if iterative==True: # if selecting params from iterative fit
+                estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(model+'_estimates.npz')]
+            else: # only look at grid fit
+                estimates_list = [x for x in os.listdir(median_path) if x.endswith(model+'_estimates.npz')]
             estimates_list.sort() #sort to make sure pRFs not flipped
 
             estimates = []
@@ -1545,17 +1551,22 @@ def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07']):
                 print('appending %s'%val)
                 estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
 
-            xx.append(np.concatenate((estimates[0]['it_output'][...,0],estimates[1]['it_output'][...,0])))
-            yy.append(-(np.concatenate((estimates[0]['it_output'][...,1],estimates[1]['it_output'][...,1])))) # Need to do this (-) for now, CHANGE ONCE BUG FIXED
+            xx.append(np.concatenate((estimates[0]['x'],estimates[1]['x'])))
+            yy.append(np.concatenate((estimates[0]['y'],estimates[1]['y'])))
+               
+            size.append(np.concatenate((estimates[0]['size'],estimates[1]['size'])))
+            
+            beta.append(np.concatenate((estimates[0]['betas'],estimates[1]['betas'])))
+            baseline.append(np.concatenate((estimates[0]['baseline'],estimates[1]['baseline'])))
+            
+            if model=='css': ns.append(np.concatenate((estimates[0]['ns'],estimates[1]['ns']))) # exponent of css
 
-            size.append(np.concatenate((estimates[0]['it_output'][...,2],estimates[1]['it_output'][...,2])))
-            beta.append(np.concatenate((estimates[0]['it_output'][...,3],estimates[1]['it_output'][...,3])))
-            baseline.append(np.concatenate((estimates[0]['it_output'][...,4],estimates[1]['it_output'][...,4])))
+            rsq.append(np.concatenate((estimates[0]['r2'],estimates[1]['r2'])))
 
-            rsq.append(np.concatenate((estimates[0]['it_output'][...,5],estimates[1]['it_output'][...,5]))) 
+            new_subs.append(sub) 
     
-    estimates = {'subs':allsubs,'r2':rsq,'x':xx,'y':yy,
-                 'size':size,'baseline':baseline,'betas':beta}
+    estimates = {'subs':new_subs,'exclude_subs':exclude_subs,'r2':rsq,'x':xx,'y':yy,
+                 'size':size,'baseline':baseline,'betas':beta,'ns':ns}
 
     return estimates
 
