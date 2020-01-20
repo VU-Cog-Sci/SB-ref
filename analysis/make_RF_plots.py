@@ -71,7 +71,7 @@ if not os.path.exists(figure_out): # check if path to save figures exists
 ## Load PRF estimates ##
 if sj=='median':
     estimates = median_iterative_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
-                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07']) # load unsmoothed estimates, will smooth later
+                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-05','sub-07']) # load unsmoothed estimates, will smooth later
     print('computed median estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
     xx = estimates['x']
     yy = estimates['y']
@@ -87,10 +87,10 @@ else:
     else:
         median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
 
-    if iterative==True: # if selecting params from iterative fit
-        estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(model+'_estimates.npz')]
+    if iterative_fit==True: # if selecting params from iterative fit
+        estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(fit_model+'_estimates.npz')]
     else: # only look at grid fit
-        estimates_list = [x for x in os.listdir(median_path) if x.endswith(model+'_estimates.npz')]
+        estimates_list = [x for x in os.listdir(median_path) if x.endswith(fit_model+'_estimates.npz')]
     estimates_list.sort() #sort to make sure pRFs not flipped
 
     estimates = []

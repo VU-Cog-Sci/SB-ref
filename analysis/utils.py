@@ -1179,7 +1179,7 @@ def dva_per_pix(height_cm,distance_cm,vert_res_pix):
 
 # make masking function
 
-def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dva,ns=[1],max_size=10):
+def mask_estimates(x,y,size,beta,baseline,rsq,vertical_lim_dva,horizontal_lim_dva,ns=np.array([1]),max_size=10):
     
     ### inputs ######
     # estimates (np.array)
