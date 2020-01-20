@@ -23,8 +23,8 @@ import pandas as pd
 from prfpy.rf import *
 from prfpy.timecourse import *
 from prfpy.stimulus import PRFStimulus2D
-from prfpy.grid import Iso2DGaussianGridder
-from prfpy.fit import Iso2DGaussianFitter
+from prfpy.grid import Iso2DGaussianGridder,CSS_Iso2DGaussianGridder
+from prfpy.fit import Iso2DGaussianFitter, CSS_Iso2DGaussianFitter
 
 from popeye import utilities 
 
