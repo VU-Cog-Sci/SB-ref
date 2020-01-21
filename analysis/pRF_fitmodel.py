@@ -177,7 +177,8 @@ gg = Iso2DGaussianGridder(stimulus=prf_stim,
                           filter_predictions=True,
                           window_length=analysis_params["sg_filt_window_length"],
                           polyorder=analysis_params["sg_filt_polyorder"],
-                          highpass=True)
+                          highpass=True,
+                          task_lengths=np.array(83))
 
 # and css gridder
 gg_css = CSS_Iso2DGaussianGridder(stimulus=prf_stim,
@@ -185,7 +186,8 @@ gg_css = CSS_Iso2DGaussianGridder(stimulus=prf_stim,
                                   filter_predictions=True,
                                   window_length=analysis_params["sg_filt_window_length"],
                                   polyorder=analysis_params["sg_filt_polyorder"],
-                                  highpass=True)
+                                  highpass=True,
+                                  task_lengths=np.array(83))
 
 # fit models, per hemisphere
 
