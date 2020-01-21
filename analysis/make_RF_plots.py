@@ -50,27 +50,36 @@ else:
 
 
 # used smoothed data (or not) for plots
-with_smooth = analysis_params['with_smooth']
+with_smooth = 'False'#analysis_params['with_smooth']
 
 # fit model to use (gauss or css)
-fit_model = analysis_params["fit_model"]
+fit_model = 'gauss'#analysis_params["fit_model"]
 # if using estimates from iterative fit
 iterative_fit = True
 
 # define paths to save plots
-if with_smooth=='True':
-    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model,'sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
-else:
-    figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model,'sub-{sj}'.format(sj=sj))
+figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model)
 
+if iterative_fit==True:
+    if with_smooth=='True':
+        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
+    else:
+        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj))
+else:
+    if with_smooth=='True':
+        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
+    else:
+        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj))
 
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
 
+print('saving figures in %s'%figure_out)
+
 
 ## Load PRF estimates ##
 if sj=='median':
-    estimates = median_iterative_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
+    estimates = median_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
                                                 model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07']) # load unsmoothed estimates, will smooth later
     print('computed median estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
     xx = estimates['x']
@@ -90,7 +99,7 @@ else:
     if iterative_fit==True: # if selecting params from iterative fit
         estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(fit_model+'_estimates.npz')]
     else: # only look at grid fit
-        estimates_list = [x for x in os.listdir(median_path) if x.endswith(fit_model+'_estimates.npz')]
+        estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and x.endswith(fit_model+'_estimates.npz')]
     estimates_list.sort() #sort to make sure pRFs not flipped
 
     estimates = []
@@ -252,7 +261,7 @@ np.savez(masked_estimates_filename,
               )
 
 # now construct polar angle and eccentricity values
-rsq_threshold = 0.17 #analysis_params['rsq_threshold']
+rsq_threshold = 0.125 #analysis_params['rsq_threshold']
 
 complex_location = masked_xx + masked_yy * 1j
 masked_polar_angle = np.angle(complex_location)
@@ -983,12 +992,17 @@ for idx,roi in enumerate(ROIs):
 
     if sj == 'median':
         for s in range(np.array(all_estimates['x']).shape[0]): # loop over all subjects that were appended
-        
+            
+            if fit_model == 'css': 
+                all_ns = all_estimates['ns'][s]
+            else:
+                all_ns = np.ones(all_estimates['x'][s].shape)
+                
             #print('masking variables to be within screen and only show positive RF')
             sub_masked_estimates = mask_estimates(all_estimates['x'][s],all_estimates['y'][s],
                                                   all_estimates['size'][s],all_estimates['betas'][s],
                                                   all_estimates['baseline'][s],all_estimates['r2'][s],
-                                                  vert_lim_dva,hor_lim_dva,ns=all_estimates['ns'][s])
+                                                  vert_lim_dva,hor_lim_dva,ns=all_ns)
         
             # get datapoints for RF only belonging to roi
             new_size = sub_masked_estimates['size'][roi_verts[str(roi)]]
