@@ -174,18 +174,18 @@ css_bounds = [(-2*ss, 2*ss),  # x
 # sets up stimulus and hrf for this gaussian gridder
 gg = Iso2DGaussianGridder(stimulus=prf_stim,
                           hrf=hrf,
-                          filter_predictions=False,
+                          filter_predictions=True,
                           window_length=analysis_params["sg_filt_window_length"],
                           polyorder=analysis_params["sg_filt_polyorder"],
-                          highpass=False)
+                          highpass=True)
 
 # and css gridder
 gg_css = CSS_Iso2DGaussianGridder(stimulus=prf_stim,
                                   hrf=hrf,
-                                  filter_predictions=False,
+                                  filter_predictions=True,
                                   window_length=analysis_params["sg_filt_window_length"],
                                   polyorder=analysis_params["sg_filt_polyorder"],
-                                  highpass=False)
+                                  highpass=True)
 
 # fit models, per hemisphere
 
@@ -217,18 +217,12 @@ for gii_file in med_gii:
                  baseline = gf.gridsearch_params[..., 4],
                  r2 = gf.gridsearch_params[..., 5])
 
-
-    loaded_gf_pars = np.load(grid_estimates_filename)
-
-    gf.gridsearch_params = np.array([loaded_gf_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline','r2']])
-    gf.gridsearch_params = np.transpose(gf.gridsearch_params)
-
     # gaussian iterative fit
     iterative_out = gii_file.replace('.func.gii', '_iterative_gauss_estimates.npz')
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf.iterative_fit(rsq_threshold=0.05, verbose=False,
+        gf.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-6,ftol=1e-5,
                          bounds=gauss_bounds)
             
         np.savez(iterative_out,
@@ -250,7 +244,7 @@ for gii_file in med_gii:
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,
+        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-6,ftol=1e-5,
                          bounds=css_bounds)
             
         np.savez(iterative_out,
