@@ -202,7 +202,7 @@ gg_css = CSS_Iso2DGaussianGridder(stimulus=prf_stim,
 for gii_file in med_gii:
     print('loading data from %s' % gii_file)
     data_all = np.array(surface.load_surf_data(gii_file))
-    print('data array with shape %s'%str(data.shape))
+    print('data array with shape %s'%str(data_all.shape))
     
     # number of vertices of chunk
     num_vox_chunk = int(data_all.shape[0]/total_chunks) 
