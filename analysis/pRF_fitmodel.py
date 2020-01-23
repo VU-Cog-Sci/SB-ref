@@ -43,7 +43,8 @@ from prfpy.fit import Iso2DGaussianFitter, CSS_Iso2DGaussianFitter
 
 from popeye import utilities
 
-# define participant number and open json parameter file
+# define participant number, server where it's running and which chunk of data to fit
+
 if len(sys.argv) < 2:
     raise NameError('Please add subject number (ex:1) '
                     'as 1st argument in the command line!')
@@ -51,10 +52,15 @@ if len(sys.argv) < 2:
 elif len(sys.argv) < 3:
     raise NameError('Please select server being used (ex: aeneas or cartesius) '
                     'as 2nd argument in the command line!')
+    
+elif len(sys.argv) < 4:
+    raise NameError('Please select server being used (ex: aeneas or cartesius) '
+                    'as 2nd argument in the command line!')
 
 else:
-    # fill subject number with 0 in case user forgets
+    # fill subject number and chunk number with 0 in case user forgets
     sj = str(sys.argv[1]).zfill(2)
+    chunk_num = str(sys.argv[3]).zfill(3)
 
 
 json_dir = '/home/inesv/SB-ref/scripts/analysis_params.json' if str(sys.argv[2]) == 'cartesius' else 'analysis_params.json'
@@ -65,6 +71,9 @@ with open(json_dir, 'r') as json_file:
 # use smoothed data?
 with_smooth = 'False'#analysis_params['with_smooth']
 
+# find_zero_remainder(data.shape[0],500)
+# TOTAL CHUNKS TO DIVIDE, NEED TO ADD TO json
+total_chunks = analysis_params['total_chunks']
 
 # define paths and list of files
 if str(sys.argv[2]) == 'cartesius':
@@ -189,18 +198,25 @@ gg_css = CSS_Iso2DGaussianGridder(stimulus=prf_stim,
                                   highpass=True,
                                   task_lengths=np.array([prf_dm.shape[-1]]))
 
-# fit models, per hemisphere
-
+# fit model per hemisphere
 for gii_file in med_gii:
     print('loading data from %s' % gii_file)
-    data = np.array(surface.load_surf_data(gii_file))
+    data_all = np.array(surface.load_surf_data(gii_file))
     print('data array with shape %s'%str(data.shape))
+    
+    # number of vertices of chunk
+    num_vox_chunk = int(data_all.shape[0]/total_chunks) 
+    
+    # new data chunk to fit
+    data = data_all[num_vox_chunk*(int(chunk_num)-1):num_vox_chunk*int(chunk_num),:]
+    
+    print('fitting chunk %s/%d of data with shape %s'%(chunk_num,total_chunks,str(data.shape)))
     
     # gaussian fitter
     gf = Iso2DGaussianFitter(data=data, gridder=gg, n_jobs=16)
     
     #filename for the numpy array with the estimates of the grid fit
-    grid_estimates_filename = gii_file.replace('.func.gii', '_gauss_estimates.npz')
+    grid_estimates_filename = gii_file.replace('.func.gii', '_chunk-%s_of_%d_gauss_estimates.npz'%(chunk_num,total_chunks))
     
     if not os.path.isfile(grid_estimates_filename): # if estimates file doesn't exist
         print('%s not found, fitting grid'%grid_estimates_filename)
@@ -220,11 +236,11 @@ for gii_file in med_gii:
                  r2 = gf.gridsearch_params[..., 5])
 
     # gaussian iterative fit
-    iterative_out = gii_file.replace('.func.gii', '_iterative_gauss_estimates.npz')
+    iterative_out = gii_file.replace('.func.gii', '_chunk-%s_of_%d_iterative_gauss_estimates.npz'%(chunk_num,total_chunks))
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-5,ftol=1e-4,
+        gf.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-6,ftol=1e-5,
                          bounds=gauss_bounds)
             
         np.savez(iterative_out,
@@ -242,11 +258,11 @@ for gii_file in med_gii:
     gf_css = CSS_Iso2DGaussianFitter(data=data, gridder=gg_css, n_jobs=16,
                                      previous_gaussian_fitter=gf)
 
-    iterative_out = gii_file.replace('.func.gii', '_iterative_css_estimates.npz')
+    iterative_out = gii_file.replace('.func.gii', '_chunk-%s_of_%d_iterative_css_estimates.npz'%(chunk_num,total_chunks))
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-5,ftol=1e-4,
+        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-6,ftol=1e-5,
                          bounds=css_bounds)
             
         np.savez(iterative_out,
@@ -259,3 +275,7 @@ for gii_file in med_gii:
                   r2 = gf_css.iterative_search_params[..., 6])
     else:
         print('%s already exists'%iterative_out)
+    
+    
+    
+    
