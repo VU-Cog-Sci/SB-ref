@@ -53,23 +53,26 @@ else:
 with_smooth = 'False'#analysis_params['with_smooth']
 
 # fit model to use (gauss or css)
-fit_model = 'gauss'#analysis_params["fit_model"]
+fit_model = 'css' #analysis_params["fit_model"]
 # if using estimates from iterative fit
-iterative_fit = True
+iterative_fit = True #True
+
+# total number of chunks that were fitted (per hemi)
+total_chunks = analysis_params['total_chunks']
 
 # define paths to save plots
 figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model)
 
 if iterative_fit==True:
     if with_smooth=='True':
-        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
+        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
     else:
-        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj))
+        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks))
 else:
     if with_smooth=='True':
-        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'])
+        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
     else:
-        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj))
+        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks))
 
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
@@ -92,15 +95,18 @@ if sj=='median':
     
 else:
     if with_smooth=='True':    
-        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
+        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
     else:
-        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median')
+        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','chunks_'+str(total_chunks))
 
     if iterative_fit==True: # if selecting params from iterative fit
         estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(fit_model+'_estimates.npz')]
     else: # only look at grid fit
         estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and x.endswith(fit_model+'_estimates.npz')]
     estimates_list.sort() #sort to make sure pRFs not flipped
+
+    # combine chunks and get new estimates list 
+    estimates_list = join_chunks(estimates_list,median_path,chunk_num=total_chunks,fit_model=fit_model)
 
     estimates = []
     for _,val in enumerate(estimates_list) :
@@ -712,18 +718,20 @@ if sj != 'median': # doesn't work for median subject
     if fit_model=='gauss':
         gg = Iso2DGaussianGridder(stimulus=prf_stim,
                                   hrf=hrf,
-                                  filter_predictions=False,
+                                  filter_predictions=True,
                                   window_length=analysis_params["sg_filt_window_length"],
                                   polyorder=analysis_params["sg_filt_polyorder"],
-                                  highpass=False)
+                                  highpass=True,
+                                  task_lengths=np.array([prf_dm.shape[-1]]))
     else:
         # css gridder
         gg = CSS_Iso2DGaussianGridder(stimulus=prf_stim,
                                           hrf=hrf,
-                                          filter_predictions=False,
+                                          filter_predictions=True,
                                           window_length=analysis_params["sg_filt_window_length"],
                                           polyorder=analysis_params["sg_filt_polyorder"],
-                                          highpass=False)
+                                          highpass=True,
+                                          task_lengths=np.array([prf_dm.shape[-1]]))
 
     ##### #################################### #############
     

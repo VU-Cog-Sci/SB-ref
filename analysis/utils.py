@@ -872,8 +872,91 @@ def plot_soma_timecourse(sj,run,task,vertex,giidir,eventdir,outdir,plotcolors=['
     fig.savefig(os.path.join(outdir,'soma_timeseries_sub-{sj}_run-{run}.svg'.format(sj=str(sj).zfill(2),run=str(run).zfill(2))), dpi=100)
 
 
+def join_chunks(chunk_list,chunk_dir,chunk_num=498,fit_model='css'):
+    # function to combine all chunks into one single estimate numpy array (per hemisphere)
+    #### INPUTS ###
+    # chunk_list - list of chunked files
+    # chunk_dir - dir where those files are
+    # chunk_num - total number of chunks to combine (per hemi)
+    
+    hemi_str = ['hemi-L','hemi-R']
+    estimates_list = []
+    
+    for _,hemi in enumerate(hemi_str):
+        # file list for this hemisphere
+        hemi_chunks = [x for x in chunk_list if hemi in x]; hemi_chunks.sort()
+        
+        for w in range(chunk_num):
+            chunk = np.load(os.path.join(chunk_dir, hemi_chunks[w])) # load chunk
+            
+            if 'chunk-'+str(w+1).zfill(3) in hemi_chunks[w]: # to be sure we're not skipping any chunk
+                if w==0:
+                    xx = chunk['x']
+                    yy = chunk['y']
 
-def median_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'],model='css',iterative=True):
+                    size = chunk['size']
+
+                    beta = chunk['betas']
+                    baseline = chunk['baseline']
+
+                    if fit_model =='css': 
+                        ns = chunk['ns']
+           
+                    rsq = chunk['r2']
+
+                    chunk_size = xx.shape[0] # just to check if they all have the same size
+                else:
+                    xx = np.concatenate((xx,chunk['x']))
+                    yy = np.concatenate((yy,chunk['y']))
+
+                    size = np.concatenate((size,chunk['size']))
+
+                    beta = np.concatenate((beta,chunk['betas']))
+                    baseline = np.concatenate((baseline,chunk['baseline']))
+
+                    if fit_model =='css': 
+                        ns = np.concatenate((ns,chunk['ns']))
+           
+                    rsq = np.concatenate((rsq,chunk['r2']))
+
+                    if chunk['x'].shape[0] != chunk_size:
+                        print('CHUNK %s HAS DIFFERENT SIZE'%(str(w+1).zfill(3)))
+                        break
+            else:
+                print('SKIPPED CHUNK %s'%(str(w+1).zfill(3)))
+                break
+        
+        print('shape of estimates for %s is %s'%(hemi,str(xx.shape)))
+        # save combined file 
+        comb_str = hemi_chunks[w].replace('_chunk-%s_of_%s'%(str(w+1).zfill(3),str(w+1).zfill(3)),'')
+
+        if fit_model =='css':
+            np.savez(os.path.join(chunk_dir,comb_str),
+                  x = xx,
+                  y = yy,
+                  size = size,
+                  betas = beta,
+                  baseline = baseline,
+                  ns = ns,
+                  r2 = rsq)
+            
+        else:        
+            np.savez(os.path.join(chunk_dir,comb_str),
+                  x = xx,
+                  y = yy,
+                  size = size,
+                  betas = beta,
+                  baseline = baseline,
+                  r2 = rsq)
+
+            
+            
+        estimates_list.append(comb_str)        
+            
+    return estimates_list
+                
+
+def median_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'],model='css',iterative=True,total_chunks=498):
 
 ####################
 #    inputs
@@ -911,15 +994,18 @@ def median_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'],model='c
 
             # load prf estimates
             if with_smooth==True:    
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
             else:
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median')
+                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','chunks_'+str(total_chunks))
 
             if iterative==True: # if selecting params from iterative fit
                 estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(model+'_estimates.npz')]
             else: # only look at grid fit
                 estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and x.endswith(model+'_estimates.npz')]
             estimates_list.sort() #sort to make sure pRFs not flipped
+
+            # combine chunks and get new estimates list 
+            estimates_list = join_chunks(estimates_list,median_path,chunk_num=total_chunks,fit_model=model)
 
             estimates = []
             for _,val in enumerate(estimates_list) :
@@ -1666,3 +1752,21 @@ def smooth_soma_array(header_dir,arr,out_dir,filestr,n_TR=141,file_extension='_s
     out_array = np.concatenate((smooth_arr[0][0],smooth_arr[1][0]))  
         
     return out_array
+
+
+def find_zero_remainder(len_array,maximum):
+    # function to find list number that give 0 remainder (divisão inteira)
+    #### INPUT ######
+    # len_array - length of array to be divided (dividendo)
+    # maximum - maximum number to divide by (maximo do divisor)
+    
+    divisor = []
+    for _,k in enumerate(range(maximum)):
+        if len_array % (k+1) == 0:
+            divisor.append((k+1))
+
+    return np.array(divisor)
+
+
+
+            

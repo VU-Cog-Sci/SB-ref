@@ -54,8 +54,8 @@ elif len(sys.argv) < 3:
                     'as 2nd argument in the command line!')
     
 elif len(sys.argv) < 4:
-    raise NameError('Please select server being used (ex: aeneas or cartesius) '
-                    'as 2nd argument in the command line!')
+    raise NameError('Please add data chunk number to be fitted '
+                    'as 3rd argument in the command line!')
 
 else:
     # fill subject number and chunk number with 0 in case user forgets
@@ -128,13 +128,14 @@ png_filename.sort()
 
 dm_filename = os.path.join(os.getcwd(), 'prf_dm_square.npy')
 
-#if not os.path.exists(dm_filename):  # if not exists
-screenshot2DM(png_filename, 0.1,
-              analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
-print('computed %s' % (dm_filename))
+if not os.path.exists(dm_filename):  # if not exists
+    screenshot2DM(png_filename, 0.1,
+                  analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
+    print('computed %s' % (dm_filename))
 
-#else:
-#    print('loading %s' % dm_filename)
+else:
+    print('loading %s' % dm_filename)
+
 prf_dm = np.load(dm_filename,allow_pickle=True)
 prf_dm = prf_dm.T # then it'll be (x, y, t)
 
@@ -178,7 +179,7 @@ css_bounds = [(-2*ss, 2*ss),  # x
               (eps, 2*ss),  # prf size
               (0, +inf),  # prf amplitude
               (0, +inf),  # bold baseline
-              (0.01, 3)]  # CSS exponent
+              (0.01, 1.5)]  # CSS exponent
 
 # sets up stimulus and hrf for this gaussian gridder
 gg = Iso2DGaussianGridder(stimulus=prf_stim,
@@ -234,13 +235,21 @@ for gii_file in med_gii:
                  betas = gf.gridsearch_params[...,3],
                  baseline = gf.gridsearch_params[..., 4],
                  r2 = gf.gridsearch_params[..., 5])
+    
+    else: # if file exists, then load params
+        print('%s already exists, loading params from previous fit'%grid_estimates_filename)
+        loaded_gf_pars = np.load(grid_estimates_filename)
+
+        gf.gridsearch_params = np.array([loaded_gf_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline','r2']]) 
+        gf.gridsearch_params = np.transpose(gf.gridsearch_params)
+
 
     # gaussian iterative fit
     iterative_out = gii_file.replace('.func.gii', '_chunk-%s_of_%d_iterative_gauss_estimates.npz'%(chunk_num,total_chunks))
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-6,ftol=1e-5,
+        gf.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-7,ftol=1e-6,
                          bounds=gauss_bounds)
             
         np.savez(iterative_out,
@@ -251,7 +260,12 @@ for gii_file in med_gii:
                   baseline = gf.iterative_search_params[..., 4],
                   r2 = gf.iterative_search_params[..., 5])
     else:
-        print('%s already exists'%iterative_out)
+        print('%s already exists, loading params from previous fit'%iterative_out)
+
+        loaded_gf_it_pars = np.load(iterative_out)
+
+        gf.iterative_search_params = np.array([loaded_gf_it_pars[par] for par in ['x', 'y', 'size', 'betas', 'baseline','r2']]) 
+        gf.iterative_search_params = np.transpose(gf.iterative_search_params)
 
 
     # css fitter
@@ -262,7 +276,7 @@ for gii_file in med_gii:
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-6,ftol=1e-5,
+        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-7,ftol=1e-6,
                          bounds=css_bounds)
             
         np.savez(iterative_out,
