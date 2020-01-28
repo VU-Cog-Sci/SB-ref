@@ -166,19 +166,21 @@ polars = np.linspace(0, 2*np.pi, grid_nr)
 inf = np.inf
 eps = 1e-1
 ss = prf_stim.screen_size_degrees
+xtol = 1e-7
+ftol = 1e-6
 
 # model parameter bounds
 gauss_bounds = [(-2*ss, 2*ss),  # x
                 (-2*ss, 2*ss),  # y
                 (eps, 2*ss),  # prf size
                 (0, +inf),  # prf amplitude
-                (0, +inf)]  # bold baseline
+                (-5, +inf)]  # bold baseline
 
 css_bounds = [(-2*ss, 2*ss),  # x
               (-2*ss, 2*ss),  # y
               (eps, 2*ss),  # prf size
               (0, +inf),  # prf amplitude
-              (0, +inf),  # bold baseline
+              (-5, +inf),  # bold baseline
               (0.01, 1.5)]  # CSS exponent
 
 # sets up stimulus and hrf for this gaussian gridder
@@ -249,7 +251,7 @@ for gii_file in med_gii:
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-7,ftol=1e-6,
+        gf.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=xtol,ftol=ftol,
                          bounds=gauss_bounds)
             
         np.savez(iterative_out,
@@ -276,7 +278,7 @@ for gii_file in med_gii:
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
-        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=1e-7,ftol=1e-6,
+        gf_css.iterative_fit(rsq_threshold=0.05, verbose=False,xtol=xtol,ftol=ftol,
                          bounds=css_bounds)
             
         np.savez(iterative_out,

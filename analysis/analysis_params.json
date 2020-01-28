@@ -46,7 +46,7 @@
     "eyetrack_smp_freq": 1000,
     "smooth_fwhm": 2,
     "crop_pRF_TR": 7,
-    "total_chunks": 498,
+    "total_chunks": 83,
     "nuisance_columns": [
         "csf",
         "white_matter",
