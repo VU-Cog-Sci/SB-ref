@@ -60,7 +60,7 @@ else:
 
 
 # total number of chunks that were fitted (per hemi)
-total_chunks = 498 #analysis_params['total_chunks']
+total_chunks = analysis_params['total_chunks']
 
 # define paths to save plots
 figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','single_vox','sub-{sj}'.format(sj=sj),roi)
@@ -142,19 +142,22 @@ for _,model in enumerate(models):
         estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' not in x and x.endswith('gauss_estimates.npz')]
         if not estimates_list: #list is empty
             # need to combine chunks and make combined estimates array
-            estimates_list = join_chunks(estimates_list,median_path,chunk_num=total_chunks,fit_model='gauss')
+            list_all = [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' in x and x.endswith('gauss_estimates.npz')]
+            estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model='gauss')
 
     elif model=='it_gauss':
         estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' not in x and x.endswith('gauss_estimates.npz')]
         if not estimates_list: #list is empty
             # need to combine chunks and make combined estimates array
-            estimates_list = join_chunks(estimates_list,median_path,chunk_num=total_chunks,fit_model='gauss')
+            list_all = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' in x and x.endswith('gauss_estimates.npz')]
+            estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model='gauss')
 
     else: # iterative css
         estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' not in x and x.endswith('css_estimates.npz')]
         if not estimates_list: #list is empty
             # need to combine chunks and make combined estimates array
-            estimates_list = join_chunks(estimates_list,median_path,chunk_num=total_chunks,fit_model='css')
+            list_all = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' in x and x.endswith('css_estimates.npz')]
+            estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model='css')
 
     estimates_list.sort() #sort to make sure pRFs not flipped
 

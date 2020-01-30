@@ -7,7 +7,7 @@ import sys
 with open('analysis_params.json', 'r') as json_file:
     analysis_params = json.load(json_file)
 
-subjects = ['11']#['1','2','3','4','5','7','8','9','11','12','13'] #['11']
+subjects = ['1','7','13']#['1','2','3','4','5','8','9','11','12','13'] #['11']#['7']
 
 total_chunks = analysis_params['total_chunks']
 
@@ -42,7 +42,7 @@ for subject in subjects:
         working_string = batch_string.replace('$SJ_NR', str(subject).zfill(2))
         working_string = working_string.replace('$CHUNK_NR', str(chu+1).zfill(3))
 
-        js_name = os.path.join(basedir, 'pRF_' + str(subject).zfill(2) + '_chunk-%s_of_%s'%(str(chu+1).zfill(3),str(total_chunks)) + '_iterative.sh')
+        js_name = os.path.join(basedir, 'pRF_' + str(subject).zfill(2) + '_chunk-%s_of_%s'%(str(chu+1).zfill(3),str(total_chunks).zfill(3)) + '_iterative.sh')
         of = open(js_name, 'w')
         of.write(working_string)
         of.close()

@@ -65,14 +65,14 @@ figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_mod
 
 if iterative_fit==True:
     if with_smooth=='True':
-        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
+        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks).zfill(3))
     else:
-        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks))
+        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks).zfill(3))
 else:
     if with_smooth=='True':
-        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
+        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks).zfill(3))
     else:
-        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks))
+        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks).zfill(3))
 
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
@@ -83,7 +83,7 @@ print('saving figures in %s'%figure_out)
 ## Load PRF estimates ##
 if sj=='median':
     estimates = median_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
-                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07']) # load unsmoothed estimates, will smooth later
+                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'],total_chunks=total_chunks) # load unsmoothed estimates, will smooth later
     print('computed median estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
     xx = estimates['x']
     yy = estimates['y']
@@ -267,7 +267,7 @@ np.savez(masked_estimates_filename,
               )
 
 # now construct polar angle and eccentricity values
-rsq_threshold = 0.125 #analysis_params['rsq_threshold']
+rsq_threshold = 0.17 #0.125 #analysis_params['rsq_threshold']
 
 complex_location = masked_xx + masked_yy * 1j
 masked_polar_angle = np.angle(complex_location)
