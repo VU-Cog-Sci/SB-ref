@@ -109,6 +109,7 @@ else:
             list_all =  [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' in x and x.endswith(fit_model+'_estimates.npz')]
             estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model=fit_model) # combine chunks and get new estimates list 
 
+    estimates_list.sort() #sort to make sure pRFs not flipped
     estimates = []
     for _,val in enumerate(estimates_list) :
         print('appending %s'%val)
