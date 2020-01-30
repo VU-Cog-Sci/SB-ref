@@ -956,12 +956,11 @@ def join_chunks(chunk_list,chunk_dir,chunk_num=498,fit_model='css'):
     return estimates_list
                 
 
-def median_pRFestimates(subdir,with_smooth=False,exclude_subs=['sub-07'],model='css',iterative=True,total_chunks=498):
+def median_pRFestimates(subdir,exclude_subs=['sub-07'],model='css',iterative=True,total_chunks=498):
 
 ####################
 #    inputs
 # subdir - absolute path to all subject dir (where fits are)
-# with_smooth - boolean, use smooth data?
 # exclude_subs=['subjects to be excluded from list']
 #   outputs
 # estimates - dictionary with average estimated parameters
@@ -993,10 +992,7 @@ def median_pRFestimates(subdir,with_smooth=False,exclude_subs=['sub-07'],model='
         else:
 
             # load prf estimates
-            if with_smooth==True:    
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
-            else:
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','chunks_'+str(total_chunks))
+            median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','chunks_'+str(total_chunks))
 
             if iterative==True: # if selecting params from iterative fit
                 estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' not in x and x.endswith(model+'_estimates.npz')]
@@ -1524,7 +1520,7 @@ def align_yaxis(ax1, v1, ax2, v2):
 # to make proper ecc vs size plots for "subject median"
 
 
-def append_pRFestimates(subdir,with_smooth=True,exclude_subs=['sub-07'],model='css',iterative=True):
+def append_pRFestimates(subdir,exclude_subs=['sub-07'],model='css',iterative=True):
 
 ####################
 #    inputs
