@@ -1520,7 +1520,7 @@ def align_yaxis(ax1, v1, ax2, v2):
 # to make proper ecc vs size plots for "subject median"
 
 
-def append_pRFestimates(subdir,exclude_subs=['sub-07'],model='css',iterative=True):
+def append_pRFestimates(subdir,exclude_subs=['sub-07'],model='css',iterative=True,total_chunks=498):
 
 ####################
 #    inputs
@@ -1556,15 +1556,21 @@ def append_pRFestimates(subdir,exclude_subs=['sub-07'],model='css',iterative=Tru
         else:
 
             # load prf estimates
-            if with_smooth==True:    
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','smooth%d'%analysis_params['smooth_fwhm'])
-            else:
-                median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median')
+            median_path = os.path.join(subdir,'{sj}'.format(sj=sub),'run-median','chunks_'+str(total_chunks))
 
             if iterative==True: # if selecting params from iterative fit
-                estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(model+'_estimates.npz')]
+                estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' not in x and x.endswith(model+'_estimates.npz')]
+                if not estimates_list: #list is empty
+                    # combine chunks and get new estimates list
+                    list_all =  [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' in x and x.endswith(model+'_estimates.npz')]
+                    estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model=model)
             else: # only look at grid fit
-                estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and x.endswith(model+'_estimates.npz')]
+                estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' not in x and x.endswith(model+'_estimates.npz')]
+                if not estimates_list: #list is empty
+                    # combine chunks and get new estimates list
+                    list_all =  [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' in x and x.endswith(model+'_estimates.npz')]
+                    estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model=model)
+            
             estimates_list.sort() #sort to make sure pRFs not flipped
 
             estimates = []

@@ -64,16 +64,15 @@ total_chunks = analysis_params['total_chunks']
 figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model)
 
 if iterative_fit==True:
-    if with_smooth=='True':
-        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks).zfill(3))
-    else:
-        figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks).zfill(3))
+    figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj))
 else:
-    if with_smooth=='True':
-        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks).zfill(3))
-    else:
-        figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj),'chunks_'+str(total_chunks).zfill(3))
-
+    figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj))
+    
+if with_smooth=='True':
+    figure_out = os.path.join(figure_out,'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks).zfill(3))
+else:
+    figure_out = os.path.join(figure_out,'chunks_'+str(total_chunks).zfill(3))
+    
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
 
@@ -82,8 +81,8 @@ print('saving figures in %s'%figure_out)
 
 ## Load PRF estimates ##
 if sj=='median':
-    estimates = median_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
-                                                model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'],total_chunks=total_chunks) # load unsmoothed estimates, will smooth later
+    estimates = median_pRFestimates(analysis_params['pRF_outdir'], model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'],total_chunks=total_chunks) # load unsmoothed estimates, will smooth later
+    
     print('computed median estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
     xx = estimates['x']
     yy = estimates['y']
@@ -94,19 +93,21 @@ if sj=='median':
     ns = estimates['ns']
     
 else:
-    if with_smooth=='True':    
-        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks))
-    else:
-        median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','chunks_'+str(total_chunks))
 
+    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','chunks_'+str(total_chunks))
+    
     if iterative_fit==True: # if selecting params from iterative fit
-        estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and x.endswith(fit_model+'_estimates.npz')]
+        estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' not in x and x.endswith(fit_model+'_estimates.npz')]
+        if not estimates_list: #list is empty
+            # combine chunks and get new estimates list
+            list_all =  [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' in x and x.endswith(fit_model+'_estimates.npz')]
+            estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model=fit_model) # combine chunks and get new estimates list 
     else: # only look at grid fit
-        estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and x.endswith(fit_model+'_estimates.npz')]
-    estimates_list.sort() #sort to make sure pRFs not flipped
-
-    # combine chunks and get new estimates list 
-    estimates_list = join_chunks(estimates_list,median_path,chunk_num=total_chunks,fit_model=fit_model)
+        estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' not in x and x.endswith(fit_model+'_estimates.npz')]
+        if not estimates_list: #list is empty
+            # combine chunks and get new estimates list
+            list_all =  [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' in x and x.endswith(fit_model+'_estimates.npz')]
+            estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model=fit_model) # combine chunks and get new estimates list 
 
     estimates = []
     for _,val in enumerate(estimates_list) :
@@ -129,6 +130,7 @@ else:
 
     rsq = np.concatenate((estimates[0]['r2'],estimates[1]['r2']))
 
+
 # set limits for xx and yy, forcing it to be within the screen boundaries
 
 vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
@@ -148,15 +150,17 @@ masked_rsq = new_estimates['rsq']
 masked_ns = new_estimates['ns']
 
 
-# to make smoothed plots for median subject, need to convert estimates into gii
-# and then smooth images
-if sj=='median' and with_smooth=='True':
+# smooth the estimates if it's the case
+if with_smooth =='True':
+
     # empty array to save smoothed filenames
     smooth_filename = []
-
-    # load random subject, just to get header to save median estimates as gii
-
-    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-11', '*'))
+    
+    # load subject gii (or a random sub if computing median estimates), just to get header info
+    if sj=='median':
+        filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-11', '*'))
+    else:
+        filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=sj), '*'))   
     print('loading first run to get header info from %s' % os.path.split(filepath[0])[0])
 
     # last part of filename to use
@@ -165,14 +169,11 @@ if sj=='median' and with_smooth=='True':
     # load first run of subject
     filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and 'run-01' in run and run.endswith(file_extension)]
     filename.sort()
-
-    # path to save fits, for testing
-    out_dir = figure_out
-
+    
+    num_vert_hemi = int(masked_xx.shape[0]/2) #number of vertices in one hemisphere
     for field in ['hemi-L', 'hemi-R']:
         hemi = [h for h in filename if field in h]
         
-        num_vert_hemi = int(masked_xx.shape[0]/2) #number of vertices in one hemisphere
         median_filename = 'sub-{sj}'.format(sj=sj)+'_task-prf_run-median_space-fsaverage_'+field+'_'+file_extension
         
         if field=='hemi-L':
@@ -200,7 +201,7 @@ if sj=='median' and with_smooth=='True':
         img_load = nb.load(hemi[0]) # load run just to get header
         
         for _,arr in enumerate(estimates4smoothing):
-            new_filename = os.path.join(out_dir,median_filename.replace('.func.gii','_estimates-%s.func.gii'%arr))
+            new_filename = os.path.join(figure_out,median_filename.replace('.func.gii','_estimates-%s.func.gii'%arr))
             
             print('saving %s'%new_filename)
             est_array_tiled = np.tile(estimates4smoothing[arr][np.newaxis,...],(83,1)) # NEED TO DO THIS 4 MGZ to actually be read (header is of func file)
@@ -211,7 +212,7 @@ if sj=='median' and with_smooth=='True':
             
             nb.save(estimates_gii,new_filename)
             
-            _,smo_estimates_path = smooth_gii(new_filename,out_dir,fwhm=analysis_params['smooth_fwhm'])
+            _,smo_estimates_path = smooth_gii(new_filename,figure_out,fwhm=analysis_params['smooth_fwhm'])
             
             smooth_filename.append(smo_estimates_path)
             print('saving %s'%smo_estimates_path)
@@ -251,8 +252,8 @@ if sj=='median' and with_smooth=='True':
     masked_baseline = np.concatenate((smooth_baseline[0][0],smooth_baseline[1][0])) 
     masked_rsq = np.concatenate((smooth_rsq[0][0],smooth_rsq[1][0])) 
     masked_ns = np.concatenate((smooth_ns[0][0],smooth_ns[1][0]))
-
     
+
 # save masked estimates in numpy array to load later
 # saved in same folder as figures (for now, might change that later)
 
@@ -942,11 +943,11 @@ if sj != 'median': # doesn't work for median subject
             # to align axis centering it at 0
             if idx == 0:
                 if sj=='11':
-                    axis.set_ylim(-3,9)
+                    axis.set_ylim(-3,6)#9)
                 ax1 = axis
             else:
                 if sj=='11':
-                    axis.set_ylim(-1.5,3.5)
+                    axis.set_ylim(-1.5,3)
                 align_yaxis(ax1, 0, axis, 0)
 
             #axis.axhline(y=0, xmin=0, xmax=len(timeseries)*TR,linestyle='--',c=red_color[idx])
@@ -991,14 +992,14 @@ min_ecc = 0.25
 max_ecc = 4
 
 if sj == 'median':
-    all_estimates = append_pRFestimates(analysis_params['pRF_outdir'],with_smooth=False,
-                                        model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'])
+    all_estimates = append_pRFestimates(analysis_params['pRF_outdir'],
+                                        model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'],total_chunks=total_chunks)
 
 for idx,roi in enumerate(ROIs):
     
     df = pd.DataFrame(columns=['ecc','size','rsq'])
 
-    if sj == 'median':
+    if sj == 'median' and with_smooth=='False': # only do this for non smoothed case
         for s in range(np.array(all_estimates['x']).shape[0]): # loop over all subjects that were appended
             
             if fit_model == 'css': 
