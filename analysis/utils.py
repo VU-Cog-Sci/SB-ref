@@ -42,6 +42,12 @@ import nipype.interfaces.freesurfer as fs
 import math
 from scipy.stats import pearsonr, t, norm
 
+from prfpy.rf import *
+from joblib import Parallel, delayed
+
+import scipy.ndimage as ndimage
+
+
 with open('analysis_params.json','r') as json_file:
             analysis_params = json.load(json_file)
 
@@ -1775,5 +1781,72 @@ def find_zero_remainder(len_array,maximum):
     return np.array(divisor)
 
 
+def combined_rf(prf_stim,xx,yy,size,rsq,ns):
+    # function that takes estimates from all subs and 
+    # returns combined RF for all voxel, weighted by rsq
+    ###
+    # prf_stim - stimulus objects
+    # xx - (num_subs,voxel)
+    # yy
+    # ...
+    
+    rf = []
 
-            
+    for i in range(np.array(xx).shape[0]):
+
+        # create the single rf
+        rf.append(np.rot90(np.moveaxis(gauss2D_iso_cart(x=prf_stim.x_coordinates[...,np.newaxis],
+                              y=prf_stim.y_coordinates[...,np.newaxis],
+                              mu=(np.array(xx)[i], np.array(yy)[i]),
+                              sigma=(np.array(size)[i]/np.sqrt(np.array(ns)[i])),
+                              normalize_RFs=True),-1,0), axes=(2,1)))
+
+    # take out single dim
+    rf = np.squeeze(rf)
+    # rsq for voxel of all sub
+    rsq_all = np.array(rsq)
+    # combine all subject RF for voxel, and weight it by rsq
+    comb_rf = rf*rsq_all[:,None,None]
+    comb_rf = sum(comb_rf)
+
+    #plt.imshow(comb_rf.T)
+
+    # Plot the surface.
+    #from matplotlib import cm
+    #fig = plt.figure()
+    #ax = fig.gca(projection='3d')
+    #surf = ax.plot_surface(prf_stim.x_coordinates, 
+    #                       prf_stim.y_coordinates, 
+    #                       comb_rf.T, cmap=cm.coolwarm,
+    #                       linewidth=0, antialiased=False)
+
+    ## Add a color bar which maps values to colors.
+    #fig.colorbar(surf, shrink=0.5, aspect=5)
+    #ax.set_xlabel('x')
+    #ax.set_ylabel('y')
+    #plt.gca().invert_yaxis()
+    #plt.show()
+
+    return comb_rf
+
+def max_RF2PA(RF):
+    # take array of combined RF and get polar angle values per voxel in rad
+    
+    dim = RF.shape[0]/2
+    
+    if np.isnan(RF).any(): # if RF is nan
+        polar = np.nan
+        
+    else:
+        # get center of mass of RF
+        max_RF = ndimage.measurements.center_of_mass(RF)#np.unravel_index(np.argmax(RF, axis=None), RF.shape)
+
+        # polar angle in rad
+        polar = np.angle((max_RF[0] - dim) + (dim - max_RF[1])*1j)
+        
+    return polar
+
+
+def smooth_RF(RF,sigma = 5):
+    return ndimage.gaussian_filter(RF,sigma)
+
