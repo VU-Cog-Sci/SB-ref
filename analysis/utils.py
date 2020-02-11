@@ -1795,7 +1795,10 @@ def combined_rf(prf_stim,xx,yy,size,rsq,ns):
     for i in range(np.array(xx).shape[0]):
 
         # create the single rf
-        rf.append(np.rot90(np.moveaxis(gauss2D_iso_cart(x=prf_stim.x_coordinates[...,np.newaxis],
+        if rsq[i] == 0: # if rsq = 0
+            rf.append(np.zeros((1,prf_stim.x_coordinates.shape[0],prf_stim.y_coordinates.shape[0])))
+        else:
+            rf.append(np.rot90(np.moveaxis(gauss2D_iso_cart(x=prf_stim.x_coordinates[...,np.newaxis],
                               y=prf_stim.y_coordinates[...,np.newaxis],
                               mu=(np.array(xx)[i], np.array(yy)[i]),
                               sigma=(np.array(size)[i]/np.sqrt(np.array(ns)[i])),

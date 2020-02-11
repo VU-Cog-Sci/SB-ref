@@ -44,7 +44,7 @@ with open('analysis_params.json','r') as json_file:
 
 
 # used smoothed data (or not) for plots
-with_smooth = 'False'#analysis_params['with_smooth']
+with_smooth = True
 
 # fit model to use (gauss or css)
 fit_model = 'css' #analysis_params["fit_model"]
@@ -76,26 +76,14 @@ hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params[
 
 # make new variables that are masked (center of RF within screen limits and only positive pRFs)
 # also max size of RF is 10 dva
-print('masking variables to be within screen and only show positive RF')
+print('masking estimates array to be within screen and only show positive RF')
 
-masked_xx = []
-masked_yy = []
-masked_size = []
-masked_beta = []
-masked_baseline = []
-masked_rsq = []
-masked_ns = []
+masked_rsq = [] # only need RSQ to be masked, for later plots
 
 for i in range(len(all_estimates['subs'])):
     new_estimates = mask_estimates(xx[i],yy[i],size[i],betas[i],baseline[i],rsq[i],vert_lim_dva,hor_lim_dva,ns=ns[i])
     
-    masked_xx.append(new_estimates['x']) 
-    masked_yy.append(new_estimates['y'])
-    masked_size.append(new_estimates['size'])
-    masked_beta.append(new_estimates['beta'])
-    masked_baseline.append(new_estimates['baseline'])
     masked_rsq.append(new_estimates['rsq'])
-    masked_ns.append(new_estimates['ns'])
 
 
 ##### load prfpy classes to get single prediction #############
@@ -135,59 +123,142 @@ prf_stim = PRFStimulus2D(screen_size_cm=analysis_params["screen_width"],
                          TR=TR)
 
 
-
 # divide and save chunks in folder, avoids memory issues
-out_dir = os.path.join(analysis_params['derivatives'],'tests_average_RF')
+out_dir = os.path.join(analysis_params['derivatives'],'average_RF')
 if not os.path.exists(out_dir):  # check if path exists
     os.makedirs(out_dir)
 
-chunk_num = find_zero_remainder(np.array(masked_xx).shape[-1],100)[-1] #94 chunks
-num_vox_chunk = int(np.array(masked_xx).shape[-1]/chunk_num) # total number of vertices per chunks
+chunk_num = find_zero_remainder(np.array(masked_rsq).shape[-1],100)[-1] #94 chunks
+num_vox_chunk = int(np.array(masked_rsq).shape[-1]/chunk_num) # total number of vertices per chunks
 
+print('computing weighted RF') 
 for w in range(chunk_num):
 
     filename = 'average_RF_chunk-%s.npz'%str(w).zfill(2)
 
-    if os.path.isfile(os.path.join(out_dir,filename)): # if file already exists
+    if not os.path.isfile(os.path.join(out_dir,filename)): # if file doesnt exist
 
-      RF = np.load(os.path.join(out_dir,filename)) # load
-      RF = RF['avg_RF']
+      avg_RF = Parallel(n_jobs=16)(delayed(combined_rf)(prf_stim,np.array(xx)[:,i],np.array(yy)[:,i],
+                           np.array(size)[:,i],np.array(rsq)[:,i],np.array(ns)[:,i]) 
+                         for i in range(num_vox_chunk*w,num_vox_chunk*(w+1)))
+      np.savez(os.path.join(out_dir,filename), avg_RF = avg_RF)
 
-      # smooth the RF
-      avg_RF = Parallel(n_jobs=16)(delayed(smooth_RF)(RF[i,:,:],sigma=20) for i in range(RF.shape[0]))
-      filename = 'average_RF_smooth_chunk-%s.npz'%str(w).zfill(2)
+    if with_smooth==True:
 
-    else:
+      filename_sm = 'average_RF_smooth_chunk-%s.npz'%str(w).zfill(2)
 
-      avg_RF = Parallel(n_jobs=16)(delayed(combined_rf)(prf_stim,np.array(masked_xx)[:,i],np.array(masked_yy)[:,i],
-                           np.array(masked_size)[:,i],np.array(masked_rsq)[:,i],np.array(masked_ns)[:,i]) 
-                         for i in range(num_vox_chunk*w,num_vox_chunk*(w+1)))#np.array(masked_xx).shape[-1]))
+      if not os.path.isfile(os.path.join(out_dir,filename_sm)): # if doesnt exist
 
-    np.savez(os.path.join(out_dir,filename), avg_RF = avg_RF)
+        RF = np.load(os.path.join(out_dir,filename)) # load
+        RF = RF['avg_RF']
+        # smooth the RF
+        avg_RF = Parallel(n_jobs=16)(delayed(smooth_RF)(RF[i,:,:],sigma=20) for i in range(RF.shape[0]))
+        np.savez(os.path.join(out_dir,filename_sm), avg_RF = avg_RF)
+
 
 # compute polar angle value  for those RF
-    
+print('computing polar angle values')    
 for w in range(chunk_num):
 
-    RF_filename = 'average_RF_chunk-%s.npz'%str(w).zfill(2)
-    loaded_RF = np.load(os.path.join(out_dir,RF_filename))
-    loaded_RF = loaded_RF['avg_RF']
+    if not os.path.isfile(os.path.join(out_dir,'average_PA_chunk-%s.npz'%str(w).zfill(2))):
 
-    avg_pa = Parallel(n_jobs=16)(delayed(max_RF2PA)(loaded_RF[i,:,:]) for i in range(loaded_RF.shape[0]))
-    np.savez(os.path.join(out_dir,'average_PA_chunk-%s.npz'%str(w).zfill(2)), avg_pa = avg_pa)
+      RF_filename = 'average_RF_chunk-%s.npz'%str(w).zfill(2)
+      loaded_RF = np.load(os.path.join(out_dir,RF_filename))
+      loaded_RF = loaded_RF['avg_RF']
 
-    # repetitive but ok for now
-    RF_filename = 'average_RF_smooth_chunk-%s.npz'%str(w).zfill(2)
-    loaded_RF = np.load(os.path.join(out_dir,RF_filename))
-    loaded_RF = loaded_RF['avg_RF']
+      avg_pa = Parallel(n_jobs=16)(delayed(max_RF2PA)(loaded_RF[i,:,:]) for i in range(loaded_RF.shape[0]))
+      np.savez(os.path.join(out_dir,'average_PA_chunk-%s.npz'%str(w).zfill(2)), avg_pa = avg_pa)
 
-    avg_pa = Parallel(n_jobs=16)(delayed(max_RF2PA)(loaded_RF[i,:,:]) for i in range(loaded_RF.shape[0]))
-    np.savez(os.path.join(out_dir,'average_PA_smooth_chunk-%s.npz'%str(w).zfill(2)), avg_pa = avg_pa)
+      # repetitive but ok for now
+      RF_filename = 'average_RF_smooth_chunk-%s.npz'%str(w).zfill(2)
+      loaded_RF = np.load(os.path.join(out_dir,RF_filename))
+      loaded_RF = loaded_RF['avg_RF']
+
+      avg_pa = Parallel(n_jobs=16)(delayed(max_RF2PA)(loaded_RF[i,:,:]) for i in range(loaded_RF.shape[0]))
+      np.savez(os.path.join(out_dir,'average_PA_smooth_chunk-%s.npz'%str(w).zfill(2)), avg_pa = avg_pa)
 
 
+# load all polar angles and make flatmap
+if with_smooth:
+  all_pa_str = [x for x in os.listdir(out_dir) if 'PA' in x and 'smooth' in x]; all_pa_str.sort()  # load the PA from not smoothed RF (I think it doesn't make a difference, because I'm using COM)
+else:
+  all_pa_str = [x for x in os.listdir(out_dir) if 'PA' in x and 'smooth' not in x]; all_pa_str.sort()  # load the PA from not smoothed RF (I think it doesn't make a difference, because I'm using COM)
 
 
+all_pa = []
+for w in range(chunk_num):
+    if 'chunk-%s.npz'%str(w).zfill(2) in all_pa_str[w]:
+        arr = np.load(os.path.join(out_dir,all_pa_str[w]))
+        all_pa.append(arr['avg_pa'])
+        
+    else:
+        print('Chunk %d missing'%w)
 
+
+# get median rsq array, to mask flatmap (PA array does not account for screen limits etc)
+masked_rsq = np.nanmedian(np.array(masked_rsq),axis=0)
+
+# now construct polar angle and eccentricity values
+rsq_threshold = 0.14 #0.125 #analysis_params['rsq_threshold']
+
+masked_polar_angle = np.array(np.ravel(all_pa))
+
+# normalize polar angles to have values in circle between 0 and 1
+masked_polar_ang_norm = (masked_polar_angle + np.pi) / (np.pi * 2.0)
+
+# use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
+# why have an offset?
+angle_offset = 0.85#0.1
+masked_polar_ang_norm = np.fmod(masked_polar_ang_norm+angle_offset, 1.0)
+
+# convert angles to colors, using correlations as weights
+hsv = np.zeros(list(masked_polar_ang_norm.shape) + [3])
+hsv[..., 0] = masked_polar_ang_norm # different hue value for each angle
+hsv[..., 1] = (masked_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
+hsv[..., 2] = (masked_rsq > rsq_threshold).astype(float) # value weighted by rsq
+
+# convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
+rgb = colors.hsv_to_rgb(hsv)
+
+# define alpha channel - which specifies the opacity for a color
+# define mask for alpha, to be all values where rsq below threshold or nan 
+alpha_mask = np.array([True if val<= rsq_threshold or np.isnan(val) else False for _,val in enumerate(masked_rsq)])
+
+# create alpha array weighted by rsq values
+alpha = np.sqrt(masked_rsq.copy())#np.ones(alpha_mask.shape)
+alpha[alpha_mask] = np.nan
+
+# create alpha array with nan = transparent = values with rsq below thresh and 1 = opaque = values above thresh
+alpha_ones = np.ones(alpha_mask.shape)
+alpha_ones[alpha_mask] = np.nan
+
+
+images = {}
+
+images['polar'] = cortex.VertexRGB(rgb[..., 0], 
+                                 rgb[..., 1], 
+                                 rgb[..., 2], 
+                                 subject='fsaverage_gross', alpha=alpha)
+#cortex.quickshow(images['polar'],with_curvature=True,with_sulci=True,with_colorbar=False)
+
+filename = os.path.join(out_dir,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.svg' %rsq_threshold)
+if with_smooth: filename = filename.replace('polar_angle.svg','polar_angle_smooth_%d.svg'%analysis_params['smooth_fwhm'])
+
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
+
+
+images['polar_noalpha'] = cortex.VertexRGB(rgb[..., 0], 
+                                 rgb[..., 1], 
+                                 rgb[..., 2], 
+                                 subject='fsaverage_gross', alpha=alpha_ones)
+#cortex.quickshow(images['polar_noalpha'],with_curvature=True,with_sulci=True,with_colorbar=False)
+
+filename = os.path.join(out_dir,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle_noalpha.svg' %rsq_threshold)
+if with_smooth: filename = filename.replace('_noalpha.svg','_noalpha_smooth_%d.svg'%analysis_params['smooth_fwhm'])
+
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['polar_noalpha'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
 
 
 
