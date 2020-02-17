@@ -1199,7 +1199,8 @@ def dva_per_pix(height_cm,distance_cm,vert_res_pix):
     #        deg_per_px - degree (dva) per pixel
     ##################################################
     
-    deg_per_px = math.degrees(math.atan2(0.5*height_cm,distance_cm))/(0.5*vert_res_pix)
+    # screen size in degrees / vertical resolution
+    deg_per_px = (2.0 * np.degrees(np.arctan(height_cm /(2.0*distance_cm))))/vert_res_pix
 
     return deg_per_px
 
