@@ -19,6 +19,10 @@
         1680,
         1050
     ],
+    "screenRes_HD": [
+        1920,
+        1080
+    ],
     "TR": 1.6,
     "low_pass_pupil_f": 6.0,
     "high_pass_pupil_f": 0.01,

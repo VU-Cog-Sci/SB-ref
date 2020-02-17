@@ -134,8 +134,15 @@ else:
 
 # set limits for xx and yy, forcing it to be within the screen boundaries
 
-vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
-hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
+if sj in ['02','11','12','13']: # linux computer has different res
+
+    vert_lim_dva = (analysis_params['screenRes_HD'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
+    hor_lim_dva = (analysis_params['screenRes_HD'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
+
+
+else:    
+    vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
+    hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
 
 # make new variables that are masked (center of RF within screen limits and only positive pRFs)
 # also max size of RF is 10 dva
@@ -687,13 +694,18 @@ if sj != 'median': # doesn't work for median subject
 
     dm_filename = os.path.join(os.getcwd(), 'prf_dm_square.npy')
 
-    if not os.path.exists(dm_filename):  # if not exists
+    #if not os.path.exists(dm_filename):  # if not exists
+    if sj in ['02','11','12','13']: # subjects that did pRF task with linux computer, so res was full HD
         screenshot2DM(png_filename, 0.1,
-                      analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
-        print('computed %s' % (dm_filename))
+                  analysis_params['screenRes_HD'], dm_filename,dm_shape = 'square')  # create it
 
     else:
-        print('loading %s' % dm_filename)
+        screenshot2DM(png_filename, 0.1,
+                    analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
+    print('computed %s' % (dm_filename))
+
+    #else:
+    #    print('loading %s' % dm_filename)
 
     prf_dm = np.load(dm_filename)
     prf_dm = prf_dm.T # then it'll be (x, y, t)

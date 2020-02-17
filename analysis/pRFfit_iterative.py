@@ -63,7 +63,7 @@ with open(json_dir, 'r') as json_file:
     analysis_params = json.load(json_file)
 
 # use smoothed data?
-with_smooth = analysis_params['with_smooth']
+with_smooth = 'False'#analysis_params['with_smooth']
 
 
 # define paths and list of files
@@ -127,8 +127,14 @@ png_filename.sort()
 dm_filename = os.path.join(os.getcwd(), 'prf_dm_square.npy')
 
 #if not os.path.exists(dm_filename):  # if not exists
-screenshot2DM(png_filename, 0.1,
-              analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
+
+if sj in ['02','11','12','13']: # subjects that did pRF task with linux computer, so res was full HD
+    screenshot2DM(png_filename, 0.1,
+              analysis_params['screenRes_HD'], dm_filename,dm_shape = 'square')  # create it
+
+else:
+    screenshot2DM(png_filename, 0.1,
+                analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
 print('computed %s' % (dm_filename))
 
 #else:
