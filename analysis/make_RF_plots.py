@@ -50,7 +50,7 @@ else:
 
 
 # used smoothed data (or not) for plots
-with_smooth = 'False'#analysis_params['with_smooth']
+with_smooth = 'True'#analysis_params['with_smooth']
 
 # fit model to use (gauss or css)
 fit_model = 'css' #analysis_params["fit_model"]
