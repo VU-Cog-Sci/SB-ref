@@ -128,13 +128,19 @@ png_filename.sort()
 
 dm_filename = os.path.join(os.getcwd(), 'prf_dm_square.npy')
 
-if not os.path.exists(dm_filename):  # if not exists
+#if not os.path.exists(dm_filename):  # if not exists
+
+if sj in ['02','11','12','13']: # subjects that did pRF task with linux computer, so res was full HD
     screenshot2DM(png_filename, 0.1,
-                  analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
-    print('computed %s' % (dm_filename))
+              analysis_params['screenRes_HD'], dm_filename,dm_shape = 'square')  # create it
 
 else:
-    print('loading %s' % dm_filename)
+    screenshot2DM(png_filename, 0.1,
+                analysis_params['screenRes'], dm_filename,dm_shape = 'square')  # create it
+print('computed %s' % (dm_filename))
+
+#else:
+#    print('loading %s' % dm_filename)
 
 prf_dm = np.load(dm_filename,allow_pickle=True)
 prf_dm = prf_dm.T # then it'll be (x, y, t)
@@ -219,7 +225,7 @@ for gii_file in med_gii:
     gf = Iso2DGaussianFitter(data=data, gridder=gg, n_jobs=16)
     
     #filename for the numpy array with the estimates of the grid fit
-    grid_estimates_filename = gii_file.replace('.func.gii', '_chunk-%s_of_%d_gauss_estimates.npz'%(chunk_num,total_chunks))
+    grid_estimates_filename = gii_file.replace('.func.gii', '_chunk-%s_of_%s_gauss_estimates.npz'%(chunk_num,str(total_chunks).zfill(3)))
     
     if not os.path.isfile(grid_estimates_filename): # if estimates file doesn't exist
         print('%s not found, fitting grid'%grid_estimates_filename)
@@ -247,7 +253,7 @@ for gii_file in med_gii:
 
 
     # gaussian iterative fit
-    iterative_out = gii_file.replace('.func.gii', '_chunk-%s_of_%d_iterative_gauss_estimates.npz'%(chunk_num,total_chunks))
+    iterative_out = gii_file.replace('.func.gii', '_chunk-%s_of_%s_iterative_gauss_estimates.npz'%(chunk_num,str(total_chunks).zfill(3)))
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
@@ -274,7 +280,7 @@ for gii_file in med_gii:
     gf_css = CSS_Iso2DGaussianFitter(data=data, gridder=gg_css, n_jobs=16,
                                      previous_gaussian_fitter=gf)
 
-    iterative_out = gii_file.replace('.func.gii', '_chunk-%s_of_%d_iterative_css_estimates.npz'%(chunk_num,total_chunks))
+    iterative_out = gii_file.replace('.func.gii', '_chunk-%s_of_%s_iterative_css_estimates.npz'%(chunk_num,str(total_chunks).zfill(3)))
         
     if not os.path.isfile(iterative_out): # if estimates file doesn't exist
         print('doing iterative fit')
