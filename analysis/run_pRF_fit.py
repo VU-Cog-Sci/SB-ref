@@ -7,7 +7,7 @@ import sys
 with open('analysis_params.json', 'r') as json_file:
     analysis_params = json.load(json_file)
 
-subjects = ['1','7','13']#['1','2','3','4','5','8','9','11','12','13'] #['11']#['7']
+subjects = ['12']#['2','11','12','13']#['1','2','3','4','5','8','9','11','12','13'] #['11']#['7']
 
 total_chunks = analysis_params['total_chunks']
 
