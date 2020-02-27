@@ -44,7 +44,7 @@ with open('analysis_params.json','r') as json_file:
 
 
 # used smoothed data (or not) for plots
-with_smooth = True
+with_smooth = False
 
 # fit model to use (gauss or css)
 fit_model = 'css' #analysis_params["fit_model"]
@@ -68,12 +68,6 @@ xx = np.array(all_estimates['x'])
 yy = np.array(all_estimates['y'])
 size = np.array(all_estimates['size'])
 
-
-# set limits for xx and yy, forcing it to be within the screen boundaries
-
-vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
-hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][-1])
-
 # make new variables that are masked (center of RF within screen limits and only positive pRFs)
 # also max size of RF is 10 dva
 print('masking estimates array to be within screen and only show positive RF')
@@ -81,6 +75,17 @@ print('masking estimates array to be within screen and only show positive RF')
 masked_rsq = [] # only need RSQ to be masked, for later plots
 
 for i in range(len(all_estimates['subs'])):
+
+    # set limits for xx and yy, forcing it to be within the screen boundaries
+
+    if all_estimates['subs'][i] in ['sub-02','sub-11','sub-12','sub-13']: # linux computer has different res
+
+        vert_lim_dva = (analysis_params['screenRes_HD'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
+        hor_lim_dva = (analysis_params['screenRes_HD'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
+    else:    
+        vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
+        hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
+
     new_estimates = mask_estimates(xx[i],yy[i],size[i],betas[i],baseline[i],rsq[i],vert_lim_dva,hor_lim_dva,ns=ns[i])
     
     masked_rsq.append(new_estimates['rsq'])
