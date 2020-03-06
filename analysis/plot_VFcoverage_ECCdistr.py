@@ -444,10 +444,9 @@ n_bins = 10
 min_ecc = 0.25
 max_ecc = 4
 
-
 for idx,roi in enumerate(ROIs):
     
-    df = pd.DataFrame(columns=['ecc','size','rsq'])
+    df = []#pd.DataFrame(columns=['ecc','size','rsq'])
         
     for w in range(xx.shape[0]): # loop once if one subject, or for all subjects when sj 'all'
                 
@@ -464,10 +463,10 @@ for idx,roi in enumerate(ROIs):
 
         if w == 0:
             df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
-                                   'rsq':new_rsq[indices4plot]})
+                                   'rsq':new_rsq[indices4plot],'sub':np.tile(w,len(indices4plot))})
         else:
-            df.append(pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
-                                   'rsq':new_rsq[indices4plot]}))
+            df = df.append(pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                                   'rsq':new_rsq[indices4plot],'sub':np.tile(w,len(indices4plot))}),ignore_index=True)
 
 
     # sort values by eccentricity
@@ -501,7 +500,4 @@ ax.axes.set_ylim(0,)
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
-
-
-
 
