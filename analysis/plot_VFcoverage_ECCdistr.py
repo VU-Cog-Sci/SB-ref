@@ -271,7 +271,7 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
 # max eccentricity within screen dva
 max_ecc = np.sqrt(vert_lim_dva**2 + hor_lim_dva**2)
 
-# make list of roi pairs, to compare distributions
+# make list of roi pairs, to compare distributions, no repetitions
 ks_roi_list = np.array([pair for pair in itertools.combinations(ROIs,2)])
 
 for _,rois_ks in enumerate(ks_roi_list):
@@ -384,6 +384,124 @@ for _,rois_ks in enumerate(ROIs):
     ax.legend()
 
 plt.savefig(os.path.join(figure_out,'KDE_ROI-all.svg'),dpi=100)
+
+
+# compute KS statistic for each ROI of each participant (in case of sj 'all')
+# and append in dict?
+
+KS_stats = {}
+
+for _,rois_ks in enumerate(ROIs): # compare ROI (ex V1)
+    
+    
+    roi_stats = []
+    
+    for _,cmp_roi in enumerate(ROIs): # to all other ROIS
+        
+        sub_roi_stats = []
+    
+        for w in range(xx.shape[0]): # loop once if one subject, or for all subjects when sj 'all'
+
+            new_rsq1 = masked_rsq[w][roi_verts[rois_ks]]
+            new_ecc1 = masked_eccentricity[w][roi_verts[rois_ks]]
+            indices4plot_1 = np.where((new_rsq1>rsq_threshold) & (np.logical_not(np.isnan(new_ecc1))))
+
+            ecc_roi1 = np.sort(new_ecc1[indices4plot_1])
+
+            new_rsq2 = masked_rsq[w][roi_verts[cmp_roi]]
+            new_ecc2 = masked_eccentricity[w][roi_verts[cmp_roi]]
+            indices4plot_2 = np.where((new_rsq2>rsq_threshold) & (np.logical_not(np.isnan(new_ecc2))))
+
+            ecc_roi2 = np.sort(new_ecc2[indices4plot_2])
+
+            sub_roi_stats.append(scipy.stats.ks_2samp(ecc_roi1, ecc_roi2)[0])
+        
+        roi_stats.append(np.median(sub_roi_stats)) # median max distance 
+        
+    KS_stats[rois_ks] = roi_stats
+    
+#Create DataFrame
+DF_var = pd.DataFrame.from_dict(KS_stats).T
+DF_var.columns = ROIs
+
+# plot representational similarity matrix
+fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+
+matrix = ax.matshow(DF_var)
+plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=12)#, rotation=45)
+plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=12)
+fig.colorbar(matrix)
+plt.title('Eccentricity distribution difference', fontsize=16, pad=20);
+
+fig.savefig(os.path.join(figure_out,'RSA_ROI-all.svg'),dpi=100)
+
+
+# make plot to show relationship between ecc and size for different regions
+
+# create empty dataframe to store all relevant values for rois
+all_roi = pd.DataFrame(columns=['mean_ecc','mean_ecc_std','mean_size','mean_size_std','roi'])
+n_bins = 10
+min_ecc = 0.25
+max_ecc = 4
+
+
+for idx,roi in enumerate(ROIs):
+    
+    df = pd.DataFrame(columns=['ecc','size','rsq'])
+        
+    for w in range(xx.shape[0]): # loop once if one subject, or for all subjects when sj 'all'
+                
+        # get datapoints for RF only belonging to roi
+        new_size = masked_size[w][roi_verts[roi]]
+        new_pa = masked_polar_angle[w][roi_verts[roi]]
+        new_ecc = masked_eccentricity[w][roi_verts[roi]]
+        
+        new_rsq = masked_rsq[w][roi_verts[roi]]
+
+        # define indices of voxels within region to plot
+        # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
+        indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))[0]
+
+        if w == 0:
+            df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                                   'rsq':new_rsq[indices4plot]})
+        else:
+            df.append(pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                                   'rsq':new_rsq[indices4plot]}))
+
+
+    # sort values by eccentricity
+    df = df.sort_values(by=['ecc'])  
+    
+    bin_size = int(len(df)/n_bins) #divide in equally sized bins
+    mean_ecc = []
+    mean_ecc_std = []
+    mean_size = []
+    mean_size_std = []
+    for j in range(n_bins): # for each bin calculate rsq-weighted means and errors of binned ecc/size 
+        mean_size.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+        mean_size_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+        mean_ecc.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+        mean_ecc_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+    
+    if idx== 0:
+        all_roi = pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)})
+    else:
+        all_roi = all_roi.append(pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)}),ignore_index=True)
+
+#fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+
+ax = sns.lmplot(x='mean_ecc', y='mean_size', hue='roi',data=all_roi,height=8, aspect=1)
+ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
+ax = plt.gca()
+ax.axes.set_xlim(0,)
+ax.axes.set_ylim(0,)
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
+fig1 = plt.gcf()
+fig1.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
+
 
 
 
