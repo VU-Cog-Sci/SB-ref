@@ -262,8 +262,23 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
     plt.hist(right_pa,color='r',alpha=0.5,label='RH')
     plt.xlabel('Polar angle')
     plt.legend()
-    plt.title('Histogram of PA distribution for %s'%roi)
+    plt.title('Histogram of polar angle distribution for %s'%roi)
+    #ss.axes.set_xlim(-np.pi,np.pi)
+
     plt.savefig(os.path.join(figure_out,'PA_histogram_ROI-%s_hemi-both.svg'%roi),dpi=100)
+    
+    # Visualise with polar histogram
+    left_ind4plot = np.where((np.logical_not(np.isnan(left_pa))))
+    right_ind4plot = np.where((np.logical_not(np.isnan(right_pa))))
+
+    fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection='polar'),figsize=(8, 8))
+    rose_plot(ax, left_pa[left_ind4plot],color='g', lab_unit="radians")
+    rose_plot(ax, right_pa[right_ind4plot],color='r', lab_unit="radians")
+    plt.title('Histogram of polar angle distribution for %s'%roi, pad=20)
+
+    fig.tight_layout()
+    plt.savefig(os.path.join(figure_out,'PA_histogram_circular_ROI-%s_hemi-both.svg'%roi),dpi=100)
+    
     
 
 # Check ECC distributions
@@ -501,3 +516,51 @@ ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ec
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
 
+
+# function to make a circular histogram
+# area of slices corresponds to amount of bins
+def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
+              start_zero=False,color='g',alpha=0.5, **param_dict):
+    """
+    Plot polar histogram of angles on ax. ax must have been created using
+    subplot_kw=dict(projection='polar'). Angles are expected in radians.
+    """
+    # Wrap angles to [-pi, pi)
+    angles = (angles + np.pi) % (2*np.pi) - np.pi
+
+    # Set bins symetrically around zero
+    if start_zero:
+        # To have a bin edge at zero use an even number of bins
+        if bins % 2:
+            bins += 1
+        bins = np.linspace(-np.pi, np.pi, num=bins+1)
+
+    # Bin data and record counts
+    count, bin = np.histogram(angles, bins=bins)
+
+    # Compute width of each bin
+    widths = np.diff(bin)
+
+    # By default plot density (frequency potentially misleading)
+    if density is None or density is True:
+        # Area to assign each bin
+        area = count / angles.size
+        # Calculate corresponding bin radius
+        radius = (area / np.pi)**.5
+    else:
+        radius = count
+
+    # Plot data on ax
+    ax.bar(bin[:-1], radius, zorder=1, align='edge', width=widths,
+           edgecolor='0.5', fill=True, linewidth=1,color=color,alpha=alpha)
+
+    # Set the direction of the zero angle
+    ax.set_theta_offset(offset)
+
+    # Remove ylabels, they are mostly obstructive and not informative
+    ax.set_yticks([])
+
+    if lab_unit == "radians":
+        label = ['$0$', r'$\pi/4$', r'$\pi/2$', r'$3\pi/4$',
+                  r'$\pi$', r'$5\pi/4$', r'$3\pi/2$', r'$7\pi/4$']
+        ax.set_xticklabels(label)
