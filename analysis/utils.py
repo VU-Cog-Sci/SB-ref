@@ -1411,60 +1411,52 @@ def make_median_soma_sub(all_subs,file_extension,out_dir,median_gii=median_gii):
 
     return median_data_all
 
-def make_median_soma_events(all_subs):
-    # input sub list, file extension, out_dir, function to make median run
+def make_median_soma_events(sub,eventdir):
     
-    # make function that makes median event data frame for x runs of sub or for median sub
-    # now this will do
-    onsets_allsubs = []
-    durations_allsubs = []
+    # function that makes median event data frame for x runs of sub 
+    
+    ##### INPUT###
+    # sub - str with subject number
+    # eventdir - absolute path to all events files for that sub
+    ### OUTPUT #######
+    # events_avg - event dataframe
+    
 
-    for idx,sub in enumerate(all_subs):
-        # path to events
-        eventdir = os.path.join(analysis_params['sourcedata_dir'],'sub-{sj}'.format(sj=str(sub).zfill(2)),'ses-01','func')
-        print('event files from %s' % eventdir)
+    # list of stimulus onsets
+    events = [os.path.join(eventdir,run) for run in os.listdir(eventdir) if 'soma' in run and run.endswith('events.tsv')]
+    events.sort()
+    print('%d event files found for sub-%s'%(len(events),sub))
 
-        # list of stimulus onsets
-        events = [os.path.join(eventdir,run) for run in os.listdir(eventdir) if 'soma' in run and run.endswith('events.tsv')]
-        events.sort()
+    all_events = []
+    for _,val in enumerate(events):
 
+        events_pd = pd.read_csv(val,sep = '\t')
 
-        ##### median events df for each sub #####
+        new_events = []
 
-        all_events = []
-        for _,val in enumerate(events):
+        for ev in events_pd.iterrows():
+            row = ev[1]   
+            if row['trial_type'][0] == 'b': # if both hand/leg then add right and left events with same timings
+                new_events.append([row['onset'],row['duration'],'l'+row['trial_type'][1:]])
+                new_events.append([row['onset'],row['duration'],'r'+row['trial_type'][1:]])
+            else:
+                new_events.append([row['onset'],row['duration'],row['trial_type']])
 
-            events_pd = pd.read_csv(val,sep = '\t')
+        df = pd.DataFrame(new_events, columns=['onset','duration','trial_type'])  #make sure only relevant columns present
+        all_events.append(df)
 
-            new_events = []
+    # make median event dataframe
+    onsets = []
+    durations = []
+    for w in range(len(all_events)):
+        onsets.append(all_events[w]['onset'])
+        durations.append(all_events[w]['duration'])
 
-            for ev in events_pd.iterrows():
-                row = ev[1]   
-                if row['trial_type'][0] == 'b': # if both hand/leg then add right and left events with same timings
-                    new_events.append([row['onset'],row['duration'],'l'+row['trial_type'][1:]])
-                    new_events.append([row['onset'],row['duration'],'r'+row['trial_type'][1:]])
-                else:
-                    new_events.append([row['onset'],row['duration'],row['trial_type']])
+    # all in one array, use this to compute contrasts
+    events_avg = pd.DataFrame({'onset':np.median(np.array(onsets),axis=0),'duration':np.median(np.array(durations),axis=0),'trial_type':all_events[0]['trial_type']})
+    print('computed median events')
 
-            df = pd.DataFrame(new_events, columns=['onset','duration','trial_type'])  #make sure only relevant columns present
-            all_events.append(df)
-
-        # make median event dataframe
-        onsets = []
-        durations = []
-        for w in range(len(all_events)):
-            onsets.append(all_events[w]['onset'])
-            durations.append(all_events[w]['duration'])
-
-        # append median event for sub, in all sub list
-        onsets_allsubs.append(np.median(np.array(onsets),axis=0)) #append average onset of all runs
-        durations_allsubs.append(np.median(np.array(durations),axis=0))
-
-    # all subjects in one array, use this to compute contrasts
-    events_avg = pd.DataFrame({'onset':np.median(np.array(onsets_allsubs),axis=0),'duration':np.median(np.array(durations_allsubs),axis=0),'trial_type':all_events[0]['trial_type']})
-    print('computed median events, from averaging events of %d subs'%np.array(onsets_allsubs).shape[0])
-
-    return events_avg    
+    return events_avg     
 
 
 
@@ -1853,4 +1845,54 @@ def max_RF2PA(RF):
 
 def smooth_RF(RF,sigma = 5):
     return ndimage.gaussian_filter(RF,sigma)
+
+
+def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
+              start_zero=False,color='g',alpha=0.5, **param_dict):
+    """
+    Plot polar histogram of angles on ax. ax must have been created using
+    subplot_kw=dict(projection='polar'). Angles are expected in radians.
+    """
+    # Wrap angles to [-pi, pi)
+    angles = (angles + np.pi) % (2*np.pi) - np.pi
+
+    # Set bins symetrically around zero
+    if start_zero:
+        # To have a bin edge at zero use an even number of bins
+        if bins % 2:
+            bins += 1
+        bins = np.linspace(-np.pi, np.pi, num=bins+1)
+
+    # Bin data and record counts
+    count, bin = np.histogram(angles, bins=bins)
+
+    # Compute width of each bin
+    widths = np.diff(bin)
+
+    # By default plot density (frequency potentially misleading)
+    if density is None or density is True:
+        # Area to assign each bin
+        area = count / angles.size
+        # Calculate corresponding bin radius
+        radius = (area / np.pi)**.5
+    else:
+        radius = count
+
+    # Plot data on ax
+    ax.bar(bin[:-1], radius, zorder=1, align='edge', width=widths,
+           edgecolor='0.5', fill=True, linewidth=1,color=color,alpha=alpha)
+
+    # Set the direction of the zero angle
+    ax.set_theta_offset(offset)
+
+    # Remove ylabels, they are mostly obstructive and not informative
+    ax.set_yticks([])
+
+    if lab_unit == "radians":
+        label = ['$0$', r'$\pi/4$', r'$\pi/2$', r'$3\pi/4$',
+                  r'$\pi$', r'$5\pi/4$', r'$3\pi/2$', r'$7\pi/4$']
+        ax.set_xticklabels(label)
+
+
+        
 
