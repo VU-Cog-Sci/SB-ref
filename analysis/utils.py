@@ -1375,7 +1375,7 @@ def make_median_soma_sub(sub,filepath,out_dir,file_extension='sg_psc.func.gii'):
     print('functional files from %s' % filepath)
 
     # list of functional files (4 runs)
-    filename = [run for run in os.listdir(filepath) if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
+    filename = [os.path.join(filepath,run) for run in os.listdir(filepath) if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
     filename.sort()
 
     # loads median run functional files and saves the absolute path name in list
