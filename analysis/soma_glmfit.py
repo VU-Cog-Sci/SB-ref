@@ -275,12 +275,9 @@ for _,sub in enumerate (all_subs): # for sub or all subs
     fine_contrasts = [x for x in os.listdir(out_dir) if '_contrast_thresh-%.2f_rsq-%.2f.npy'%(z_threshold,rsq_threshold) in x]
     contrast2smooth = general_contrasts + fine_contrasts; contrast2smooth.sort()
 
-    # get mid vertex index (diving hemispheres)
-    left_index = cortex.db.get_surfinfo('fsaverage').left.shape[0] 
-    
     # new output folder for smoothed files
     new_out = os.path.join(out_dir,'smooth%d'%analysis_params['smooth_fwhm'])
-    
+
     # path to save smooth contrasts, for testing
     if not os.path.exists(new_out):  # check if path exists
         os.makedirs(new_out)
@@ -291,53 +288,22 @@ for _,sub in enumerate (all_subs): # for sub or all subs
         zload = np.load(os.path.join(out_dir,file),allow_pickle=True)
 
         # check if smooth file exists, else make it
-        if not os.path.exists(os.path.join(new_out,file.replace('.npy','_smooth-%.2f.npy'%analysis_params['smooth_fwhm']))):
+        if not os.path.exists(os.path.join(new_out,file)):
+            smooth_nparray(os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=str(sub).zfill(2))),
+                           zload,
+                           new_out,
+                           'zscore',
+                           file,
+                            n_TR=141,
+                           file_extension=file_extension,
+                           sub_mesh='fsaverage',
+                           smooth_fwhm=analysis_params['smooth_fwhm'])
 
-            smooth_array = [] # to save final array
-
-            # smooth each hemi at a time
-            for field in ['hemi-L', 'hemi-R']:
-                hemi = [h for h in filename if field in h]
-
-                median_filename = 'sub-{sj}'.format(sj=sj)+'_task-soma_run-median_space-fsaverage_'+field+'_'+file_extension
-
-                if field=='hemi-L':
-                    file_4smoothing = zload[0:left_index]
-                else:
-                    file_4smoothing = zload[left_index::]
-
-                img_load = nb.load(hemi[0]) # load run just to get header
-
-                smooth_out = os.path.join(out_dir,'smooth_files') # temporary folder to save files (should remove in the end to save memory)
-                # path to save smoothed files
-                if not os.path.exists(smooth_out):  # check if path exists
-                    os.makedirs(smooth_out)
-
-                new_filename = os.path.join(smooth_out,median_filename.replace('.func.gii','_estimate.func.gii'))
-
-                print('saving %s'%new_filename)
-                est_array_tiled = np.tile(file_4smoothing[np.newaxis,...],(data.shape[-1],1)) # NEED TO DO THIS 4 MGZ to actually be read (header is of func file)
-                darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
-                estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
-                                                   extra=img_load.extra,
-                                                   darrays=darrays) # need to save as gii
-
-                nb.save(estimates_gii,new_filename)
-
-                _,smo_estimates_path = smooth_gii(new_filename,smooth_out,fwhm=analysis_params['smooth_fwhm'])
-
-                # load it and apend in array
-                smooth_zfile = nb.load(smo_estimates_path)
-                smooth_array.append(np.array([smooth_zfile.darrays[i].data for i in range(len(smooth_zfile.darrays))]))
+        else:
+            print('smoothed %s already exists'%file)
 
 
-
-            np.save(os.path.join(new_out,file.replace('.npy','_smooth-%.2f.npy'%analysis_params['smooth_fwhm'])),np.concatenate((smooth_array[0][0],smooth_array[1][0])))
-
-            if os.path.exists(smooth_out):  # check if path exists
-                print('deleting %s to save memory'%str(smooth_out))
-                shutil.rmtree(smooth_out)
-
+        # not smoothed, "normal" contrasts
         if sj == 'median': # save all in dict to later make median contrast
             
             if file not in all_contrasts:
@@ -345,12 +311,12 @@ for _,sub in enumerate (all_subs): # for sub or all subs
             else:
                 all_contrasts[file] = np.vstack((all_contrasts[file], zload))
 
+
 # calculate median contrasts, save and then smooth
 if sj == 'median':
     # soma out path (where to save contrasts)
     out_dir = os.path.join(analysis_params['soma_outdir'],'new_fits','sub-{sj}'.format(sj=sj))
 
-    # path to save fits, for testing
     if not os.path.exists(out_dir):  # check if path exists
         os.makedirs(out_dir)
 
@@ -373,52 +339,20 @@ if sj == 'median':
             os.makedirs(new_out)
 
             # check if smooth file exists, else make it
-        if not os.path.exists(os.path.join(new_out,file.replace('.npy','_smooth-%.2f.npy'%analysis_params['smooth_fwhm']))):
+        if not os.path.exists(os.path.join(new_out,file)):
+            smooth_nparray(os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=str(all_subs[0]).zfill(2))),
+                           med_contrast,
+                           new_out,
+                           'zscore',
+                           file,
+                            n_TR=141,
+                           file_extension=file_extension,
+                           sub_mesh='fsaverage',
+                           smooth_fwhm=analysis_params['smooth_fwhm'])
 
-            smooth_array = [] # to save final array
-
-            # smooth each hemi at a time
-            for field in ['hemi-L', 'hemi-R']:
-                hemi = [h for h in filename if field in h]
-
-                median_filename = 'sub-{sj}'.format(sj=sj)+'_task-soma_run-median_space-fsaverage_'+field+'_'+file_extension
-
-                if field=='hemi-L':
-                    file_4smoothing = med_contrast[0:left_index]
-                else:
-                    file_4smoothing = med_contrast[left_index::]
-
-                img_load = nb.load(hemi[0]) # load run just to get header
-
-                smooth_out = os.path.join(out_dir,'smooth_files') # temporary folder to save files (should remove in the end to save memory)
-                # path to save smoothed files
-                if not os.path.exists(smooth_out):  # check if path exists
-                    os.makedirs(smooth_out)
-
-                new_filename = os.path.join(smooth_out,median_filename.replace('.func.gii','_estimate.func.gii'))
-
-                print('saving %s'%new_filename)
-                est_array_tiled = np.tile(file_4smoothing[np.newaxis,...],(data.shape[-1],1)) # NEED TO DO THIS 4 MGZ to actually be read (header is of func file)
-                darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
-                estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
-                                                   extra=img_load.extra,
-                                                   darrays=darrays) # need to save as gii
-
-                nb.save(estimates_gii,new_filename)
-
-                _,smo_estimates_path = smooth_gii(new_filename,smooth_out,fwhm=analysis_params['smooth_fwhm'])
-
-                # load it and apend in array
-                smooth_zfile = nb.load(smo_estimates_path)
-                smooth_array.append(np.array([smooth_zfile.darrays[i].data for i in range(len(smooth_zfile.darrays))]))
-
-
-            np.save(os.path.join(new_out,file.replace('.npy','_smooth-%.2f.npy'%analysis_params['smooth_fwhm'])),np.concatenate((smooth_array[0][0],smooth_array[1][0])))
-
-            if os.path.exists(smooth_out):  # check if path exists
-                print('deleting %s to save memory'%str(smooth_out))
-                shutil.rmtree(smooth_out)
-        
+        else:
+            print('smoothed %s already exists'%file)
+      
 
 print('Success!')
 
