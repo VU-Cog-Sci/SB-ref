@@ -49,6 +49,7 @@ file_extension = 'sg_psc.func.gii'
 # make list with subject number (or all subject number if we want median contrast)
 if sj == 'median':
     all_subs = ['01','02','03','04','05','08','09','11','12','13']
+    all_contrasts = {}
 else:
     all_subs = [sj]
 
