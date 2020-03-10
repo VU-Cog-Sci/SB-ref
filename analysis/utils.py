@@ -46,6 +46,8 @@ from prfpy.rf import *
 from joblib import Parallel, delayed
 
 import scipy.ndimage as ndimage
+import shutil
+
 
 
 with open('analysis_params.json','r') as json_file:
@@ -1698,24 +1700,37 @@ def equal_bin(arr,num_bins=4):
 # make function that takes array with shape (vertices,), with some soma estimate or relevant quantification4 plotting
 # for whole brain and smooths it
 
-def smooth_soma_array(header_dir,arr,out_dir,filestr,n_TR=141,file_extension='_sg_psc.func.gii'):
+def smooth_nparray(header_dir,arr,out_dir,filestr,new_filename,
+                 n_TR=141,file_extension='sg_psc.func.gii',sub_mesh='fsaverage',smooth_fwhm=analysis_params['smooth_fwhm']):
+    ## smooth any array, needs a actual gii file
+    # for reference
+    
+    #### INPUTS #####
     # header_dir - dir to get an example gii file for header (need it to convert arr to gii before smoothing)
-    # arr - array to smooth
-    # out_dir - absolute path to save new gii array (non smoothed and smoothed)
+    # arr - numpy array to smooth
+    # out_dir - absolute path to save new smooth array
     # filestr - string to add to name of new gii (identifier)
     
-    # returns smoothed array
+    #### OUTPUTS #####
     
+    # get mid vertex index (diving hemispheres)
+    left_index = cortex.db.get_surfinfo(sub_mesh).left.shape[0] 
+
+    # new output folder for smoothed files
+    new_out = os.path.join(out_dir,'temp_smooth')
+    
+    # path to save smooth contrasts
+    if not os.path.exists(new_out):  # check if path exists
+        os.makedirs(new_out)
+
     smooth_filename = []
-    
+        
     for field in ['hemi-L', 'hemi-R']:
-        
-        num_vert_hemi = int(arr.shape[0]/2) #number of vertices in one hemisphere
-        
+                
         if field=='hemi-L':
-            arr_4smoothing = arr[0:num_vert_hemi]
+            arr_4smoothing = arr[0:left_index]
         else:
-            arr_4smoothing = arr[num_vert_hemi::]
+            arr_4smoothing = arr[left_index::]
         
         # load run just to get header
         filename = [run for run in os.listdir(header_dir) if 'soma' in run and 'fsaverage' in run and field in run and run.endswith(file_extension)]
@@ -1724,19 +1739,18 @@ def smooth_soma_array(header_dir,arr,out_dir,filestr,n_TR=141,file_extension='_s
         img_load = nb.load(os.path.join(header_dir,filename[0]))
         
         # absolute path of new gii
-        out_filename = os.path.join(out_dir,filestr+'_'+field+file_extension)
+        out_filename = os.path.join(new_out,filestr+'_'+field+'_'+file_extension)
         
         print('saving %s'%out_filename)
         est_array_tiled = np.tile(arr_4smoothing[np.newaxis,...],(n_TR,1)) # NEED TO DO THIS 4 MGZ to actually be read (header is of func file)
         darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
         estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
-                                           extra=img_load.extra,
-                                           darrays=darrays) # need to save as gii
-        
+                                                   extra=img_load.extra,
+                                                   darrays=darrays) # need to save as gii
         
         nb.save(estimates_gii,out_filename)
 
-        _,smo_estimates_path = smooth_gii(out_filename,out_dir,fwhm=analysis_params['smooth_fwhm'])
+        _,smo_estimates_path = smooth_gii(out_filename,new_out,fwhm=smooth_fwhm)
 
         smooth_filename.append(smo_estimates_path)
         print('saving %s'%smo_estimates_path)
@@ -1747,7 +1761,14 @@ def smooth_soma_array(header_dir,arr,out_dir,filestr,n_TR=141,file_extension='_s
         img_load = nb.load(name)
         smooth_arr.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
     out_array = np.concatenate((smooth_arr[0][0],smooth_arr[1][0]))  
-        
+    
+    print('saving smoothed file in %s'%os.path.join(out_dir,new_filename))
+    np.save(os.path.join(out_dir,new_filename),out_array)
+
+    if os.path.exists(new_out):  # check if path exists
+        print('deleting %s to save memory'%str(new_out))
+        shutil.rmtree(new_out)
+
     return out_array
 
 
