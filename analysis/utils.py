@@ -1359,57 +1359,48 @@ def compute_stats(voxel, dm, contrast,betas):
     return t_val,p_val,z_score
     
 
-def make_median_soma_sub(all_subs,file_extension,out_dir,median_gii=median_gii):
-    # input sub list, file extension, out_dir, function to make median run
+def make_median_soma_sub(sub,filepath,out_dir,file_extension='sg_psc.func.gii'):
+    
+    # function that makes median data file for x runs of sub 
+    
+    ##### INPUT###
+    # sub - str with subject number
+    # filepath - absolute path to all events files for that sub
+    # out_dir - absolute path to save computed median gii
+    ### OUTPUT #######
+    # data - numpy array (vertex, TR)
+    
+    print('functional files from %s' % filepath)
 
-    for idx,sub in enumerate(all_subs):
-        # path to functional files
-        filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=sub), '*'))
-        print('functional files from %s' % os.path.split(filepath[0])[0])
+    # list of functional files (4 runs)
+    filename = [run for run in os.listdir(filepath) if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
+    filename.sort()
 
-        # list of functional files (5 runs)
-        filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
-        filename.sort()
+    # loads median run functional files and saves the absolute path name in list
+    med_gii = [] 
+    for field in ['hemi-L', 'hemi-R']:
+        hemi = [h for h in filename if field in h]
 
-        ##### compute median run for soma and load data #####
-
-        # loads median run functional files and saves the absolute path name in list
-        med_gii = [] 
-        for field in ['hemi-L', 'hemi-R']:
-            hemi = [h for h in filename if field in h]
-
-            # set name for median run (now numpy array)
-            med_file = os.path.join(out_dir, re.sub(
-                'run-\d{2}_', 'run-median_', os.path.split(hemi[0])[-1]))
-            # if file doesn't exist
-            if not os.path.exists(med_file):
-                med_gii.append(median_gii(hemi, out_dir))  # create it
-                print('computed %s' % (med_gii))
-            else:
-                med_gii.append(med_file)
-                print('median file %s already exists, skipping' % (med_gii))
-
-        # load data for median run, one hemisphere 
-        hemi = ['hemi-L','hemi-R']
-
-        data = []
-        for _,h in enumerate(hemi):
-            gii_file = med_gii[0] if h == 'hemi-L' else  med_gii[1]
-            print('using %s' %gii_file)
-            data.append(np.array(surface.load_surf_data(gii_file)))
-
-        data = np.vstack(data) # will be (vertex, TR)
-
-        if idx == 0:
-            median_sub = data[np.newaxis,:,:]
+        # set name for median run (now numpy array)
+        med_file = os.path.join(out_dir, re.sub(
+            'run-\d{2}_', 'run-median_', os.path.split(hemi[0])[-1]))
+        # if file doesn't exist
+        if not os.path.exists(med_file):
+            med_gii.append(median_gii(hemi, out_dir))  # create it
+            print('computed %s' % (med_gii))
         else:
-            median_sub = np.vstack((median_sub,data[np.newaxis,:,:]))
+            med_gii.append(med_file)
+            print('median file %s already exists, skipping' % (med_gii))
 
+    data = [] # actually load data
+    for _,h in enumerate(['hemi-L', 'hemi-R']):
+        gii_file = med_gii[0] if h == 'hemi-L' else  med_gii[1]
+        print('using %s' %gii_file)
+        data.append(np.array(surface.load_surf_data(gii_file)))
 
-    print('computed median subject, from averaging %d subs'%median_sub.shape[0])
-    median_data_all = np.median(median_sub,axis=0)
-
-    return median_data_all
+    data = np.vstack(data) # will be (vertex, TR)
+    
+    return data
 
 def make_median_soma_events(sub,eventdir):
     

@@ -75,36 +75,10 @@ for _,sub in enumerate (all_subs): # for sub or all subs
 
     ## average data file
     # path to functional files
-    filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=sub), '*'))
-    print('functional files from %s' % os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=sub)))
-
-    # list of functional files (4 runs)
-    filename = [run for run in filepath if 'soma' in run and 'fsaverage' in run and run.endswith(file_extension)]
-    filename.sort()
-
-    # loads median run functional files and saves the absolute path name in list
-    med_gii = [] 
-    for field in ['hemi-L', 'hemi-R']:
-        hemi = [h for h in filename if field in h]
-
-        # set name for median run (now numpy array)
-        med_file = os.path.join(out_dir, re.sub(
-            'run-\d{2}_', 'run-median_', os.path.split(hemi[0])[-1]))
-        # if file doesn't exist
-        if not os.path.exists(med_file):
-            med_gii.append(median_gii(hemi, out_dir))  # create it
-            print('computed %s' % (med_gii))
-        else:
-            med_gii.append(med_file)
-            print('median file %s already exists, skipping' % (med_gii))
-
-    data = [] # actually load data
-    for _,h in enumerate(['hemi-L', 'hemi-R']):
-        gii_file = med_gii[0] if h == 'hemi-L' else  med_gii[1]
-        print('using %s' %gii_file)
-        data.append(np.array(surface.load_surf_data(gii_file)))
-
-    data = np.vstack(data) # will be (vertex, TR)
+    filepath = os.path.join(analysis_params['post_fmriprep_outdir'], 'soma', 'sub-{sj}'.format(sj=str(sub).zfill(2)))
+    
+    # load data array for sub    
+    data = make_median_soma_sub(sub,filepath,out_dir,file_extension=file_extension)
     
     # specifying the timing of fMRI frames
     frame_times = TR * (np.arange(data.shape[-1]))
