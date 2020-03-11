@@ -1701,7 +1701,7 @@ def equal_bin(arr,num_bins=4):
 # for whole brain and smooths it
 
 def smooth_nparray(header_dir,arr,out_dir,filestr,new_filename,
-                 n_TR=141,file_extension='sg_psc.func.gii',sub_mesh='fsaverage',smooth_fwhm=analysis_params['smooth_fwhm']):
+                 n_TR=141,file_extension='sg_psc.func.gii',sub_mesh='fsaverage',smooth_fwhm=analysis_params['smooth_fwhm'],task='soma'):
     ## smooth any array, needs a actual gii file
     # for reference
     
@@ -1733,7 +1733,7 @@ def smooth_nparray(header_dir,arr,out_dir,filestr,new_filename,
             arr_4smoothing = arr[left_index::]
         
         # load run just to get header
-        filename = [run for run in os.listdir(header_dir) if 'soma' in run and 'fsaverage' in run and field in run and run.endswith(file_extension)]
+        filename = [run for run in os.listdir(header_dir) if task in run and 'fsaverage' in run and field in run and run.endswith(file_extension)]
         filename.sort()
         
         img_load = nb.load(os.path.join(header_dir,filename[0]))
