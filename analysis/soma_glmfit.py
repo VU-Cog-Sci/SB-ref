@@ -215,9 +215,9 @@ for _,sub in enumerate (all_subs): # for sub or all subs
         print('For %s' %lbl)
 
         if lbl == 'lhand': # estou aqui, pensar melhor nisto
-            data_RLmask = mask_data(data_upmask,zmaps_all['RL_hand'],side='below')
+            data_RLmask = mask_data(data_upmask,zmaps_all['RL_hand'],threshold=z_threshold,side='below')
         elif lbl == 'rhand':
-            data_RLmask = mask_data(data_upmask,zmaps_all['RL_hand'],side='above')
+            data_RLmask = mask_data(data_upmask,zmaps_all['RL_hand'],threshold=z_threshold,side='above')
 
         hand_label = [s for s in analysis_params['all_contrasts']['upper_limb'] if lbl in s] #list of all fingers in one hand  
         otherfings = leave_one_out_lists(hand_label) # list of lists with other fingers to contrast 

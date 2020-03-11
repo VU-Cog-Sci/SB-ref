@@ -257,7 +257,7 @@ alpha_ones[alpha_mask] = np.nan
 # vertex for rsq
 images = {}
 
-images['rsq'] = cortex.Vertex2D(rsq, alpha_ones, 'fsaverage',
+images['rsq'] = cortex.Vertex2D(rsq, alpha_ones, 'fsaverage_gross',
                            vmin=0, vmax=1.0,
                            vmin2=0, vmax2=1.0, cmap='Reds_cov')
 
@@ -280,7 +280,7 @@ data_threshed_leg = zthresh(leg_contrast,threshold=z_threshold,side='above')
 
 
 # vertex for face vs all others
-images['v_face'] = cortex.Vertex(face_contrast, 'fsaverage',
+images['v_face'] = cortex.Vertex(face_contrast, 'fsaverage_gross',
                            vmin=0, vmax=7,
                            cmap='Blues')
 
@@ -290,7 +290,7 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_face'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 # vertex for face vs all others - with zscore thresholding
-images['v_face'] = cortex.Vertex(data_threshed_face, 'fsaverage',
+images['v_face'] = cortex.Vertex(data_threshed_face, 'fsaverage_gross',
                            vmin=0, vmax=7,
                            cmap='Blues')
 
@@ -301,7 +301,7 @@ _ = cortex.quickflat.make_png(filename, images['v_face'], recache=False,with_col
 
 
 # vertex for hand vs all others
-images['v_hand'] = cortex.Vertex(hand_contrast, 'fsaverage',
+images['v_hand'] = cortex.Vertex(hand_contrast, 'fsaverage_gross',
                            vmin=0, vmax=7,
                            cmap='Blues')
 
@@ -322,7 +322,7 @@ _ = cortex.quickflat.make_png(filename, images['v_hand'], recache=False,with_col
 
 
 # vertex for leg vs all others
-images['v_leg'] = cortex.Vertex(data_threshed_leg, 'fsaverage',
+images['v_leg'] = cortex.Vertex(data_threshed_leg, 'fsaverage_gross',
                            vmin=0, vmax=7,
                            cmap='Blues')
 
@@ -333,7 +333,7 @@ _ = cortex.quickflat.make_png(filename, images['v_leg'], recache=False,with_colo
 
 
 # vertex for leg vs all others - with zscore thresholding
-images['v_leg'] = cortex.Vertex(leg_contrast, 'fsaverage',
+images['v_leg'] = cortex.Vertex(leg_contrast, 'fsaverage_gross',
                            vmin=0, vmax=7,
                            cmap='Blues')
 
@@ -349,7 +349,7 @@ combined_zvals = np.array((data_threshed_face,data_threshed_hand,data_threshed_l
 print('Computing center of mass for different regions combined')
 soma_labels, soma_zval = zsc_2_COM(combined_zvals)
 
-images['v_combined_alpha'] = cortex.Vertex(soma_labels, 'fsaverage',
+images['v_combined_alpha'] = cortex.Vertex(soma_labels, 'fsaverage_gross',
                            vmin=0, vmax=2,
                            cmap='rainbow')#BROYG_2D')#'my_autumn')
 
@@ -364,16 +364,47 @@ _ = cortex.quickflat.make_png(filename, images['v_combined_alpha'], recache=Fals
 RLupper_zscore = np.load(os.path.join(contrast_dir,'z_right-left_hand_contrast_thresh-%0.2f_rsq-%.2f.npy'%(z_threshold,rsq_threshold)))
 RLlower_zscore = np.load(os.path.join(contrast_dir,'z_right-left_leg_contrast_thresh-%0.2f_rsq-%.2f.npy'%(z_threshold,rsq_threshold)))
 
+# make red blue costum colormap
+# not sure if needed but ok for now
+n_bins = 100  # Discretizes the interpolation into bins
+RBalpha_dict = {'red':  ((0.0, 0.0, 0.0),
+                   (0.25, 0.0, 0.0),
+                   (0.5, 0.8, 1.0),
+                   (0.75, 1.0, 1.0),
+                   (1.0, 0.4, 1.0)),
 
-# vertex for right vs left hand
-images['rl_upper'] = cortex.Vertex2D(RLupper_zscore,alpha_ones, 'fsaverage',
-                           vmin=-7, vmax=7,
-                           vmin2=0, vmax2=1,
-                           cmap='BuBkRd_alpha_2D')
+         'green': ((0.0, 0.0, 0.0),
+                   (0.25, 0.0, 0.0),
+                   (0.5, 0.9, 0.9),
+                   (0.75, 0.0, 0.0),
+                   (1.0, 0.0, 0.0)),
 
-#images['rl_upper'] = cortex.Vertex(data_threshed_RLhand, 'fsaverage',
-#                           vmin=-7, vmax=7,
-#                           cmap=blue_red)
+         'blue':  ((0.0, 0.0, 0.4),
+                   (0.25, 1.0, 1.0),
+                   (0.5, 1.0, 0.8),
+                   (0.75, 0.0, 0.0),
+                   (1.0, 0.0, 0.0)),
+          
+          'alpha': ((0.0, 1.0, 1.0),
+                   (0.25,1.0, 1.0),
+                    (0.5, 0.3, 0.3),
+                   (0.75,1.0, 1.0),
+                    (1.0, 1.0, 1.0))
+        }
+
+blue_red = LinearSegmentedColormap('BlueRed_alpha', RBalpha_dict, N=n_bins)
+matcm.register_cmap(name='BlueRed_alpha', cmap=blue_red) # register it in matplotlib lib
+
+
+# # vertex for right vs left hand
+# images['rl_upper'] = cortex.Vertex2D(RLupper_zscore,alpha_ones, 'fsaverage_gross',
+#                            vmin=-7, vmax=7,
+#                            vmin2=0, vmax2=1,
+#                            cmap='BuBkRd_alpha_2D')
+
+images['rl_upper'] = cortex.Vertex(RLupper_zscore, 'fsaverage',
+                          vmin=-7, vmax=7,
+                          cmap=blue_red)
 
 #cortex.quickshow(images['rl_upper'],with_curvature=True,with_sulci=True,with_colorbar=True)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-RL-hands.svg' %(rsq_threshold,z_threshold))
@@ -381,15 +412,15 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
-# vertex for right vs left leg
-images['rl_lower'] = cortex.Vertex2D(RLlower_zscore,alpha_ones, 'fsaverage',
-                           vmin=-7, vmax=7,
-                           vmin2=0, vmax2=1,
-                           cmap='BuBkRd_alpha_2D')
+# # vertex for right vs left leg
+# images['rl_lower'] = cortex.Vertex2D(RLlower_zscore,alpha_ones, 'fsaverage_gross',
+#                            vmin=-7, vmax=7,
+#                            vmin2=0, vmax2=1,
+#                            cmap='BuBkRd_alpha_2D')
 
-#images['rl_lower'] = cortex.Vertex(data_threshed_RLleg, 'fsaverage',
-#                           vmin=-7, vmax=7,
-#                           cmap=blue_red)
+images['rl_lower'] = cortex.Vertex(RLlower_zscore, 'fsaverage',
+                          vmin=-7, vmax=7,
+                          cmap=blue_red)
 
 #cortex.quickshow(images['rl_lower'],with_curvature=True,with_sulci=True,with_colorbar=True)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-RL-legs.svg' %(rsq_threshold,z_threshold))
@@ -425,7 +456,7 @@ RH_COM , RH_avgzval = zsc_2_COM(RHfing_zscore)
 
 # all fingers left hand combined ONLY in left hand region 
 # (as defined by LvsR hand contrast values)
-images['v_Lfingers'] = cortex.Vertex(LH_COM, 'fsaverage',
+images['v_Lfingers'] = cortex.Vertex(LH_COM, 'fsaverage_gross',
                            vmin=0, vmax=4,
                            cmap='J4')#costum colormap added to database
 
@@ -437,7 +468,7 @@ _ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=False,with
 
 # all fingers right hand combined ONLY in right hand region 
 # (as defined by LvsR hand contrast values)
-images['v_Rfingers'] = cortex.Vertex(RH_COM, 'fsaverage',
+images['v_Rfingers'] = cortex.Vertex(RH_COM, 'fsaverage_gross',
                            vmin=0, vmax=4,
                            cmap='J4')#costum colormap added to database
 
@@ -447,40 +478,40 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
-# threshold left vs right, to only show relevant vertex 
-# (i.e., where zscore is "significant", use it to mask hands for plotting)
-#data_threshed_RLhand=zthresh(RLupper_zscore,threshold=z_threshold,side='both')
+# # threshold left vs right, to only show relevant vertex 
+# # (i.e., where zscore is "significant", use it to mask hands for plotting)
+# data_threshed_RLhand=zthresh(RLupper_zscore,threshold=z_threshold,side='both')
 
-RLhand_mask = np.array([True if np.isnan(val) else False for _,val in enumerate(data_threshed_hand)])
+# RLhand_mask = np.array([True if np.isnan(val) else False for _,val in enumerate(data_threshed_RLhand)])
 
-LH_COM_4plot = LH_COM.copy()
-LH_COM_4plot[RLhand_mask] = np.nan
+# LH_COM_4plot = LH_COM.copy()
+# LH_COM_4plot[RLhand_mask] = np.nan
 
-# all fingers left hand combined ONLY in left hand region 
-# (as defined by LvsR hand contrast values)
-images['v_Lfingers'] = cortex.Vertex(LH_COM_4plot, 'fsaverage',
-                           vmin=0, vmax=4,
-                           cmap='J4')#costum colormap added to database
+# # all fingers left hand combined ONLY in left hand region 
+# # (as defined by LvsR hand contrast values)
+# images['v_Lfingers'] = cortex.Vertex(LH_COM_4plot, 'fsaverage_gross',
+#                            vmin=0, vmax=4,
+#                            cmap='J4')#costum colormap added to database
 
-#cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-LH-fingers1-5.svg' %(rsq_threshold,z_threshold))
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
+# #cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
+# filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-LH-fingers1-5.svg' %(rsq_threshold,z_threshold))
+# print('saving %s' %filename)
+# _ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
-RH_COM_4plot = RH_COM.copy()
-RH_COM_4plot[RLhand_mask] = np.nan
+# RH_COM_4plot = RH_COM.copy()
+# RH_COM_4plot[RLhand_mask] = np.nan
 
-# all fingers left hand combined ONLY in left hand region 
-# (as defined by LvsR hand contrast values)
-images['v_Rfingers'] = cortex.Vertex(RH_COM_4plot, 'fsaverage',
-                           vmin=0, vmax=4,
-                           cmap='J4')#costum colormap added to database
+# # all fingers left hand combined ONLY in left hand region 
+# # (as defined by LvsR hand contrast values)
+# images['v_Rfingers'] = cortex.Vertex(RH_COM_4plot, 'fsaverage_gross',
+#                            vmin=0, vmax=4,
+#                            cmap='J4')#costum colormap added to database
 
-#cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-RH-fingers1-5.svg' %(rsq_threshold,z_threshold))
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
+# #cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
+# filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-RH-fingers1-5.svg' %(rsq_threshold,z_threshold))
+# print('saving %s' %filename)
+# _ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
 # all individual face regions combined
@@ -503,7 +534,7 @@ allface_COM , allface_avgzval = zsc_2_COM(allface_zscore)
 
 
 # 'eyebrows', 'eyes', 'mouth','tongue', , combined
-images['v_facecombined'] = cortex.Vertex(allface_COM, 'fsaverage',
+images['v_facecombined'] = cortex.Vertex(allface_COM, 'fsaverage_gross',
                            vmin=0, vmax=3,
                            cmap='J4') #costum colormap added to database
 
@@ -522,7 +553,7 @@ allface_COM_4plot = allface_COM.copy()
 allface_COM_4plot[face_mask] = np.nan
 
 # 'eyebrows', 'eyes', 'mouth','tongue', , combined
-images['v_facecombined'] = cortex.Vertex(allface_COM_4plot, 'fsaverage',
+images['v_facecombined'] = cortex.Vertex(allface_COM_4plot, 'fsaverage_gross',
                            vmin=0, vmax=3,
                            cmap='J4') #costum colormap added to database
 
