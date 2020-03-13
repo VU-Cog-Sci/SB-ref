@@ -414,8 +414,10 @@ _ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=False,with_c
 
 
 # mask to only show relevant voxels
+rl_mask_lower = np.array([True if np.isnan(val) else False for _,val in enumerate(data_threshed_leg)])
+
 RLlower_zscore_4plot = RLlower_zscore.copy()
-RLlower_zscore_4plot[rl_mask] = np.nan
+RLlower_zscore_4plot[rl_mask_lower] = np.nan
 
 images['rl_lower'] = cortex.Vertex(RLlower_zscore_4plot, 'fsaverage',
                           vmin=-7, vmax=7,
