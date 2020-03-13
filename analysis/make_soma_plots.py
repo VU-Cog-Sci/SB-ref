@@ -396,29 +396,28 @@ blue_red = LinearSegmentedColormap('BlueRed_alpha', RBalpha_dict, N=n_bins)
 matcm.register_cmap(name='BlueRed_alpha', cmap=blue_red) # register it in matplotlib lib
 
 
-# # vertex for right vs left hand
-# images['rl_upper'] = cortex.Vertex2D(RLupper_zscore,alpha_ones, 'fsaverage_gross',
-#                            vmin=-7, vmax=7,
-#                            vmin2=0, vmax2=1,
-#                            cmap='BuBkRd_alpha_2D')
+# mask to only show relevant voxels
+rl_mask = np.array([True if np.isnan(val) else False for _,val in enumerate(data_threshed_hand)])
 
-images['rl_upper'] = cortex.Vertex(RLupper_zscore, 'fsaverage',
+RLupper_zscore_4plot = RLupper_zscore.copy()
+RLupper_zscore_4plot[rl_mask] = np.nan
+
+
+images['rl_upper'] = cortex.Vertex(RLupper_zscore_4plot, 'fsaverage',
                           vmin=-7, vmax=7,
                           cmap=blue_red)
-
 #cortex.quickshow(images['rl_upper'],with_curvature=True,with_sulci=True,with_colorbar=True)
+
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-RL-hands.svg' %(rsq_threshold,z_threshold))
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['rl_upper'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
-# # vertex for right vs left leg
-# images['rl_lower'] = cortex.Vertex2D(RLlower_zscore,alpha_ones, 'fsaverage_gross',
-#                            vmin=-7, vmax=7,
-#                            vmin2=0, vmax2=1,
-#                            cmap='BuBkRd_alpha_2D')
+# mask to only show relevant voxels
+RLlower_zscore_4plot = RLlower_zscore.copy()
+RLlower_zscore_4plot[rl_mask] = np.nan
 
-images['rl_lower'] = cortex.Vertex(RLlower_zscore, 'fsaverage',
+images['rl_lower'] = cortex.Vertex(RLlower_zscore_4plot, 'fsaverage',
                           vmin=-7, vmax=7,
                           cmap=blue_red)
 
@@ -456,7 +455,11 @@ RH_COM , RH_avgzval = zsc_2_COM(RHfing_zscore)
 
 # all fingers left hand combined ONLY in left hand region 
 # (as defined by LvsR hand contrast values)
-images['v_Lfingers'] = cortex.Vertex(LH_COM, 'fsaverage_gross',
+
+LH_COM_4plot = LH_COM.copy()
+LH_COM_4plot[rl_mask] = np.nan
+
+images['v_Lfingers'] = cortex.Vertex(LH_COM_4plot, 'fsaverage_gross',
                            vmin=0, vmax=4,
                            cmap='J4')#costum colormap added to database
 
@@ -468,7 +471,11 @@ _ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=False,with
 
 # all fingers right hand combined ONLY in right hand region 
 # (as defined by LvsR hand contrast values)
-images['v_Rfingers'] = cortex.Vertex(RH_COM, 'fsaverage_gross',
+
+RH_COM_4plot = RH_COM.copy()
+RH_COM_4plot[rl_mask] = np.nan
+
+images['v_Rfingers'] = cortex.Vertex(RH_COM_4plot, 'fsaverage_gross',
                            vmin=0, vmax=4,
                            cmap='J4')#costum colormap added to database
 
@@ -476,42 +483,6 @@ images['v_Rfingers'] = cortex.Vertex(RH_COM, 'fsaverage_gross',
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-RH-fingers1-5.svg' %(rsq_threshold))
 print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
-
-
-# # threshold left vs right, to only show relevant vertex 
-# # (i.e., where zscore is "significant", use it to mask hands for plotting)
-# data_threshed_RLhand=zthresh(RLupper_zscore,threshold=z_threshold,side='both')
-
-# RLhand_mask = np.array([True if np.isnan(val) else False for _,val in enumerate(data_threshed_RLhand)])
-
-# LH_COM_4plot = LH_COM.copy()
-# LH_COM_4plot[RLhand_mask] = np.nan
-
-# # all fingers left hand combined ONLY in left hand region 
-# # (as defined by LvsR hand contrast values)
-# images['v_Lfingers'] = cortex.Vertex(LH_COM_4plot, 'fsaverage_gross',
-#                            vmin=0, vmax=4,
-#                            cmap='J4')#costum colormap added to database
-
-# #cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
-# filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-LH-fingers1-5.svg' %(rsq_threshold,z_threshold))
-# print('saving %s' %filename)
-# _ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
-
-
-# RH_COM_4plot = RH_COM.copy()
-# RH_COM_4plot[RLhand_mask] = np.nan
-
-# # all fingers left hand combined ONLY in left hand region 
-# # (as defined by LvsR hand contrast values)
-# images['v_Rfingers'] = cortex.Vertex(RH_COM_4plot, 'fsaverage_gross',
-#                            vmin=0, vmax=4,
-#                            cmap='J4')#costum colormap added to database
-
-# #cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
-# filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_zscore-%.2f_type-RH-fingers1-5.svg' %(rsq_threshold,z_threshold))
-# print('saving %s' %filename)
-# _ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
 
 
 # all individual face regions combined
@@ -533,20 +504,8 @@ print('Computing center of mass for face elements %s' %(analysis_params['all_con
 allface_COM , allface_avgzval = zsc_2_COM(allface_zscore)
 
 
-# 'eyebrows', 'eyes', 'mouth','tongue', , combined
-images['v_facecombined'] = cortex.Vertex(allface_COM, 'fsaverage_gross',
-                           vmin=0, vmax=3,
-                           cmap='J4') #costum colormap added to database
-
-#cortex.quickshow(images['v_facecombined'],with_curvature=True,with_sulci=True,with_colorbar=True)
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-eyebrows-eyes-mouth-tongue.svg' %(rsq_threshold))
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=False,with_colorbar=True,with_curvature=True,with_sulci=True)
-
-
 # threshold left vs right, to only show relevant vertex 
-# (i.e., where zscore is "significant", use it to mask hands for plotting)
-
+# (i.e., where zscore is "significant", use it to mask face for plotting)
 face_mask = np.array([True if np.isnan(val) else False for _,val in enumerate(data_threshed_face)])
 
 allface_COM_4plot = allface_COM.copy()
