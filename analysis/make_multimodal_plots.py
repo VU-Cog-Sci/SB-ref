@@ -115,7 +115,7 @@ if not os.path.isfile(rsq_visual_filename):
                            figure_out,
                            'rsq',
                            rsq_visual_filename,
-                           n_TR=141,
+                           n_TR=83,
                            task='prf',
                            file_extension='_cropped_sg_psc.func.gii',
                            sub_mesh='fsaverage',

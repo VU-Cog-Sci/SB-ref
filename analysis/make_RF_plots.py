@@ -1,7 +1,8 @@
+
 # make retino plots
 # which will take as input subject number (01 or median)
 # and produce relevant plots to check retinotopy
-# save plots in figures/prf folder within derivatives
+# save plots in figures/prf/fig_final folder within derivatives
 
 
 import os, json
@@ -18,6 +19,17 @@ import cortex
 import seaborn as sns
 import pandas as pd
 
+import scipy
+
+import matplotlib.patches as patches
+from statsmodels.stats import weightstats
+import matplotlib.gridspec as gridspec
+
+import random
+
+from matplotlib.lines import Line2D
+
+import itertools
 
 # requires pfpy be installed - preferably with python setup.py develop
 from prfpy.rf import *
@@ -27,14 +39,6 @@ from prfpy.grid import Iso2DGaussianGridder,CSS_Iso2DGaussianGridder
 from prfpy.fit import Iso2DGaussianFitter, CSS_Iso2DGaussianFitter
 
 from popeye import utilities 
-
-import matplotlib.gridspec as gridspec
-import scipy
-
-import matplotlib.patches as patches
-from statsmodels.stats import weightstats
-
-import random
 
 
 # define participant number and open json parameter file
@@ -61,579 +65,476 @@ iterative_fit = True #True
 total_chunks = analysis_params['total_chunks']
 
 # define paths to save plots
-figure_out = os.path.join(analysis_params['derivatives'],'figures','prf',fit_model)
+figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','final_fig',fit_model)
+
+
+# set threshold for plotting
+rsq_threshold=0.17
+
 
 if iterative_fit==True:
     figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj))
 else:
     figure_out = os.path.join(figure_out,'grid','sub-{sj}'.format(sj=sj))
-    
-if with_smooth=='True':
-    figure_out = os.path.join(figure_out,'smooth%d'%analysis_params['smooth_fwhm'],'chunks_'+str(total_chunks).zfill(3))
-else:
-    figure_out = os.path.join(figure_out,'chunks_'+str(total_chunks).zfill(3))
-    
+        
 if not os.path.exists(figure_out): # check if path to save figures exists
     os.makedirs(figure_out) 
 
 print('saving figures in %s'%figure_out)
 
-
-## Load PRF estimates ##
-if sj=='median':
-    estimates = median_pRFestimates(analysis_params['pRF_outdir'], model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'],total_chunks=total_chunks) # load unsmoothed estimates, will smooth later
-    
-    print('computed median estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
-    xx = estimates['x']
-    yy = estimates['y']
-    rsq = estimates['r2']
-    size = estimates['size']
-    beta = estimates['betas']
-    baseline = estimates['baseline']
-    ns = estimates['ns']
-    
+# make list with subjects to append and use (or not)
+if sj == 'median':
+    excl_subs = ['sub-07']
 else:
+    all_subs = ['01','02','03','04','05','07','08','09','11','12','13']
+    excl_subs = ['sub-'+name for _,name in enumerate(all_subs) if name!=sj]
 
-    median_path = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'run-median','chunks_'+str(total_chunks))
+# first append estimates (if median) or load if single sub
+estimates = append_pRFestimates(analysis_params['pRF_outdir'],
+                                    model=fit_model,iterative=iterative_fit,exclude_subs=excl_subs,total_chunks=total_chunks)
+
+print('appended estimates for %s excluded %s'%(str(estimates['subs']),str(estimates['exclude_subs'])))
+
+
+# now mask them according to screen dimensions
+masked_xx = []
+masked_yy = []
+masked_size = []
+masked_beta = []
+masked_baseline = []
+masked_rsq = []
+masked_ns = []
+masked_polar_angle = []
+masked_eccentricity = []
+
+for w,subject in enumerate(estimates['subs']): # loop once if one subject, or for all subjects when sj 'all'
+
+    # set limits for xx and yy, forcing it to be within the screen boundaries
+    if subject in ['sub-02','sub-11','sub-12','sub-13']: # linux computer has different res
+        vert_lim_dva = (analysis_params['screenRes_HD'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
+        hor_lim_dva = (analysis_params['screenRes_HD'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
+    else:    
+        vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
+        hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
+
+    # make new variables that are masked (center of RF within screen limits and only positive pRFs)
+    # also max size of RF is 10 dva
+    print('masking variables to be within screen and only show positive RF for sub %s'%subject)
+    new_estimates = mask_estimates(estimates['x'][w],estimates['y'][w],
+                                   estimates['size'][w],estimates['betas'][w],
+                                   estimates['baseline'][w],estimates['r2'][w],
+                                   vert_lim_dva,hor_lim_dva,ns=estimates['ns'][w])
+
+    masked_xx.append(new_estimates['x'])
+    masked_yy.append(new_estimates['y'])
+    masked_size.append(new_estimates['size'])
+    masked_beta.append(new_estimates['beta'])
+    masked_baseline.append(new_estimates['baseline'])
+    masked_rsq.append(new_estimates['rsq'])
+    masked_ns.append(new_estimates['ns'])
     
-    if iterative_fit==True: # if selecting params from iterative fit
-        estimates_list = [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' not in x and x.endswith(fit_model+'_estimates.npz')]
-        if not estimates_list: #list is empty
-            # combine chunks and get new estimates list
-            list_all =  [x for x in os.listdir(median_path) if 'iterative' in x and 'chunk' in x and x.endswith(fit_model+'_estimates.npz')]
-            estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model=fit_model) # combine chunks and get new estimates list 
-    else: # only look at grid fit
-        estimates_list = [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' not in x and x.endswith(fit_model+'_estimates.npz')]
-        if not estimates_list: #list is empty
-            # combine chunks and get new estimates list
-            list_all =  [x for x in os.listdir(median_path) if 'iterative' not in x and 'chunk' in x and x.endswith(fit_model+'_estimates.npz')]
-            estimates_list = join_chunks(list_all,median_path,chunk_num=total_chunks,fit_model=fit_model) # combine chunks and get new estimates list 
-
-    estimates_list.sort() #sort to make sure pRFs not flipped
-    estimates = []
-    for _,val in enumerate(estimates_list) :
-        print('appending %s'%val)
-        estimates.append(np.load(os.path.join(median_path, val))) #save both hemisphere estimates in same array
-
-
-    xx = np.concatenate((estimates[0]['x'],estimates[1]['x']))
-    yy = np.concatenate((estimates[0]['y'],estimates[1]['y']))
-       
-    size = np.concatenate((estimates[0]['size'],estimates[1]['size']))
+    # now construct polar angle and eccentricity values
+    complex_location = new_estimates['x'] + new_estimates['y'] * 1j
+    masked_polar_angle.append(np.angle(complex_location))
+    masked_eccentricity.append(np.abs(complex_location))
     
-    beta = np.concatenate((estimates[0]['betas'],estimates[1]['betas']))
-    baseline = np.concatenate((estimates[0]['baseline'],estimates[1]['baseline']))
-    
-    if fit_model =='css': 
-        ns = np.concatenate((estimates[0]['ns'],estimates[1]['ns'])) # exponent of css
-    else: #if gauss
-        ns = np.ones(xx.shape)
-
-    rsq = np.concatenate((estimates[0]['r2'],estimates[1]['r2']))
-
-
-# set limits for xx and yy, forcing it to be within the screen boundaries
-
-if sj in ['02','11','12','13']: # linux computer has different res
-
-    vert_lim_dva = (analysis_params['screenRes_HD'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
-    hor_lim_dva = (analysis_params['screenRes_HD'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes_HD'][0])
-
-
-else:    
-    vert_lim_dva = (analysis_params['screenRes'][-1]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
-    hor_lim_dva = (analysis_params['screenRes'][0]/2) * dva_per_pix(analysis_params['screen_width'],analysis_params['screen_distance'],analysis_params['screenRes'][0])
-
-# make new variables that are masked (center of RF within screen limits and only positive pRFs)
-# also max size of RF is 10 dva
-print('masking variables to be within screen and only show positive RF')
-new_estimates = mask_estimates(xx,yy,size,beta,baseline,rsq,vert_lim_dva,hor_lim_dva,ns=ns)
-
-masked_xx = new_estimates['x']
-masked_yy = new_estimates['y']
-masked_size = new_estimates['size']
-masked_beta = new_estimates['beta']
-masked_baseline = new_estimates['baseline']
-masked_rsq = new_estimates['rsq']
-masked_ns = new_estimates['ns']
-
-
-# smooth the estimates if it's the case
-if with_smooth =='True':
-
-    # empty array to save smoothed filenames
-    smooth_filename = []
-    
-    # load subject gii (or a random sub if computing median estimates), just to get header info
-    if sj=='median':
-        filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-11', '*'))
-    else:
-        filepath = glob.glob(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=sj), '*'))   
-    print('loading first run to get header info from %s' % os.path.split(filepath[0])[0])
-
-    # last part of filename to use
-    file_extension = 'cropped_sg_psc.func.gii'
-
-    # load first run of subject
-    filename = [run for run in filepath if 'prf' in run and 'fsaverage' in run and 'run-01' in run and run.endswith(file_extension)]
-    filename.sort()
-    
-    num_vert_hemi = int(masked_xx.shape[0]/2) #number of vertices in one hemisphere
-    for field in ['hemi-L', 'hemi-R']:
-        hemi = [h for h in filename if field in h]
-        
-        median_filename = 'sub-{sj}'.format(sj=sj)+'_task-prf_run-median_space-fsaverage_'+field+'_'+file_extension
-        
-        if field=='hemi-L':
-            xx_4smoothing = masked_xx[0:num_vert_hemi]
-            yy_4smoothing = masked_yy[0:num_vert_hemi]
-            size_4smoothing = masked_size[0:num_vert_hemi]
-            beta_4smoothing = masked_beta[0:num_vert_hemi]
-            baseline_4smoothing = masked_baseline[0:num_vert_hemi]
-            rsq_4smoothing = masked_rsq[0:num_vert_hemi]
-            ns_4smoothing = masked_ns[0:num_vert_hemi]
-            
-        else:
-            xx_4smoothing = masked_xx[num_vert_hemi::]
-            yy_4smoothing = masked_yy[num_vert_hemi::]
-            size_4smoothing = masked_size[num_vert_hemi::]
-            beta_4smoothing = masked_beta[num_vert_hemi::]
-            baseline_4smoothing = masked_baseline[num_vert_hemi::]
-            rsq_4smoothing = masked_rsq[num_vert_hemi::]
-            ns_4smoothing = masked_ns[num_vert_hemi::]
-          
-        # reunite them in same array
-        estimates4smoothing = {'xx':xx_4smoothing,'yy':yy_4smoothing,'size':size_4smoothing,
-                               'beta':beta_4smoothing,'baseline':baseline_4smoothing,'rsq':rsq_4smoothing,'ns':ns_4smoothing}
-        
-        img_load = nb.load(hemi[0]) # load run just to get header
-        
-        for _,arr in enumerate(estimates4smoothing):
-            new_filename = os.path.join(figure_out,median_filename.replace('.func.gii','_estimates-%s.func.gii'%arr))
-            
-            print('saving %s'%new_filename)
-            est_array_tiled = np.tile(estimates4smoothing[arr][np.newaxis,...],(83,1)) # NEED TO DO THIS 4 MGZ to actually be read (header is of func file)
-            darrays = [nb.gifti.gifti.GiftiDataArray(d) for d in est_array_tiled]
-            estimates_gii = nb.gifti.gifti.GiftiImage(header=img_load.header,
-                                               extra=img_load.extra,
-                                               darrays=darrays) # need to save as gii
-            
-            nb.save(estimates_gii,new_filename)
-            
-            _,smo_estimates_path = smooth_gii(new_filename,figure_out,fwhm=analysis_params['smooth_fwhm'])
-            
-            smooth_filename.append(smo_estimates_path)
-            print('saving %s'%smo_estimates_path)
-        
-    # load files save as new masked estimates, to be analogous to other situations
-    smooth_filename.sort()
-    smooth_xx = []
-    smooth_yy = []
-    smooth_size = []
-    smooth_beta = []
-    smooth_baseline = []
-    smooth_rsq = []
-    smooth_ns = []
-
-    for _,name in enumerate(smooth_filename): # not elegant but works
-        img_load = nb.load(name)
-        if '_estimates-xx_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
-            smooth_xx.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
-        elif '_estimates-yy_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
-            smooth_yy.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
-        elif '_estimates-size_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
-            smooth_size.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
-        elif '_estimates-beta_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
-            smooth_beta.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
-        elif '_estimates-baseline_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
-            smooth_baseline.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
-        elif '_estimates-rsq_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
-            smooth_rsq.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
-        elif '_estimates-ns_smooth%d.func.gii'%analysis_params['smooth_fwhm'] in name:
-            smooth_ns.append(np.array([img_load.darrays[i].data for i in range(len(img_load.darrays))]))
-
-    # concatenate both hemis in one array
-    masked_xx = np.concatenate((smooth_xx[0][0],smooth_xx[1][0]))  
-    masked_yy = np.concatenate((smooth_yy[0][0],smooth_yy[1][0])) 
-    masked_size = np.concatenate((smooth_size[0][0],smooth_size[1][0])) 
-    masked_beta = np.concatenate((smooth_beta[0][0],smooth_beta[1][0])) 
-    masked_baseline = np.concatenate((smooth_baseline[0][0],smooth_baseline[1][0])) 
-    masked_rsq = np.concatenate((smooth_rsq[0][0],smooth_rsq[1][0])) 
-    masked_ns = np.concatenate((smooth_ns[0][0],smooth_ns[1][0]))
-    
-
-# save masked estimates in numpy array to load later
-# saved in same folder as figures (for now, might change that later)
-
-masked_estimates_filename = os.path.join(figure_out,'masked_estimates.npz')
-np.savez(masked_estimates_filename,
-              masked_xx = masked_xx,
-              masked_yy = masked_yy,
-              masked_size = masked_size,
-              masked_beta = masked_beta,
-              masked_baseline = masked_baseline,
-              masked_rsq = masked_rsq
-              )
-
-# now construct polar angle and eccentricity values
-rsq_threshold = 0.17 #0.125 #analysis_params['rsq_threshold']
-
-complex_location = masked_xx + masked_yy * 1j
-masked_polar_angle = np.angle(complex_location)
-masked_eccentricity = np.abs(complex_location)
-
-# normalize polar angles to have values in circle between 0 and 1
-masked_polar_ang_norm = (masked_polar_angle + np.pi) / (np.pi * 2.0)
-
-# use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
-# why have an offset?
-angle_offset = 0.85#0.1
-masked_polar_ang_norm = np.fmod(masked_polar_ang_norm+angle_offset, 1.0)
-
-# convert angles to colors, using correlations as weights
-hsv = np.zeros(list(masked_polar_ang_norm.shape) + [3])
-hsv[..., 0] = masked_polar_ang_norm # different hue value for each angle
-hsv[..., 1] = (masked_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
-hsv[..., 2] = (masked_rsq > rsq_threshold).astype(float) # value weighted by rsq
-
-# convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
-rgb = colors.hsv_to_rgb(hsv)
-
-# define alpha channel - which specifies the opacity for a color
-# define mask for alpha, to be all values where rsq below threshold or nan 
-alpha_mask = np.array([True if val<= rsq_threshold or np.isnan(val) else False for _,val in enumerate(masked_rsq)]).T #why transpose? because of orientation of pycortex volume?
-
-# create alpha array weighted by rsq values
-alpha = np.sqrt(masked_rsq.copy())#np.ones(alpha_mask.shape)
-alpha[alpha_mask] = np.nan
-
-# create alpha array with nan = transparent = values with rsq below thresh and 1 = opaque = values above thresh
-alpha_ones = np.ones(alpha_mask.shape)
-alpha_ones[alpha_mask] = np.nan
-
-
-images = {}
-
-images['polar'] = cortex.VertexRGB(rgb[..., 0].T, 
-                                 rgb[..., 1].T, 
-                                 rgb[..., 2].T, 
-                                 subject='fsaverage_gross', alpha=alpha)
-#cortex.quickshow(images['polar'],with_curvature=True,with_sulci=True,with_colorbar=False)
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.svg' %rsq_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
-
-images['polar_noalpha'] = cortex.VertexRGB(rgb[..., 0].T, 
-                                 rgb[..., 1].T, 
-                                 rgb[..., 2].T, 
-                                 subject='fsaverage_gross', alpha=alpha_ones)
-#cortex.quickshow(images['polar_noalpha'],with_curvature=True,with_sulci=True,with_colorbar=False)
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle_noalpha.svg' %rsq_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['polar_noalpha'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
-
-
-# vertex for rsq
-images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage_gross',
-                           vmin=0, vmax=1.0,
-                           vmin2=0, vmax2=1.0, cmap='Reds_cov')
-#cortex.quickshow(images['rsq'],with_curvature=True,with_sulci=True)
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-rsquared.svg' %rsq_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
-
-
-# vertex for ecc
-ecc4plot = masked_eccentricity.copy()
-ecc4plot[alpha_mask] = np.nan
-
-images['ecc'] = cortex.Vertex(ecc4plot.T, 'fsaverage_gross',
-                           vmin=0, vmax=analysis_params['max_eccen'],
-                           cmap='J4')
-#cortex.quickshow(images['ecc'],with_curvature=True,with_sulci=True)
-# Save this flatmap
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-eccentricity.svg' %rsq_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['ecc'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
-
-
-# vertex for ecc
-size4plot = masked_size.copy()
-size4plot[alpha_mask] = np.nan
-
-# vertex for size
-images['size'] = cortex.dataset.Vertex(size4plot.T, 'fsaverage_gross',
-                           vmin=0, vmax=analysis_params['max_size'],
-                           cmap='J4')
-#cortex.quickshow(images['size'],with_curvature=True,with_sulci=True)
-filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-size.svg' %rsq_threshold)
-print('saving %s' %filename)
-_ = cortex.quickflat.make_png(filename, images['size'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
-
 
 # get vertices for subject fsaverage
 # for later plotting
 
-ROIs = [['V1','V2','V3'],'V1','V2','V3','sPCS','iPCS'] # list will combine those areas, string only accounts for 1 ROI
+ROIs = ['V1','V2','V3','sPCS','iPCS'] # list will combine those areas, string only accounts for 1 ROI
 
 roi_verts = {} #empty dictionary 
 for i,val in enumerate(ROIs):
     
     if type(val)==str: # if string, we can directly get the ROI vertices  
-        roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
+        roi_verts[val] = cortex.get_roi_verts('fsaverage_meridians',val)[val]
 
     else: # if list
         indice = []
         for w in range(len(ROIs[0])): # load vertices for each region of list
-            indice.append(cortex.get_roi_verts('fsaverage_gross',val[w])[val[w]])
+            indice.append(cortex.get_roi_verts('fsaverage_meridians',val[w])[val[w]])
         
         roi_verts[str(val)] = np.hstack(indice)
 
 
-# coverage plots - full VF also left vs right hemi
-# colored using polar angle
-for idx,roi in enumerate(ROIs):
+# get mid vertex index (diving hemispheres)
+left_index = cortex.db.get_surfinfo('fsaverage').left.shape[0] 
+
+
+####### coverage plots - full VF ###########
+
+for idx,roi in enumerate(ROIs): #enumerate(['V1'])
     
-    f, s = plt.subplots(1, 1, figsize=(12,12))
+     # get roi indices for each hemisphere
+    left_roi_verts = roi_verts[roi][roi_verts[roi]<left_index]
+    right_roi_verts = roi_verts[roi][roi_verts[roi]>=left_index]
 
-    if type(roi)!=str: # if list
-        roi = str(roi)
-    # get datapoints for RF only belonging to roi
-    new_rsq = masked_rsq[roi_verts[roi]]
+    left_xx_4plot = []
+    left_yy_4plot = []
+    left_pa_4plot = []
 
-    new_xx = masked_xx[roi_verts[roi]]
-    new_yy = masked_yy[roi_verts[roi]]
-    new_size = masked_size[roi_verts[roi]]
+    right_xx_4plot = []
+    right_yy_4plot = []
+    right_pa_4plot = []
     
-    new_ecc = masked_eccentricity[roi_verts[roi]]
-    new_polar_angle = masked_polar_angle[roi_verts[roi]]
     
-    #####
-    # normalize polar angles to have values in circle between 0 and 1
-    new_pa_norm = (new_polar_angle + np.pi) / (np.pi * 2.0)
-
-    # use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
-    # why have an offset?
-    new_pa_norm = np.fmod(new_pa_norm+angle_offset, 1.0)
-
-    # convert angles to colors, using correlations as weights
-    hsv_colors = np.zeros(list(new_pa_norm.shape) + [3])
-    hsv_colors[..., 0] = new_pa_norm # different hue value for each angle
-    hsv_colors[..., 1] = 1#(new_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
-    hsv_colors[..., 2] = 1#(new_rsq > rsq_threshold).astype(float) # value weighted by rsq
-
-    # convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
-    rgb_col = colors.hsv_to_rgb(hsv_colors)
-    rgba_colors = np.zeros((rgb_col.shape[0], 4))
-    rgba_colors[:,0] = rgb_col[:,0]
-    rgba_colors[:,1] = rgb_col[:,1]
-    rgba_colors[:,2] = rgb_col[:,2]
-    rgba_colors[:,3] = normalize(new_rsq)/2 # alpha will be normalized rsq scaled in half
-    ######## 
-    
-    s.set_title('%s pRFs in visual field'%roi)
-    s.set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    s.set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    s.axvline(0, -15, 15, c='k', lw=0.25)
-    s.axhline(0, -15, 15, c='k', lw=0.25)
-    # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
-    plot_ind = [k for k in range(len(new_xx))]
-    random.shuffle(plot_ind) # randomize indices to plot, avoids biases
-    for _,w in enumerate(plot_ind):
-        if new_rsq[w]>rsq_threshold:
-            s.add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
-
-    s.set_xlabel('horizontal space [dva]')
-    s.set_ylabel('vertical space [dva]')
-    
-    # Create a Rectangle patch
-    rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
-
-    # Add the patch to the Axes
-    s.add_patch(rect)
-
-    # make sure that plots have proportional size
-    s.set(adjustable='box-forced', aspect='equal')
-    f.savefig(os.path.join(figure_out,'RF_coverage_pa_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
-
-    # plot left and right hemi coverage separetly
-    
-    if roi!=str(['V1','V2','V3']): # if single roi
-        f, s = plt.subplots(1, 2, figsize=(24,48))
-        
-        # get roi indices for each hemisphere
-        left_roi_verts = roi_verts[roi][roi_verts[roi]<int(len(masked_rsq)/2)]
-        right_roi_verts = roi_verts[roi][roi_verts[roi]>=int(len(masked_rsq)/2)]
-
-        # LEFT VISUAL FIELD
-        s[0].set_title('%s pRFs in visual field for left hemisphere'%roi)
-        s[0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        s[0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        s[0].axvline(0, -15, 15, c='k', lw=0.25)
-        s[0].axhline(0, -15, 15, c='k', lw=0.25)
-
-        # RIGHT VISUAL FIELD
-        s[1].set_title('%s pRFs in visual field for right hemisphere'%roi)
-        s[1].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        s[1].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        s[1].axvline(0, -15, 15, c='k', lw=0.25)
-        s[1].axhline(0, -15, 15, c='k', lw=0.25)
-
-        # new way to plot - like this I'm sure of positions of RF and radius of circle scaled as correct size
-        plot_ind = [k for k in range(len(roi_verts[roi]))]
-        random.shuffle(plot_ind) # randomize indices to plot, avoids biases
-        for _,w in enumerate(plot_ind):
-            if new_rsq[w]>rsq_threshold:
-                if w<len(left_roi_verts): # then its left hemisphere
-                    s[0].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
-                else:
-                    s[1].add_artist(plt.Circle((new_xx[w], new_yy[w]), radius=new_size[w], color=rgba_colors[w], fill=True))
-
-        s[0].set_xlabel('horizontal space [dva]')
-        s[0].set_ylabel('vertical space [dva]')
-
-        s[1].set_xlabel('horizontal space [dva]')
-        s[1].set_ylabel('vertical space [dva]')
-
-        # Create a Rectangle patch
-        rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
-        rect2 = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='k',facecolor='none',zorder=10)
-
-        # Add the patch to the Axes
-        s[0].add_patch(rect)
-        # Add the patch to the Axes
-        s[1].add_patch(rect2)
-
-        # make sure that plots have proportional size
-        s[0].set(adjustable='box-forced', aspect='equal')
-        s[1].set(adjustable='box-forced', aspect='equal')
-
-        f.savefig(os.path.join(figure_out,'RF_coverage_pa_LR_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
-
-
-# similar but with hexabins
-# should be nicer to locate center position of RF
-
-for idx,roi in enumerate(ROIs):
-    
-    fig, axs = plt.subplots(1, 1, figsize=(12,12))
-
-    if type(roi)!=str: # if list
-        roi = str(roi)
-    # get datapoints for RF only belonging to roi
-    new_rsq = masked_rsq[roi_verts[roi]]
-
-    new_xx = masked_xx[roi_verts[roi]]
-    new_yy = masked_yy[roi_verts[roi]]
-    
-    hb = axs.hexbin(new_xx[new_rsq>rsq_threshold], 
-                    new_yy[new_rsq>rsq_threshold],
-                   #C=new_rsq[new_rsq>rsq_threshold],
-                   gridsize=30, 
-                   cmap='copper',#'YlOrRd_r',#'BuGn_r',
-                   extent= np.array([-1,1,-1,1]) * analysis_params["max_eccen"],
-                   #linewidths=0.00006,
-                   #edgecolors='black',
-                   alpha=.95)
-    axs.axis([-hor_lim_dva, hor_lim_dva, -vert_lim_dva, vert_lim_dva])
-    fig.colorbar(hb, ax=axs)
-    axs.set_title('%s pRFs location in visual field'%roi)
-    axs.set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    axs.set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-    axs.set_xlabel('horizontal space [dva]')
-    axs.set_ylabel('vertical space [dva]')
-    
-    # Create a Rectangle patch
-    rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='w',facecolor='none',zorder=10)
-    # Add the patch to the Axes
-    axs.add_patch(rect)      
-    
-    # set middle lines
-    axs.axvline(0, -15, 15, lw=0.25, color='w')
-    axs.axhline(0, -15, 15, lw=0.25, color='w')
-    
-    axs.set(adjustable='box-forced', aspect='equal')
-
-    fig.savefig(os.path.join(figure_out,'RF_coverage_hex_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
-
-    # plot left and right hemi coverage separetly
-    
-    if roi!=str(['V1','V2','V3']): # if single roi
-        fig, axs = plt.subplots(1, 2, figsize=(24,48))
-        
-        # get roi indices for each hemisphere
-        left_roi_verts = roi_verts[roi][roi_verts[roi]<int(len(masked_rsq)/2)]
-        right_roi_verts = roi_verts[roi][roi_verts[roi]>=int(len(masked_rsq)/2)]
-        
+    for w in range(len(estimates['subs'])): # loop once if one subject, or for all subjects when sj 'median'
         # LEFT HEMI
-        newer_xx = masked_xx[left_roi_verts]
-        newer_yy = masked_yy[left_roi_verts]
-        newer_rsq = masked_rsq[left_roi_verts]
+        left_xx = masked_xx[w][left_roi_verts]
+        left_yy = masked_yy[w][left_roi_verts]
+        left_rsq = masked_rsq[w][left_roi_verts] 
+        left_pa = masked_polar_angle[w][left_roi_verts]
         
-        hb = axs[0].hexbin(newer_xx[newer_rsq>rsq_threshold], 
-                       newer_yy[newer_rsq>rsq_threshold],
-                       #C=new_rsq[new_rsq>rsq_threshold],
-                       gridsize=30, 
-                       cmap='copper',#'YlOrRd_r',#'BuGn_r',
-                       extent= np.array([-1,1,-1,1]) * analysis_params["max_eccen"],
-                       #linewidths=0.00006,
-                       #edgecolors='black',
-                       alpha=.95)
-        axs[0].axis([-hor_lim_dva, hor_lim_dva, -vert_lim_dva, vert_lim_dva])
-        #fig.colorbar(hb, ax=axs[0])
-        axs[0].set_title('%s pRFs location in visual field for left hemisphere'%roi)
-        axs[0].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        axs[0].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        axs[0].set_xlabel('horizontal space [dva]')
-        axs[0].set_ylabel('vertical space [dva]')
+        left_xx_4plot.append(left_xx[left_rsq>rsq_threshold]) 
+        left_yy_4plot.append(left_yy[left_rsq>rsq_threshold]) 
+        left_pa_4plot.append(left_pa[left_rsq>rsq_threshold]) 
 
-        # Create a Rectangle patch
-        rect = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='w',facecolor='none',zorder=10)
-        # Add the patch to the Axes
-        axs[0].add_patch(rect)      
-
-        # set middle lines
-        axs[0].axvline(0, -15, 15, lw=0.25, color='w')
-        axs[0].axhline(0, -15, 15, lw=0.25, color='w')
-
-        axs[0].set(adjustable='box-forced', aspect='equal')
-        
         # RIGHT HEMI
-        newer_xx = masked_xx[right_roi_verts]
-        newer_yy = masked_yy[right_roi_verts]
-        newer_rsq = masked_rsq[right_roi_verts]
+        right_xx = masked_xx[w][right_roi_verts]
+        right_yy = masked_yy[w][right_roi_verts]
+        right_rsq = masked_rsq[w][right_roi_verts] 
+        right_pa = masked_polar_angle[w][right_roi_verts]
         
-        hb = axs[1].hexbin(newer_xx[newer_rsq>rsq_threshold], 
-                       newer_yy[newer_rsq>rsq_threshold],
-                       #C=new_rsq[new_rsq>rsq_threshold],
-                       gridsize=30, 
-                       cmap='copper',#'YlOrRd_r',#'BuGn_r',
-                       extent= np.array([-1,1,-1,1]) * analysis_params["max_eccen"],
-                       #linewidths=0.00006,
-                       #edgecolors='black',
-                       alpha=.95)
-        axs[1].axis([-hor_lim_dva, hor_lim_dva, -vert_lim_dva, vert_lim_dva])
-        #fig.colorbar(hb, ax=axs[0])
-        axs[1].set_title('%s pRFs location in visual field for right hemisphere'%roi)
-        axs[1].set_xlim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        axs[1].set_ylim([-analysis_params["max_eccen"],analysis_params["max_eccen"]])
-        axs[1].set_xlabel('horizontal space [dva]')
-        axs[1].set_ylabel('vertical space [dva]')
+        right_xx_4plot.append(right_xx[right_rsq>rsq_threshold]) 
+        right_yy_4plot.append(right_yy[right_rsq>rsq_threshold]) 
+        right_pa_4plot.append(right_pa[right_rsq>rsq_threshold]) 
+        
+    f, ss = plt.subplots(1, 1, figsize=(12, 12), sharey=True)
 
-        # Create a Rectangle patch
-        rect2 = patches.Rectangle((-hor_lim_dva,-vert_lim_dva),hor_lim_dva*2,vert_lim_dva*2,linewidth=1,linestyle='--',edgecolor='w',facecolor='none',zorder=10)
-        # Add the patch to the Axes
-        axs[1].add_patch(rect2)      
+    ss.hexbin(np.hstack(left_xx_4plot), 
+              np.hstack(left_yy_4plot),
+              gridsize=15, 
+              cmap='Greens',
+              extent= np.array([-1, 1, -1, 1]) * hor_lim_dva, #np.array([-hor_lim_dva,hor_lim_dva,-vert_lim_dva,vert_lim_dva]),#
+              bins='log',
+              linewidths=0.0625,
+              edgecolors='black',
+              alpha=1)
 
-        # set middle lines
-        axs[1].axvline(0, -15, 15, lw=0.25, color='w')
-        axs[1].axhline(0, -15, 15, lw=0.25, color='w')
+    ss.hexbin(np.hstack(right_xx_4plot), 
+              np.hstack(right_yy_4plot),
+              gridsize=15, 
+              cmap='Reds', #'YlOrRd_r',
+              extent= np.array([-1, 1, -1, 1]) * hor_lim_dva, #np.array([-hor_lim_dva,hor_lim_dva,-vert_lim_dva,vert_lim_dva]),#
+              bins='log',
+              linewidths=0.0625,
+              edgecolors='black',
+              alpha=0.5)
+    
+    ss.set_title('Visual field coverage for %s'%roi)
+    ss.set_xlabel('Horizontal visual position [dva]')
+    ss.set_ylabel('Vertical visual position [dva]')
+    plt.tight_layout()
+    #plt.ylim(-vert_lim_dva, vert_lim_dva) 
+    # set middle lines
+    ss.axvline(0, -hor_lim_dva, hor_lim_dva, lw=0.25, color='w')
+    ss.axhline(0, -hor_lim_dva, hor_lim_dva, lw=0.25, color='w')
+    
+    # custom lines only to make labels
+    custom_lines = [Line2D([0], [0], color='g',alpha=0.5, lw=4),
+                    Line2D([0], [0], color='r',alpha=0.5, lw=4)]
 
-        axs[1].set(adjustable='box-forced', aspect='equal')
+    plt.legend(custom_lines, ['LH', 'RH'])
 
-        fig.savefig(os.path.join(figure_out,'RF_coverage_hex_LR_ROI-%s_rsq-%0.2f.svg'%(roi,rsq_threshold)), dpi=100,bbox_inches = 'tight')
+    plt.savefig(os.path.join(figure_out,'VF_coverage_ROI-%s_hemi-both.svg'%roi),dpi=100)
+    
+    f, ss = plt.subplots(1, 1, figsize=(8, 8), sharey=True)
+    plt.hist(left_pa,color='g',alpha=0.5,label='LH')
+    plt.hist(right_pa,color='r',alpha=0.5,label='RH')
+    plt.xlabel('Polar angle')
+    plt.legend()
+    plt.title('Histogram of polar angle distribution for %s'%roi)
+    #ss.axes.set_xlim(-np.pi,np.pi)
+
+    plt.savefig(os.path.join(figure_out,'PA_histogram_ROI-%s_hemi-both.svg'%roi),dpi=100)
+    
+    # Visualise with polar histogram
+    left_ind4plot = np.where((np.logical_not(np.isnan(left_pa))))
+    right_ind4plot = np.where((np.logical_not(np.isnan(right_pa))))
+
+    fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection='polar'),figsize=(8, 8))
+    rose_plot(ax, left_pa[left_ind4plot],color='g', lab_unit="radians")
+    rose_plot(ax, right_pa[right_ind4plot],color='r', lab_unit="radians")
+    plt.title('Histogram of polar angle distribution for %s'%roi, pad=20)
+
+    fig.tight_layout()
+    plt.savefig(os.path.join(figure_out,'PA_histogram_circular_ROI-%s_hemi-both.svg'%roi),dpi=100)
+ 
+
+####### Check ECC distributions ###########
+
+## ECD curves all pairs ##
+
+# max eccentricity within screen dva
+max_ecc = np.sqrt(vert_lim_dva**2 + hor_lim_dva**2)
+
+# make list of roi pairs, to compare distributions, no repetitions
+ks_roi_list = np.array([pair for pair in itertools.combinations(ROIs,2)])
+
+for _,rois_ks in enumerate(ks_roi_list):
+    
+    # plot Empirical distribution functions
+    #rois_ks = np.array(['V1','V2']) # rois to compare ecc distribution
+    
+    ecc1_4plot = []
+    ecc2_4plot = []
+    
+    for w in range(len(estimates['subs'])): # loop once if one subject, or for all subjects when sj 'median'
+        
+        new_rsq1 = masked_rsq[w][roi_verts[rois_ks[0]]]
+        new_ecc1 = masked_eccentricity[w][roi_verts[rois_ks[0]]]
+        indices4plot_1 = np.where((new_rsq1>rsq_threshold) & (np.logical_not(np.isnan(new_ecc1))))
+        
+        ecc1_4plot.append(np.sort(new_ecc1[indices4plot_1]))
+        
+        new_rsq2 = masked_rsq[w][roi_verts[rois_ks[1]]]
+        new_ecc2 = masked_eccentricity[w][roi_verts[rois_ks[1]]]
+        indices4plot_2 = np.where((new_rsq2>rsq_threshold) & (np.logical_not(np.isnan(new_ecc2))))
+        
+        ecc2_4plot.append(np.sort(new_ecc2[indices4plot_2]))
+        
+
+    ecc_roi1 = np.sort(np.hstack(ecc1_4plot))
+    ecc_roi2 = np.sort(np.hstack(ecc2_4plot))
+                              
+    fig, ax = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+
+    n1 = np.arange(1,len(ecc_roi1)+1) / np.float(len(ecc_roi1))
+    ax[0].step(ecc_roi1,n1,color='r',label=rois_ks[0])
+
+    n2 = np.arange(1,len(ecc_roi2)+1) / np.float(len(ecc_roi2))
+    ax[0].step(ecc_roi2,n2,color='b',label=rois_ks[1])
+
+    ax[0].legend()
+
+    ax[0].set_title('Empirical cumulative distribution %s, KS test p-value = %.3f'%(str(rois_ks),scipy.stats.ks_2samp(ecc_roi1, ecc_roi2)[1]))
+    ax[0].set_xlabel('eccentricity [dva]')
+    ax[0].set_ylabel('Cumulative probability')
+    ax[0].set_xlim([0,max_ecc])
+    ax[0].set_ylim([0,1])
+    
+    ax[1] = sns.kdeplot(ecc_roi1,label=rois_ks[0])
+    ax[1] = sns.kdeplot(ecc_roi2,label=rois_ks[1])
+    ax[1].set_title('Kernel density %s'%(str(rois_ks)))
+    ax[1].set_xlabel('eccentricity [dva]')
+    ax[1].set_ylabel('Kernel Density Estimate')
+    ax[1].set_xlim([0,max_ecc])
+    #ax[1].set_ylim([0,0.4])
+    
+    plt.savefig(os.path.join(figure_out,'ECDF_ROI-%s.svg'%str(rois_ks)),dpi=100)
 
 
+## ECD for all rois in one plot ##
+
+fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+
+for _,rois_ks in enumerate(ROIs):
+    
+    ecc_4plot = []
+    
+    for w in range(len(estimates['subs'])): # loop once if one subject, or for all subjects when sj 'all'
+        
+        new_rsq = masked_rsq[w][roi_verts[rois_ks]]
+        new_ecc = masked_eccentricity[w][roi_verts[rois_ks]]
+        indices4plot = np.where((new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_ecc))))
+        
+        ecc_4plot.append(np.sort(new_ecc[indices4plot]))
+
+    ecc_roi = np.sort(np.hstack(ecc_4plot))
+    
+    n1 = np.arange(1,len(ecc_roi)+1) / np.float(len(ecc_roi))
+    ax.step(ecc_roi,n1,label=rois_ks)
+
+    ax.legend()
+
+    ax.set_title('Empirical cumulative distribution')
+    ax.set_xlabel('eccentricity [dva]')
+    ax.set_ylabel('Cumulative probability')
+    ax.set_xlim([0,max_ecc])
+    ax.set_ylim([0,1])
+
+plt.savefig(os.path.join(figure_out,'ECDF_ROI-all.svg'),dpi=100)
+
+fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+
+for _,rois_ks in enumerate(ROIs):
+    
+    ecc_4plot = []
+    
+    for w in range(len(estimates['subs'])): # loop once if one subject, or for all subjects when sj 'all'
+        
+        new_rsq = masked_rsq[w][roi_verts[rois_ks]]
+        new_ecc = masked_eccentricity[w][roi_verts[rois_ks]]
+        indices4plot = np.where((new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_ecc))))
+        
+        ecc_4plot.append(np.sort(new_ecc[indices4plot]))
+
+    ecc_roi = np.sort(np.hstack(ecc_4plot))
+    
+    ax = sns.kdeplot(ecc_roi,label=rois_ks)
+    ax.set_title('Kernel density')
+    ax.set_xlabel('eccentricity [dva]')
+    ax.set_ylabel('Kernel Density Estimate')
+    ax.set_xlim([0,max_ecc])
+    
+    ax.legend()
+
+plt.savefig(os.path.join(figure_out,'KDE_ROI-all.svg'),dpi=100)
+
+
+## Make distribuition difference matrix to compare all ROIs ###
+
+# compute KS statistic for each ROI of each participant (in case of sj 'median')
+# and append in dict
+
+KS_stats = {}
+
+for _,rois_ks in enumerate(ROIs): # compare ROI (ex V1)
+    
+    
+    roi_stats = []
+    
+    for _,cmp_roi in enumerate(ROIs): # to all other ROIS
+        
+        sub_roi_stats = []
+    
+        for w in range(len(estimates['subs'])): # loop once if one subject, or for all subjects when sj 'all'
+
+            new_rsq1 = masked_rsq[w][roi_verts[rois_ks]]
+            new_ecc1 = masked_eccentricity[w][roi_verts[rois_ks]]
+            indices4plot_1 = np.where((new_rsq1>rsq_threshold) & (np.logical_not(np.isnan(new_ecc1))))
+
+            ecc_roi1 = np.sort(new_ecc1[indices4plot_1])
+
+            new_rsq2 = masked_rsq[w][roi_verts[cmp_roi]]
+            new_ecc2 = masked_eccentricity[w][roi_verts[cmp_roi]]
+            indices4plot_2 = np.where((new_rsq2>rsq_threshold) & (np.logical_not(np.isnan(new_ecc2))))
+
+            ecc_roi2 = np.sort(new_ecc2[indices4plot_2])
+
+            sub_roi_stats.append(scipy.stats.ks_2samp(ecc_roi1, ecc_roi2)[0])
+        
+        roi_stats.append(np.median(sub_roi_stats)) # median max distance 
+        
+    KS_stats[rois_ks] = roi_stats
+    
+#Create DataFrame
+DF_var = pd.DataFrame.from_dict(KS_stats).T
+DF_var.columns = ROIs
+
+# mask out repetitive values, making triangular matrix (still has identity diag)
+for i,region in enumerate(ROIs):
+    if i>0:
+        for k in range(i):
+            DF_var[region][k]=np.nan
+
+# plot representational similarity matrix
+fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+
+matrix = ax.matshow(DF_var)
+plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=12)#, rotation=45)
+plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=12)
+fig.colorbar(matrix)
+#matrix.set_clim(vmin=0.1)
+
+plt.title('Eccentricity distribution difference', fontsize=16, pad=20);
+# This is very hack-ish
+plt.gca().set_xticks([x - 0.5 for x in plt.gca().get_xticks()][1:], minor='true')
+plt.gca().set_yticks([y - 0.5 for y in plt.gca().get_yticks()][1:], minor='true')
+plt.grid(which='minor')
+
+fig.savefig(os.path.join(figure_out,'RSA_ROI-all.svg'),dpi=100)
+
+
+####### Make ECC vs size plot ###########
+
+# create empty dataframe to store all relevant values for rois
+all_roi = [] #pd.DataFrame(columns=['mean_ecc','mean_ecc_std','mean_size','mean_size_std','roi'])
+n_bins = 10
+min_ecc = 0.25
+max_ecc = 3.3
+
+for w in range(len(estimates['subs'])): # loop once if one subject, or for all subjects when sj 'median'
+    
+    for idx,roi in enumerate(ROIs):
+
+        # get datapoints for RF only belonging to roi
+        new_size = masked_size[w][roi_verts[roi]]
+        new_ecc = masked_eccentricity[w][roi_verts[roi]]
+
+        new_rsq = masked_rsq[w][roi_verts[roi]]
+
+        # define indices of voxels within region to plot
+        # with rsq > 0.17, and where value not nan, ecc values between 0.25 and 3.3
+        indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))[0]
+
+        df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
+                               'rsq':new_rsq[indices4plot],'sub':np.tile(w,len(indices4plot))})
+        
+        # sort values by eccentricity
+        df = df.sort_values(by=['ecc'])  
+
+        bin_size = int(len(df)/n_bins) #divide in equally sized bins
+        mean_ecc = []
+        mean_ecc_std = []
+        mean_size = []
+        mean_size_std = []
+        
+        for j in range(n_bins): # for each bin calculate rsq-weighted means and errors of binned ecc/size 
+            mean_size.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+            mean_size_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+            mean_ecc.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
+            mean_ecc_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
+
+        if idx== 0 and w==0:
+            all_roi = pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                                    'mean_size':mean_size,'mean_size_std':mean_size_std,
+                                    'roi':np.tile(roi,n_bins),'sub':np.tile(w,n_bins)})
+        else:
+            all_roi = all_roi.append(pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
+                                                   'mean_size':mean_size,'mean_size_std':mean_size_std,
+                                                   'roi':np.tile(roi,n_bins),'sub':np.tile(w,n_bins)}),ignore_index=True)
+
+# get median bins for plotting (useful for correct median sub plot)
+med_subs_df = []
+
+for idx,roi in enumerate(ROIs):
+      
+    for j in range(n_bins):
+        med_ecc = []
+        med_ecc_std = []
+        med_size = []
+        med_size_std = []
+
+        for w in range(len(estimates['subs'])):
+            
+            med_ecc.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_ecc'].iloc[j])
+            med_ecc_std.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_ecc_std'].iloc[j])
+            med_size.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_size'].iloc[j])
+            med_size_std.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_size_std'].iloc[j])
+
+        if idx== 0 and j==0:
+            med_subs_df = pd.DataFrame({'med_ecc': [np.nanmedian(med_ecc)],'med_ecc_std':[np.nanmedian(med_ecc_std)],
+                                    'med_size':[np.nanmedian(med_size)],'med_size_std':[np.nanmedian(med_size_std)],
+                                    'roi':[roi]})
+        else:
+            med_subs_df = med_subs_df.append(pd.DataFrame({'med_ecc': [np.nanmedian(med_ecc)],'med_ecc_std':[np.nanmedian(med_ecc_std)],
+                                                   'med_size':[np.nanmedian(med_size)],'med_size_std':[np.nanmedian(med_size_std)],
+                                                   'roi':[roi]}),ignore_index=True)
+
+#fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+
+ax = sns.lmplot(x='med_ecc', y='med_size', hue='roi',data=med_subs_df,height=8, aspect=1)
+
+ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
+ax = plt.gca()
+ax.axes.set_xlim(0,)
+ax.axes.set_ylim(0,)
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
+fig1 = plt.gcf()
+fig1.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
+    
 
 # now do single voxel fits, choosing voxels with highest rsq 
 # from each ROI (early visual vs sPCS vs iPCS)
@@ -652,7 +553,7 @@ if sj != 'median': # doesn't work for median subject
     filename.sort()
 
     # path to save fits, for testing
-    out_dir = os.path.join(analysis_params['pRF_outdir'],'sub-{sj}'.format(sj=sj),'tests')
+    out_dir = os.path.join(figure_out,'sing_vox_fit')
 
     if not os.path.exists(out_dir):  # check if path exists
         os.makedirs(out_dir)
@@ -760,19 +661,19 @@ if sj != 'median': # doesn't work for median subject
         if type(roi)!=str: # if list
             print('skipping list ROI %s for timeseries plot'%str(roi))
         else:
-            new_rsq = masked_rsq[roi_verts[roi]]
+            new_rsq = masked_rsq[0][roi_verts[roi]]
 
-            new_xx = masked_xx[roi_verts[roi]]
-            new_yy = masked_yy[roi_verts[roi]]
-            new_size = masked_size[roi_verts[roi]]
+            new_xx = masked_xx[0][roi_verts[roi]]
+            new_yy = masked_yy[0][roi_verts[roi]]
+            new_size = masked_size[0][roi_verts[roi]]
 
-            new_beta = masked_beta[roi_verts[roi]]
-            new_baseline = masked_baseline[roi_verts[roi]]
+            new_beta = masked_beta[0][roi_verts[roi]]
+            new_baseline = masked_baseline[0][roi_verts[roi]]
 
-            new_ecc = masked_eccentricity[roi_verts[roi]]
-            new_polar_angle = masked_polar_angle[roi_verts[roi]]
+            new_ecc = masked_eccentricity[0][roi_verts[roi]]
+            new_polar_angle = masked_polar_angle[0][roi_verts[roi]]
             
-            new_ns = masked_ns[roi_verts[roi]]
+            new_ns = masked_ns[0][roi_verts[roi]]
 
 
             new_data = data[roi_verts[roi]] # data from ROI
@@ -865,33 +766,6 @@ if sj != 'median': # doesn't work for median subject
             #############################
 
 
-    # redo vertice list (repetitive but quick fix for now)
-    ROIs = [['V1','V2','V3'],'sPCS','iPCS']
-    
-    # Plot median timeseries, just to check for bias
-    fig= plt.figure(figsize=(15,7.5))
-
-    for i in range(len(ROIs)):
-        c = ['r','g','b']
-        new_data = data[roi_verts[str(ROIs[i])]] # data from ROI
-
-        plt.plot(time_sec,np.nanmedian(new_data[rsq[roi_verts[str(ROIs[i])]]>rsq_threshold],axis=0),c=c[i],label=str(ROIs[i]))
-        plt.legend(loc=0)
-    plt.xlabel('Time (s)',fontsize=18)
-    plt.ylabel('BOLD signal change (%)',fontsize=18)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.xlim(0,90*TR)
-    # plot axis vertical bar on background to indicate stimulus display time
-    ax_count = 0
-    for h in range(4):
-        plt.axvspan(bar_onset[ax_count], bar_onset[ax_count+1]+TR, facecolor='r', alpha=0.1)
-        ax_count += 2
-
-    #plt.show()    
-    fig.savefig(os.path.join(figure_out,'pRF_median_timeseries_allROIs_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
-    
-    
     ROIs = ['V1','sPCS']
     roi_verts = {} #empty dictionary 
     for i,val in enumerate(ROIs):   
@@ -906,19 +780,19 @@ if sj != 'median': # doesn't work for median subject
         if type(roi)!=str: # if list
             print('skipping list ROI %s for timeseries plot'%str(roi))
         else:
-            new_rsq = masked_rsq[roi_verts[roi]]
+            new_rsq = masked_rsq[0][roi_verts[roi]]
 
-            new_xx = masked_xx[roi_verts[roi]]
-            new_yy = masked_yy[roi_verts[roi]]
-            new_size = masked_size[roi_verts[roi]]
+            new_xx = masked_xx[0][roi_verts[roi]]
+            new_yy = masked_yy[0][roi_verts[roi]]
+            new_size = masked_size[0][roi_verts[roi]]
 
-            new_beta = masked_beta[roi_verts[roi]]
-            new_baseline = masked_baseline[roi_verts[roi]]
+            new_beta = masked_beta[0][roi_verts[roi]]
+            new_baseline = masked_baseline[0][roi_verts[roi]]
 
-            new_ecc = masked_eccentricity[roi_verts[roi]]
-            new_polar_angle = masked_polar_angle[roi_verts[roi]]
+            new_ecc = masked_eccentricity[0][roi_verts[roi]]
+            new_polar_angle = masked_polar_angle[0][roi_verts[roi]]
             
-            new_ns = masked_ns[roi_verts[roi]]
+            new_ns = masked_ns[0][roi_verts[roi]]
 
             new_data = data[roi_verts[roi]] # data from ROI
 
@@ -990,95 +864,204 @@ if sj != 'median': # doesn't work for median subject
     fig.savefig(os.path.join(figure_out,'pRF_singvoxfit_timeseries_%s_rsq-%0.2f.svg'%(str(ROIs),rsq_threshold)), dpi=100,bbox_inches = 'tight')
 
 
-# make plot to show relationship between ecc and size for different regions
-# redo vertice list (repetitive but quick fix for now)
-ROIs = ['V1','V2','V3','sPCS','iPCS']#[['V1','V2','V3'],'sPCS','iPCS']
-roi_verts = {} #empty dictionary 
-for i,val in enumerate(ROIs):   
-    if type(val)==str: # if string, we can directly get the ROI vertices  
-        roi_verts[val] = cortex.get_roi_verts('fsaverage_gross',val)[val]
+## FLATMAPS ##
+# compute median estimates (relevant for sub median)
+
+masked_xx = np.nanmedian(masked_xx,axis=0) 
+masked_yy = np.nanmedian(masked_yy,axis=0) 
+masked_size = np.nanmedian(masked_size,axis=0)  
+masked_beta = np.nanmedian(masked_beta,axis=0)  
+masked_baseline = np.nanmedian(masked_baseline,axis=0)  
+masked_rsq = np.nanmedian(masked_rsq,axis=0) 
+masked_ns = np.nanmedian(masked_ns,axis=0) 
+
+
+## remaining figures will be save in smoothed path (if its the case)
+
+if with_smooth=='True':
+    figure_out = os.path.join(figure_out,'smooth%d'%analysis_params['smooth_fwhm'])
+    
+    if not os.path.exists(figure_out): # check if path to save figures exists
+        os.makedirs(figure_out) 
+
+    print('saving figures in %s'%figure_out)
+    
+    # filename for smoothed estimates
+    rsq_filename = os.path.join(figure_out,'rsq_pRF_fitmodel-%s_itertivefit-%s.npy'%(fit_model,str(iterative_fit)))
+    size_filename = os.path.join(figure_out,'size_pRF_fitmodel-%s_itertivefit-%s.npy'%(fit_model,str(iterative_fit)))
+    xx_filename = os.path.join(figure_out,'xx_pRF_fitmodel-%s_itertivefit-%s.npy'%(fit_model,str(iterative_fit)))
+    yy_filename = os.path.join(figure_out,'yy_pRF_fitmodel-%s_itertivefit-%s.npy'%(fit_model,str(iterative_fit)))
+
+    header_sub = '01' if sj=='median' else sj # to get header for smoothing
+    
+    # compute or load them (repetitive but good enough)
+    
+    ## RSQ
+    if not os.path.isfile(rsq_filename):
+        masked_rsq = smooth_nparray(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=str(header_sub).zfill(2))),
+                           masked_rsq,
+                           figure_out,
+                           'rsq',
+                           rsq_filename,
+                           n_TR=83,
+                           task='prf',
+                           file_extension='_cropped_sg_psc.func.gii',
+                           sub_mesh='fsaverage',
+                           smooth_fwhm=analysis_params['smooth_fwhm'])
+        np.save(rsq_filename,masked_rsq)
         
-# create empty dataframe to store all relevant values for rois
-all_roi = pd.DataFrame(columns=['mean_ecc','mean_ecc_std','mean_size','mean_size_std','roi'])
-n_bins = 10
-min_ecc = 0.25
-max_ecc = 4
-
-if sj == 'median':
-    all_estimates = append_pRFestimates(analysis_params['pRF_outdir'],
-                                        model=fit_model,iterative=iterative_fit,exclude_subs=['sub-07'],total_chunks=total_chunks)
-
-for idx,roi in enumerate(ROIs):
-    
-    df = pd.DataFrame(columns=['ecc','size','rsq'])
-
-    if sj == 'median' and with_smooth=='False': # only do this for non smoothed case
-        for s in range(np.array(all_estimates['x']).shape[0]): # loop over all subjects that were appended
-            
-            if fit_model == 'css': 
-                all_ns = all_estimates['ns'][s]
-            else:
-                all_ns = np.ones(all_estimates['x'][s].shape)
-                
-            #print('masking variables to be within screen and only show positive RF')
-            sub_masked_estimates = mask_estimates(all_estimates['x'][s],all_estimates['y'][s],
-                                                  all_estimates['size'][s],all_estimates['betas'][s],
-                                                  all_estimates['baseline'][s],all_estimates['r2'][s],
-                                                  vert_lim_dva,hor_lim_dva,ns=all_ns)
+    elif os.path.isfile(rsq_filename):
+        print('loading visual rsq from %s'%rsq_filename)
+        masked_rsq = np.load(rsq_filename,allow_pickle=True)
         
-            # get datapoints for RF only belonging to roi
-            new_size = sub_masked_estimates['size'][roi_verts[str(roi)]]
-            new_ecc = np.abs(sub_masked_estimates['x'][roi_verts[str(roi)]] + sub_masked_estimates['y'][roi_verts[str(roi)]] * 1j)        
-            new_rsq = sub_masked_estimates['rsq'][roi_verts[str(roi)]]
-            
-            # define indices of voxels within region to plot
-            # with rsq > 0.15, and where value not nan, ecc values between 0.25 and 4
-            indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))[0]
-            
-            if s == 0:
-                df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
-                                       'rsq':new_rsq[indices4plot]})
-            else:
-                df.append(pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
-                                       'rsq':new_rsq[indices4plot]}))
-    else: 
-    
-        # get datapoints for RF only belonging to roi
-        new_size = masked_size[roi_verts[str(roi)]]
-        new_ecc = masked_eccentricity[roi_verts[str(roi)]]
-        new_rsq = masked_rsq[roi_verts[str(roi)]]
+    ## SIZE
+    if not os.path.isfile(size_filename):
+        masked_size = smooth_nparray(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=str(header_sub).zfill(2))),
+                           masked_size,
+                           figure_out,
+                           'size',
+                           size_filename,
+                           n_TR=83,
+                           task='prf',
+                           file_extension='_cropped_sg_psc.func.gii',
+                           sub_mesh='fsaverage',
+                           smooth_fwhm=analysis_params['smooth_fwhm'])
+        np.save(size_filename,masked_size)
         
-        # define indices of voxels within region to plot
-        # with rsq > threshold, and where value not nan, ecc values between 0.25 and 4
-        indices4plot = np.where((new_ecc >= min_ecc) & (new_ecc<= max_ecc) & (new_rsq>rsq_threshold) & (np.logical_not(np.isnan(new_size))))
-        df = pd.DataFrame({'ecc': new_ecc[indices4plot],'size':new_size[indices4plot],
-                               'rsq':new_rsq[indices4plot]})
-    # sort values by eccentricity
-    df = df.sort_values(by=['ecc'])  
-    
-    bin_size = int(len(df)/n_bins) #divide in equally sized bins
-    mean_ecc = []
-    mean_ecc_std = []
-    mean_size = []
-    mean_size_std = []
-    for j in range(n_bins): # for each bin calculate rsq-weighted means and errors of binned ecc/size 
-        mean_size.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
-        mean_size_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['size'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
-        mean_ecc.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).mean)
-        mean_ecc_std.append(weightstats.DescrStatsW(df[bin_size*j:bin_size*(j+1)]['ecc'],weights=df[bin_size*j:bin_size*(j+1)]['rsq']).std_mean)
-    
-    if idx== 0:
-        all_roi = pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
-                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)})
-    else:
-        all_roi = all_roi.append(pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
-                           'mean_size':mean_size,'mean_size_std':mean_size_std,'roi':np.tile(roi,n_bins)}),ignore_index=True)
+    elif os.path.isfile(size_filename):
+        print('loading visual size from %s'%size_filename)
+        masked_size = np.load(size_filename,allow_pickle=True)
+        
+    ## X position
+    if not os.path.isfile(xx_filename):
+        masked_xx = smooth_nparray(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=str(header_sub).zfill(2))),
+                           masked_xx,
+                           figure_out,
+                           'xx',
+                           xx_filename,
+                           n_TR=83,
+                           task='prf',
+                           file_extension='_cropped_sg_psc.func.gii',
+                           sub_mesh='fsaverage',
+                           smooth_fwhm=analysis_params['smooth_fwhm'])
+        np.save(xx_filename,masked_xx)
+        
+    elif os.path.isfile(xx_filename):
+        print('loading visual xx from %s'%xx_filename)
+        masked_xx = np.load(xx_filename,allow_pickle=True)
+        
+    ## Y position
+    if not os.path.isfile(yy_filename):
+        masked_yy = smooth_nparray(os.path.join(analysis_params['post_fmriprep_outdir'], 'prf', 'sub-{sj}'.format(sj=str(header_sub).zfill(2))),
+                           masked_yy,
+                           figure_out,
+                           'yy',
+                           yy_filename,
+                           n_TR=83,
+                           task='prf',
+                           file_extension='_cropped_sg_psc.func.gii',
+                           sub_mesh='fsaverage',
+                           smooth_fwhm=analysis_params['smooth_fwhm'])
+        np.save(yy_filename,masked_yy)
+        
+    elif os.path.isfile(yy_filename):
+        print('loading visual yy from %s'%yy_filename)
+        masked_yy = np.load(yy_filename,allow_pickle=True)
+        
 
-ax = sns.lmplot(x='mean_ecc', y='mean_size', hue='roi',data=all_roi,height=8, aspect=1)
-ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
-ax = plt.gca()
-ax.axes.set_xlim(0,)
-ax.axes.set_ylim(0,)
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
-plt.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
+complex_location = masked_xx + masked_yy * 1j
+masked_polar_angle = np.angle(complex_location)
+masked_eccentricity = np.abs(complex_location)
+
+# normalize polar angles to have values in circle between 0 and 1
+masked_polar_ang_norm = (masked_polar_angle + np.pi) / (np.pi * 2.0)
+
+# use "resto da divisão" so that 1 == 0 (because they overlapp in circle)
+# why have an offset?
+angle_offset = 0.85#0.1
+masked_polar_ang_norm = np.fmod(masked_polar_ang_norm+angle_offset, 1.0)
+
+# convert angles to colors, using correlations as weights
+hsv = np.zeros(list(masked_polar_ang_norm.shape) + [3])
+hsv[..., 0] = masked_polar_ang_norm # different hue value for each angle
+hsv[..., 1] = (masked_rsq > rsq_threshold).astype(float)#  np.ones_like(rsq) # saturation weighted by rsq
+hsv[..., 2] = (masked_rsq > rsq_threshold).astype(float) # value weighted by rsq
+
+# convert hsv values of np array to rgb values (values assumed to be in range [0, 1])
+rgb = colors.hsv_to_rgb(hsv)
+
+# define alpha channel - which specifies the opacity for a color
+# define mask for alpha, to be all values where rsq below threshold or nan 
+alpha_mask = np.array([True if val<= rsq_threshold or np.isnan(val) else False for _,val in enumerate(masked_rsq)]).T #why transpose? because of orientation of pycortex volume?
+
+# create alpha array weighted by rsq values
+alpha = np.sqrt(masked_rsq.copy())#np.ones(alpha_mask.shape)
+alpha[alpha_mask] = np.nan
+
+# create alpha array with nan = transparent = values with rsq below thresh and 1 = opaque = values above thresh
+alpha_ones = np.ones(alpha_mask.shape)
+alpha_ones[alpha_mask] = np.nan
+
+
+images = {}
+
+images['polar'] = cortex.VertexRGB(rgb[..., 0].T, 
+                                 rgb[..., 1].T, 
+                                 rgb[..., 2].T, 
+                                 subject='fsaverage_gross', alpha=alpha)
+#cortex.quickshow(images['polar'],with_curvature=True,with_sulci=True,with_colorbar=False)
+filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.svg' %rsq_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
+
+images['polar_noalpha'] = cortex.VertexRGB(rgb[..., 0].T, 
+                                 rgb[..., 1].T, 
+                                 rgb[..., 2].T, 
+                                 subject='fsaverage_gross', alpha=alpha_ones)
+#cortex.quickshow(images['polar_noalpha'],with_curvature=True,with_sulci=True,with_colorbar=False)
+filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle_noalpha.svg' %rsq_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['polar_noalpha'], recache=True,with_colorbar=False,with_curvature=True,with_sulci=True)
+
+
+# vertex for rsq
+images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage_gross',
+                           vmin=0, vmax=1.0,
+                           vmin2=0, vmax2=1.0, cmap='Reds_cov')
+#cortex.quickshow(images['rsq'],with_curvature=True,with_sulci=True)
+filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-rsquared.svg' %rsq_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
+
+
+# vertex for ecc
+ecc4plot = masked_eccentricity.copy()
+ecc4plot[alpha_mask] = np.nan
+
+images['ecc'] = cortex.Vertex(ecc4plot.T, 'fsaverage_gross',
+                           vmin=0, vmax=analysis_params['max_eccen'],
+                           cmap='J4')
+#cortex.quickshow(images['ecc'],with_curvature=True,with_sulci=True)
+# Save this flatmap
+filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-eccentricity.svg' %rsq_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['ecc'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
+
+
+# vertex for size
+size4plot = masked_size.copy()
+size4plot[alpha_mask] = np.nan
+
+images['size'] = cortex.dataset.Vertex(size4plot.T, 'fsaverage_gross',
+                           vmin=0, vmax=analysis_params['max_size'],
+                           cmap='J4')
+#cortex.quickshow(images['size'],with_curvature=True,with_sulci=True)
+filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-size.svg' %rsq_threshold)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['size'], recache=True,with_colorbar=True,with_curvature=True,with_sulci=True)
+
+
+
+
+
 
