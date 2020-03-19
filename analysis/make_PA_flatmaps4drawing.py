@@ -323,46 +323,45 @@ _ = cortex.quickflat.make_png(filename, images['angle'], recache=True,with_color
 # add to overlay
 #cortex.utils.add_roi(images['angle_half_hemi'], name='polar_sub_%sj'%(sj), open_inkscape=False)
 
-'''
 
 ## plot colorwheel and save in folder
 
-resolution = 800
-x, y = np.meshgrid(np.linspace(-1, 1, resolution), np.linspace(-1, 1, resolution))
-radius = np.sqrt(x**2 + y**2)
-polar_angle = np.arctan2(y, x)
+# resolution = 800
+# x, y = np.meshgrid(np.linspace(-1, 1, resolution), np.linspace(-1, 1, resolution))
+# radius = np.sqrt(x**2 + y**2)
+# polar_angle = np.arctan2(y, x)
 
-polar_angle_circle = polar_angle.copy() # all polar angles calculated from our mesh
-polar_angle_circle[radius > 1] = np.nan # then we're excluding all parts of bitmap outside of circle
+# polar_angle_circle = polar_angle.copy() # all polar angles calculated from our mesh
+# polar_angle_circle[radius > 1] = np.nan # then we're excluding all parts of bitmap outside of circle
 
-# normal color wheel
-cmap = plt.get_cmap('hsv')
-norm = mpl.colors.Normalize(-np.pi, np.pi) # normalize between the point where we defined our color threshold
+# # normal color wheel
+# cmap = plt.get_cmap('hsv')
+# norm = mpl.colors.Normalize(-np.pi, np.pi) # normalize between the point where we defined our color threshold
 
-plt.imshow(polar_angle_circle, cmap=cmap, norm=norm,origin='lower')
-plt.axis('off')
-plt.savefig(os.path.join(analysis_params['derivatives'],'figures','prf','NEW_PA',fit_model,'color_wheel.svg'),dpi=100)
+# plt.imshow(polar_angle_circle, cmap=cmap, norm=norm,origin='lower')
+# plt.axis('off')
+# plt.savefig(os.path.join(analysis_params['derivatives'],'figures','prf','NEW_PA',fit_model,'color_wheel.svg'),dpi=100)
 
-import matplotlib as mpl
+# import matplotlib as mpl
 
-cmap = plt.get_cmap('hsv')
-norm = mpl.colors.Normalize(-angle_thresh, angle_thresh) # normalize between the point where we defined our color threshold
+# cmap = plt.get_cmap('hsv')
+# norm = mpl.colors.Normalize(-angle_thresh, angle_thresh) # normalize between the point where we defined our color threshold
 
-# for LH (RVF)
-polar_angle_circle_left = polar_angle_circle.copy()
-# between thresh angle make it red
-polar_angle_circle_left[(polar_angle_circle_left < -angle_thresh) | (polar_angle_circle_left > angle_thresh)] = angle_thresh 
-plt.imshow(polar_angle_circle_left, cmap=cmap, norm=norm,origin='lower') # origin lower because imshow flips it vertically, now in right order for VF
-plt.axis('off')
-plt.savefig(os.path.join(analysis_params['derivatives'],'figures','prf','NEW_PA',fit_model,'color_wheel_4LH-RVF.svg'),dpi=100)
+# # for LH (RVF)
+# polar_angle_circle_left = polar_angle_circle.copy()
+# # between thresh angle make it red
+# polar_angle_circle_left[(polar_angle_circle_left < -angle_thresh) | (polar_angle_circle_left > angle_thresh)] = angle_thresh 
+# plt.imshow(polar_angle_circle_left, cmap=cmap, norm=norm,origin='lower') # origin lower because imshow flips it vertically, now in right order for VF
+# plt.axis('off')
+# plt.savefig(os.path.join(analysis_params['derivatives'],'figures','prf','NEW_PA',fit_model,'color_wheel_4LH-RVF.svg'),dpi=100)
 
-# for RH (LVF)
-polar_angle_circle_right = polar_angle_circle.copy()
+# # for RH (LVF)
+# polar_angle_circle_right = polar_angle_circle.copy()
 
-polar_angle_circle_right = np.fliplr(polar_angle_circle_right)
+# polar_angle_circle_right = np.fliplr(polar_angle_circle_right)
 
-polar_angle_circle_right[(polar_angle_circle_right < -.75 * np.pi) | (polar_angle_circle_right > 0.75 * np.pi)] = .75*np.pi
-plt.imshow(polar_angle_circle_right, cmap=cmap, norm=norm,origin='lower')
-plt.axis('off')
-plt.savefig(os.path.join(analysis_params['derivatives'],'figures','prf','NEW_PA',fit_model,'color_wheel_4RH-LVF.svg'),dpi=100)
+# polar_angle_circle_right[(polar_angle_circle_right < -.75 * np.pi) | (polar_angle_circle_right > 0.75 * np.pi)] = .75*np.pi
+# plt.imshow(polar_angle_circle_right, cmap=cmap, norm=norm,origin='lower')
+# plt.axis('off')
+# plt.savefig(os.path.join(analysis_params['derivatives'],'figures','prf','NEW_PA',fit_model,'color_wheel_4RH-LVF.svg'),dpi=100)
 
