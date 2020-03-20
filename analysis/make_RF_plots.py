@@ -222,9 +222,11 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
               edgecolors='black',
               alpha=0.5)
     
-    ss.set_title('Visual field coverage for %s'%roi)
-    ss.set_xlabel('Horizontal visual position [dva]')
-    ss.set_ylabel('Vertical visual position [dva]')
+    ss.set_title('Visual field coverage for %s'%roi,fontsize=16)
+    ss.set_xlabel('Horizontal visual position [dva]',fontsize=14)
+    ss.set_ylabel('Vertical visual position [dva]',fontsize=14)
+    plt.xticks(fontsize = 14)
+    plt.yticks(fontsize = 14)
     plt.tight_layout()
     #plt.ylim(-vert_lim_dva, vert_lim_dva) 
     # set middle lines
@@ -433,8 +435,8 @@ for i,region in enumerate(ROIs):
 fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
 
 matrix = ax.matshow(DF_var)
-plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=12)#, rotation=45)
-plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=12)
+plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=14)#, rotation=45)
+plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=14)
 fig.colorbar(matrix)
 #matrix.set_clim(vmin=0.1)
 
@@ -529,9 +531,11 @@ ax = sns.lmplot(x='med_ecc', y='med_size', hue='roi',data=med_subs_df,height=8, 
 
 ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
 ax = plt.gca()
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
 ax.axes.set_xlim(0,)
 ax.axes.set_ylim(0,)
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc))
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=16)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
     
