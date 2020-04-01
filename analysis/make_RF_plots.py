@@ -200,7 +200,7 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
         right_yy_4plot.append(right_yy[right_rsq>rsq_threshold]) 
         right_pa_4plot.append(right_pa[right_rsq>rsq_threshold]) 
         
-    f, ss = plt.subplots(1, 1, figsize=(12, 12), sharey=True)
+    f, ss = plt.subplots(1, 1, figsize=[2*x for x in plt.rcParams["figure.figsize"]], sharey=True)
 
     ss.hexbin(np.hstack(left_xx_4plot), 
               np.hstack(left_yy_4plot),
@@ -221,36 +221,27 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
               linewidths=0.0625,
               edgecolors='black',
               alpha=0.5)
-    
-    ss.set_title('Visual field coverage for %s'%roi,fontsize=16)
-    ss.set_xlabel('Horizontal visual position [dva]',fontsize=14)
-    ss.set_ylabel('Vertical visual position [dva]',fontsize=14)
-    plt.xticks(fontsize = 14)
-    plt.yticks(fontsize = 14)
+
+    ss.set_title('Visual field coverage for %s'%roi,fontsize=24)
+    ss.set_xlabel('Horizontal visual position [dva]',fontsize=22)
+    ss.set_ylabel('Vertical visual position [dva]',fontsize=22)
+    plt.xticks(fontsize = 22)
+    plt.yticks(fontsize = 22)
     plt.tight_layout()
-    #plt.ylim(-vert_lim_dva, vert_lim_dva) 
+    plt.ylim(-vert_lim_dva, vert_lim_dva) #-6,6)#
+    ss.set_aspect('auto')
     # set middle lines
     ss.axvline(0, -hor_lim_dva, hor_lim_dva, lw=0.25, color='w')
     ss.axhline(0, -hor_lim_dva, hor_lim_dva, lw=0.25, color='w')
-    
+
     # custom lines only to make labels
     custom_lines = [Line2D([0], [0], color='g',alpha=0.5, lw=4),
                     Line2D([0], [0], color='r',alpha=0.5, lw=4)]
 
-    plt.legend(custom_lines, ['LH', 'RH'])
+    plt.legend(custom_lines, ['LH', 'RH'],fontsize = 20)
 
     plt.savefig(os.path.join(figure_out,'VF_coverage_ROI-%s_hemi-both.svg'%roi),dpi=100)
-    
-    f, ss = plt.subplots(1, 1, figsize=(8, 8), sharey=True)
-    plt.hist(left_pa,color='g',alpha=0.5,label='LH')
-    plt.hist(right_pa,color='r',alpha=0.5,label='RH')
-    plt.xlabel('Polar angle')
-    plt.legend()
-    plt.title('Histogram of polar angle distribution for %s'%roi)
-    #ss.axes.set_xlim(-np.pi,np.pi)
-
-    plt.savefig(os.path.join(figure_out,'PA_histogram_ROI-%s_hemi-both.svg'%roi),dpi=100)
-    
+     
     # Visualise with polar histogram
     left_ind4plot = np.where((np.logical_not(np.isnan(left_pa))))
     right_ind4plot = np.where((np.logical_not(np.isnan(right_pa))))
@@ -432,18 +423,20 @@ for i,region in enumerate(ROIs):
             DF_var[region][k]=np.nan
 
 # plot representational similarity matrix
-fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+fig, ax = plt.subplots(1, 1, figsize=[2.5*x for x in plt.rcParams["figure.figsize"]], sharey=True)
 
-matrix = ax.matshow(DF_var)
-plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=14)#, rotation=45)
-plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=14)
-fig.colorbar(matrix)
-matrix.set_clim(vmin=0.1,vmax=0.4)
+matrix = ax.matshow(DF_var,cmap='OrRd')
+plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=16)#, rotation=45)
+plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=16)
+cbar = fig.colorbar(matrix)
+matrix.set_clim(vmin=0,vmax=0.35)
+cbar.set_label('KS statistic', rotation=270, fontsize=14, labelpad=30)
+cbar.ax.tick_params(labelsize=12)
 
-plt.title('Eccentricity distribution difference', fontsize=16, pad=20);
-# This is very hack-ish
-plt.gca().set_xticks([x - 0.5 for x in plt.gca().get_xticks()][1:], minor='true')
-plt.gca().set_yticks([y - 0.5 for y in plt.gca().get_yticks()][1:], minor='true')
+plt.title('Eccentricity distribution difference', fontsize=18, pad=30);
+# This is very hack-ish, but works to make grid
+plt.gca().set_xticks([x - 0.51 for x in plt.gca().get_xticks()][1:], minor='true')
+plt.gca().set_yticks([y - 0.52 for y in plt.gca().get_yticks()][1:], minor='true')
 plt.grid(which='minor')
 
 fig.savefig(os.path.join(figure_out,'RSA_ROI-all.svg'),dpi=100)
@@ -492,11 +485,11 @@ for w in range(len(estimates['subs'])): # loop once if one subject, or for all s
         if idx== 0 and w==0:
             all_roi = pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
                                     'mean_size':mean_size,'mean_size_std':mean_size_std,
-                                    'roi':np.tile(roi,n_bins),'sub':np.tile(w,n_bins)})
+                                    'ROI':np.tile(roi,n_bins),'sub':np.tile(w,n_bins)})
         else:
             all_roi = all_roi.append(pd.DataFrame({'mean_ecc': mean_ecc,'mean_ecc_std':mean_ecc_std,
                                                    'mean_size':mean_size,'mean_size_std':mean_size_std,
-                                                   'roi':np.tile(roi,n_bins),'sub':np.tile(w,n_bins)}),ignore_index=True)
+                                                   'ROI':np.tile(roi,n_bins),'sub':np.tile(w,n_bins)}),ignore_index=True)
 
 # get median bins for plotting (useful for correct median sub plot)
 med_subs_df = []
@@ -511,37 +504,95 @@ for idx,roi in enumerate(ROIs):
 
         for w in range(len(estimates['subs'])):
             
-            med_ecc.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_ecc'].iloc[j])
-            med_ecc_std.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_ecc_std'].iloc[j])
-            med_size.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_size'].iloc[j])
-            med_size_std.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['roi'] == roi)]['mean_size_std'].iloc[j])
+            med_ecc.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['ROI'] == roi)]['mean_ecc'].iloc[j])
+            med_ecc_std.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['ROI'] == roi)]['mean_ecc_std'].iloc[j])
+            med_size.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['ROI'] == roi)]['mean_size'].iloc[j])
+            med_size_std.append(all_roi.loc[(all_roi['sub'] == w)& (all_roi['ROI'] == roi)]['mean_size_std'].iloc[j])
 
         if idx== 0 and j==0:
             med_subs_df = pd.DataFrame({'med_ecc': [np.nanmedian(med_ecc)],'med_ecc_std':[np.nanmedian(med_ecc_std)],
                                     'med_size':[np.nanmedian(med_size)],'med_size_std':[np.nanmedian(med_size_std)],
-                                    'roi':[roi]})
+                                    'ROI':[roi]})
         else:
             med_subs_df = med_subs_df.append(pd.DataFrame({'med_ecc': [np.nanmedian(med_ecc)],'med_ecc_std':[np.nanmedian(med_ecc_std)],
                                                    'med_size':[np.nanmedian(med_size)],'med_size_std':[np.nanmedian(med_size_std)],
-                                                   'roi':[roi]}),ignore_index=True)
+                                                   'ROI':[roi]}),ignore_index=True)
 
-fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+### plot for early visual - V1 V2 V3 ###
+roi2plot = ['V1','V2','V3']
+ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
+                scatter=True,
+               palette="YlGnBu_r",markers=['^','s','o'])
 
-ax.axes.set_xlim(0,)
-ax.axes.set_ylim(0,)
 
-with sns.color_palette("husl", 11):
-    ax = sns.lmplot(x='med_ecc', y='med_size', hue='roi',data=med_subs_df,scatter=False,height=8, aspect=1)
-    
 ax = plt.gca()
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
-ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=16)
+ax.axes.set_xlim(0.25,3.3)
+#ax.axes.set_ylim(0.7,2.1)
+ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
+ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
+
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
 fig1 = plt.gcf()
-fig1.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
-    
+fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
+ 
+
+### plot for V3AB hV4 LO ###
+roi2plot = ['V3AB','hV4','LO']
+ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
+                scatter=True,
+               palette="PuBuGn",markers=['^','s','o'])
+ax = plt.gca()
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+ax.axes.set_xlim(0.25,3.3)
+#ax.axes.set_ylim(0.7,2.1)
+ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
+ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
+
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
+
+fig1 = plt.gcf()
+fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
+ 
+### plot for IPS0 IPS1 IPS2+ ###
+roi2plot = ['IPS0','IPS1','IPS2+']
+ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
+                scatter=True,
+               palette="YlOrRd",markers=['^','s','o'])
+ax = plt.gca()
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+ax.axes.set_xlim(0.25,3.3)
+#ax.axes.set_ylim(0.7,2.1)
+ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
+ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
+
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
+
+fig1 = plt.gcf()
+fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
+ 
+### plot for sPCS iPCS ###
+roi2plot = ['sPCS','iPCS']
+ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
+                scatter=True,
+               palette="PuRd",markers=['^','s'])
+ax = plt.gca()
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+ax.axes.set_xlim(0.25,3.3)
+#ax.axes.set_ylim(0.7,2.1)
+ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
+ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
+
+ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
+
+fig1 = plt.gcf()
+fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
+ 
 
 # now do single voxel fits, choosing voxels with highest rsq 
 # from each ROI (early visual vs sPCS vs iPCS)
