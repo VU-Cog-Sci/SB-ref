@@ -84,7 +84,7 @@ print('saving figures in %s'%figure_out)
 
 # make list with subjects to append and use (or not)
 if sj == 'median':
-    excl_subs = ['sub-07']
+    excl_subs = ['sub-07','sub-03','sub-13']
 else:
     all_subs = ['01','02','03','04','05','07','08','09','11','12','13']
     excl_subs = ['sub-'+name for _,name in enumerate(all_subs) if name!=sj]
@@ -142,7 +142,7 @@ for w,subject in enumerate(estimates['subs']): # loop once if one subject, or fo
 # get vertices for subject fsaverage
 # for later plotting
 
-ROIs = ['V1','V2','V3','sPCS','iPCS'] # list will combine those areas, string only accounts for 1 ROI
+ROIs = ['V1','V2','V3','V3AB','hV4','LO','IPS0','IPS1','IPS2+','sPCS','iPCS'] # list will combine those areas, string only accounts for 1 ROI
 
 roi_verts = {} #empty dictionary 
 for i,val in enumerate(ROIs):
@@ -438,7 +438,7 @@ matrix = ax.matshow(DF_var)
 plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=14)#, rotation=45)
 plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=14)
 fig.colorbar(matrix)
-#matrix.set_clim(vmin=0.1)
+matrix.set_clim(vmin=0.1,vmax=0.4)
 
 plt.title('Eccentricity distribution difference', fontsize=16, pad=20);
 # This is very hack-ish
@@ -525,17 +525,20 @@ for idx,roi in enumerate(ROIs):
                                                    'med_size':[np.nanmedian(med_size)],'med_size_std':[np.nanmedian(med_size_std)],
                                                    'roi':[roi]}),ignore_index=True)
 
-#fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
+fig, ax = plt.subplots(1, 1, figsize=(16, 8), sharey=True)
 
-ax = sns.lmplot(x='med_ecc', y='med_size', hue='roi',data=med_subs_df,height=8, aspect=1)
+ax.axes.set_xlim(0,)
+ax.axes.set_ylim(0,)
 
-ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
+with sns.color_palette("husl", 11):
+    ax = sns.lmplot(x='med_ecc', y='med_size', hue='roi',data=med_subs_df,scatter=False,height=8, aspect=1)
+    
 ax = plt.gca()
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
-ax.axes.set_xlim(0,)
-ax.axes.set_ylim(0,)
+ax.set(xlabel='pRF eccentricity [dva]', ylabel='pRF size [dva]')
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=16)
+
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'ecc_vs_size_binned_rsq-%0.2f.svg'%rsq_threshold), dpi=100,bbox_inches = 'tight')
     
@@ -1012,7 +1015,7 @@ images = {}
 images['polar'] = cortex.VertexRGB(rgb[..., 0].T, 
                                  rgb[..., 1].T, 
                                  rgb[..., 2].T, 
-                                 subject='fsaverage_gross', alpha=alpha)
+                                 subject='fsaverage_meridians', alpha=alpha)
 #cortex.quickshow(images['polar'],with_curvature=True,with_sulci=True,with_colorbar=False)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle.svg' %rsq_threshold)
 print('saving %s' %filename)
@@ -1021,7 +1024,7 @@ _ = cortex.quickflat.make_png(filename, images['polar'], recache=True,with_color
 images['polar_noalpha'] = cortex.VertexRGB(rgb[..., 0].T, 
                                  rgb[..., 1].T, 
                                  rgb[..., 2].T, 
-                                 subject='fsaverage_gross', alpha=alpha_ones)
+                                 subject='fsaverage_meridians', alpha=alpha_ones)
 #cortex.quickshow(images['polar_noalpha'],with_curvature=True,with_sulci=True,with_colorbar=False)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-polar_angle_noalpha.svg' %rsq_threshold)
 print('saving %s' %filename)
@@ -1029,7 +1032,7 @@ _ = cortex.quickflat.make_png(filename, images['polar_noalpha'], recache=True,wi
 
 
 # vertex for rsq
-images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage_gross',
+images['rsq'] = cortex.Vertex2D(masked_rsq.T, alpha_ones, 'fsaverage_meridians',
                            vmin=0, vmax=1.0,
                            vmin2=0, vmax2=1.0, cmap='Reds_cov')
 #cortex.quickshow(images['rsq'],with_curvature=True,with_sulci=True)
@@ -1042,8 +1045,8 @@ _ = cortex.quickflat.make_png(filename, images['rsq'], recache=True,with_colorba
 ecc4plot = masked_eccentricity.copy()
 ecc4plot[alpha_mask] = np.nan
 
-images['ecc'] = cortex.Vertex(ecc4plot.T, 'fsaverage_gross',
-                           vmin=0, vmax=analysis_params['max_eccen'],
+images['ecc'] = cortex.Vertex(ecc4plot.T, 'fsaverage_meridians',
+                           vmin=0, vmax=6,
                            cmap='J4')
 #cortex.quickshow(images['ecc'],with_curvature=True,with_sulci=True)
 # Save this flatmap
@@ -1056,8 +1059,8 @@ _ = cortex.quickflat.make_png(filename, images['ecc'], recache=True,with_colorba
 size4plot = masked_size.copy()
 size4plot[alpha_mask] = np.nan
 
-images['size'] = cortex.dataset.Vertex(size4plot.T, 'fsaverage_gross',
-                           vmin=0, vmax=analysis_params['max_size'],
+images['size'] = cortex.dataset.Vertex(size4plot.T, 'fsaverage_meridians',
+                           vmin=0, vmax=6, #analysis_params['max_size'],
                            cmap='J4')
 #cortex.quickshow(images['size'],with_curvature=True,with_sulci=True)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-size.svg' %rsq_threshold)

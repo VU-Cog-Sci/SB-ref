@@ -65,7 +65,7 @@ rsq_visual_filename = os.path.join(figure_out,'rsq_pRF_fitmodel-%s_itertivefit-%
 if not os.path.isfile(rsq_visual_filename):
     # make list with subjects to append and use (or not)
     if sj == 'median':
-        excl_subs = ['sub-07']
+        excl_subs = ['sub-07','sub-03','sub-13']
     else:
         all_subs = ['01','02','03','04','05','07','08','09','11','12','13']
         excl_subs = ['sub-'+name for _,name in enumerate(all_subs) if name!=sj]
