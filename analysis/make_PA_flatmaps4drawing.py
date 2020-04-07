@@ -64,7 +64,7 @@ total_chunks = analysis_params['total_chunks']
 figure_out = os.path.join(analysis_params['derivatives'],'figures','prf','final_fig',fit_model)
 
 # set threshold for plotting
-rsq_threshold = 0#0.17
+rsq_threshold = 0.14
 
 if iterative_fit==True:
     figure_out = os.path.join(figure_out,'iterative','sub-{sj}'.format(sj=sj))
@@ -78,7 +78,7 @@ print('saving figures in %s'%figure_out)
 
 # make list with subjects to append and use (or not)
 if sj == 'median':
-    excl_subs = ['sub-07','sub-03','sub-13']
+    excl_subs = ['sub-03','sub-05','sub-07','sub-13']
 else:
     all_subs = ['01','02','03','04','05','07','08','09','11','12','13']
     excl_subs = ['sub-'+name for _,name in enumerate(all_subs) if name!=sj]
@@ -259,8 +259,7 @@ masked_polar_ang_norm = (masked_polar_angle + np.pi) / (np.pi * 2.0)
 hsv_angle = []
 hsv_angle = np.ones((len(masked_rsq), 3))
 hsv_angle[:, 0] = masked_polar_angle.copy()
-hsv_angle[:, 1] = np.clip(masked_rsq / np.nanmax(masked_rsq) * 3, 0, 1)
-#hsv_angle[:, 2] = masked_rsq > 0.14 #np.clip(masked_rsq / np.nanmax(masked_rsq) * 3, 0, 1)#masked_rsq > 0.12 #rsq_threshold
+hsv_angle[:, 2] = masked_rsq > rsq_threshold #np.clip(rsq_visual / np.nanmax(rsq_visual) * 3, 0, 1)#rsq_visual > 0.12 #rsq_threshold
 
 # get mid vertex index (diving hemispheres)
 left_index = cortex.db.get_surfinfo('fsaverage').left.shape[0] 
@@ -286,7 +285,7 @@ rgb_angle = []
 rgb_angle = colors.hsv_to_rgb(hsv_angle)
 
 # make alpha same as saturation, reduces clutter
-alpha_angle = hsv_angle[:, 1]
+alpha_angle = hsv_angle[:, 2]
 
 images['angle_half_hemi'] = cortex.VertexRGB(rgb_angle[:, 0], rgb_angle[:, 1], rgb_angle[:, 2],
                                    alpha=alpha_angle,
@@ -320,8 +319,8 @@ _ = cortex.quickflat.make_png(filename, images['angle'], recache=True,with_color
 
 
 
-# add to overlay
-#cortex.utils.add_roi(images['angle_half_hemi'], name='polar_sub_%sj'%(sj), open_inkscape=False)
+####### ADD TO OVERLAY #############
+cortex.utils.add_roi(images['angle_half_hemi'], name='polar_sub_%sj_rsq_%.2f'%(sj,rsq_threshold), open_inkscape=False)
 
 
 ## plot colorwheel and save in folder
