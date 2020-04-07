@@ -38,7 +38,7 @@ else:
 
 # define paths and variables
 rsq_threshold = 0 #0.5 
-z_threshold = analysis_params['z_threshold']
+z_threshold = 2.7#analysis_params['z_threshold']
 
 TR = analysis_params["TR"]
 
@@ -49,7 +49,7 @@ file_extension = 'sg_psc.func.gii'
 
 # make list with subject number (or all subject number if we want median contrast)
 if sj == 'median':
-    all_subs = ['01','02','04','05','08','09','11','12']
+    all_subs = ['01','02','04','08','09','11','12']
     all_contrasts = {}
 else:
     all_subs = [sj]
@@ -463,7 +463,7 @@ LH_COM_4plot[rl_mask] = np.nan
 
 images['v_Lfingers'] = cortex.Vertex(LH_COM_4plot, 'fsaverage_gross',
                            vmin=0, vmax=4,
-                           cmap='J4')#costum colormap added to database
+                           cmap='rainbow_r')#costum colormap added to database
 
 #cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-LH-fingers1-5.svg' %(rsq_threshold))
@@ -479,7 +479,7 @@ RH_COM_4plot[rl_mask] = np.nan
 
 images['v_Rfingers'] = cortex.Vertex(RH_COM_4plot, 'fsaverage_gross',
                            vmin=0, vmax=4,
-                           cmap='J4')#costum colormap added to database
+                           cmap='rainbow_r')#costum colormap added to database
 
 #cortex.quickshow(images['v_Rfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-RH-fingers1-5.svg' %(rsq_threshold))

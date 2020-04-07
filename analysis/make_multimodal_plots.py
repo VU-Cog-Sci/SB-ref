@@ -65,7 +65,7 @@ rsq_visual_filename = os.path.join(figure_out,'rsq_pRF_fitmodel-%s_itertivefit-%
 if not os.path.isfile(rsq_visual_filename):
     # make list with subjects to append and use (or not)
     if sj == 'median':
-        excl_subs = ['sub-07','sub-03','sub-13']
+        excl_subs = ['sub-03','sub-05','sub-07','sub-13']
     else:
         all_subs = ['01','02','03','04','05','07','08','09','11','12','13']
         excl_subs = ['sub-'+name for _,name in enumerate(all_subs) if name!=sj]
@@ -173,8 +173,8 @@ _ = cortex.quickflat.make_png(filename, images['rsq_motor_norm'], recache=False,
 
 images['rsq_combined'] = cortex.Vertex2D(rsq_visual_norm,rsq_motor_norm, 
                             subject='fsaverage_gross',
-                            vmin=0.125, vmax=.25,
-                            vmin2=0.2,vmax2=0.7,
+                            vmin=0.125, vmax=0.2,
+                            vmin2=0.2,vmax2=0.6,
                             cmap=col2D_name)#'PU_RdBu_covar')
 #cortex.quickshow(images['rsq_combined'],recache=True,with_curvature=True,with_sulci=True,with_roi=False,height=2048)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_type-rsquared-normalized_combined_bins-%d.svg'%n_bins)
@@ -335,7 +335,7 @@ _ = cortex.quickflat.make_png(filename, images['angle_half_hemi'], recache=True,
 
 ## NOW DO SOMA PLOTS ###
 rsq_threshold = 0 
-z_threshold = analysis_params['z_threshold']
+z_threshold = 2.7 #analysis_params['z_threshold']
 
 # load contrasts for different regions
 face_contrast = np.load(os.path.join(soma_dir,'z_face_contrast_rsq-%.2f.npy' %(rsq_threshold)))
@@ -384,7 +384,7 @@ LH_COM_4plot[rl_mask] = np.nan
 
 images['v_Lfingers'] = cortex.Vertex(LH_COM_4plot, 'fsaverage_meridians',
                            vmin=0, vmax=4,
-                           cmap='J4')#costum colormap added to database
+                           cmap='rainbow_r')#costum colormap added to database
 
 #cortex.quickshow(images['v_Lfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-LH-fingers1-5.svg' %(rsq_threshold))
@@ -413,7 +413,7 @@ RH_COM_4plot[rl_mask] = np.nan
 
 images['v_Rfingers'] = cortex.Vertex(RH_COM_4plot, 'fsaverage_meridians',
                            vmin=0, vmax=4,
-                           cmap='J4')#costum colormap added to database
+                           cmap='rainbow_r')#costum colormap added to database
 
 #cortex.quickshow(images['v_Rfingers'],with_curvature=True,with_sulci=True,with_colorbar=True)
 filename = os.path.join(figure_out,'flatmap_space-fsaverage_rsq-%0.2f_type-RH-fingers1-5.svg' %(rsq_threshold))

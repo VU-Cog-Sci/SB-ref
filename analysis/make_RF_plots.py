@@ -84,7 +84,7 @@ print('saving figures in %s'%figure_out)
 
 # make list with subjects to append and use (or not)
 if sj == 'median':
-    excl_subs = ['sub-07','sub-03','sub-13']
+    excl_subs = ['sub-03','sub-05','sub-07','sub-13']
 else:
     all_subs = ['01','02','03','04','05','07','08','09','11','12','13']
     excl_subs = ['sub-'+name for _,name in enumerate(all_subs) if name!=sj]
@@ -529,7 +529,8 @@ ax = plt.gca()
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 ax.axes.set_xlim(0.25,3.3)
-#ax.axes.set_ylim(0.7,2.1)
+if sj == 'median':
+    ax.axes.set_ylim(0.5,)
 ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
 ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
 
@@ -584,7 +585,8 @@ ax = plt.gca()
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 ax.axes.set_xlim(0.25,3.3)
-#ax.axes.set_ylim(0.7,2.1)
+if sj == 'median':
+    ax.axes.set_ylim(0,)
 ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
 ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
 

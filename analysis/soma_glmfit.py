@@ -39,7 +39,7 @@ else:
 
 # define paths and variables
 rsq_threshold = 0 #0.5 
-z_threshold = analysis_params['z_threshold']
+z_threshold = 2.7 #analysis_params['z_threshold']
 
 TR = analysis_params["TR"]
 
@@ -48,7 +48,7 @@ file_extension = 'sg_psc.func.gii'
 
 # make list with subject number (or all subject number if we want median contrast)
 if sj == 'median':
-    all_subs = ['01','02','03','04','05','08','09','11','12','13']
+    all_subs = ['01','02','04','08','09','11','12']
     all_contrasts = {}
 else:
     all_subs = [sj]
