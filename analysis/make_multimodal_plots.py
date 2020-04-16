@@ -335,7 +335,7 @@ _ = cortex.quickflat.make_png(filename, images['angle_half_hemi'], recache=True,
 
 ## NOW DO SOMA PLOTS ###
 rsq_threshold = 0 
-z_threshold = 2.7 #analysis_params['z_threshold']
+z_threshold = analysis_params['z_threshold'] #2.7 #
 
 # load contrasts for different regions
 face_contrast = np.load(os.path.join(soma_dir,'z_face_contrast_rsq-%.2f.npy' %(rsq_threshold)))
@@ -497,6 +497,62 @@ print('saving %s' %filename)
 _ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=True,with_colorbar=False,
                               cutout=cutout_name,with_curvature=True,with_sulci=True,with_roi=False,height=2048)
 
+
+## FOR FIGURE ##############################
+
+# Name of a sub-layer of the 'cutouts' layer in overlays.svg file
+cutout_name = 'zoom_face_right'
+_ = cortex.quickflat.make_figure(images['v_facecombined'],
+                                 with_curvature=True,
+                                 with_sulci=True,
+                                 with_roi=False,
+                                 with_colorbar=False,
+                                 cutout=cutout_name,height=2048)
+filename = os.path.join(figure_out,cutout_name+'_space-fsaverage_type-Face_zoomed_RH_bins-%d.svg'%n_bins)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=True,with_colorbar=False,
+                              cutout=cutout_name,with_curvature=True,with_sulci=True,with_roi=False,height=2048)
+
+
+# Name of a sub-layer of the 'cutouts' layer in overlays.svg file
+cutout_name = 'zoom_face_left'
+_ = cortex.quickflat.make_figure(images['v_facecombined'],
+                                 with_curvature=True,
+                                 with_sulci=True,
+                                 with_roi=False,
+                                 with_colorbar=False,
+                                 cutout=cutout_name,height=2048)
+filename = os.path.join(figure_out,cutout_name+'_space-fsaverage_type-Face_zoomed_LH_bins-%d.svg'%n_bins)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_facecombined'], recache=True,with_colorbar=False,
+                              cutout=cutout_name,with_curvature=True,with_sulci=True,with_roi=False,height=2048)
+
+
+# Name of a sub-layer of the 'cutouts' layer in overlays.svg file
+cutout_name = 'zoom_hand_right'
+_ = cortex.quickflat.make_figure(images['v_Lfingers'],
+                                 with_curvature=True,
+                                 with_sulci=True,
+                                 with_roi=False,
+                                 with_colorbar=False,
+                                 cutout=cutout_name,height=2048)
+filename = os.path.join(figure_out,cutout_name+'_space-fsaverage_type-LeftHand_zoomed_bins-%d.svg'%n_bins)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Lfingers'], recache=True,with_colorbar=False,
+                              cutout=cutout_name,with_curvature=True,with_sulci=True,with_roi=False,height=2048)
+
+# Name of a sub-layer of the 'cutouts' layer in overlays.svg file
+cutout_name = 'zoom_hand_left'
+_ = cortex.quickflat.make_figure(images['v_Rfingers'],
+                                 with_curvature=True,
+                                 with_sulci=True,
+                                 with_roi=False,
+                                 with_colorbar=False,
+                                 cutout=cutout_name,height=2048)
+filename = os.path.join(figure_out,cutout_name+'_space-fsaverage_type-RightHand_zoomed_bins-%d.svg'%n_bins)
+print('saving %s' %filename)
+_ = cortex.quickflat.make_png(filename, images['v_Rfingers'], recache=True,with_colorbar=False,
+                              cutout=cutout_name,with_curvature=True,with_sulci=True,with_roi=False,height=2048)
 
 
 print('Done!')

@@ -38,7 +38,7 @@ else:
 
 # define paths and variables
 rsq_threshold = 0 #0.5 
-z_threshold = 2.7#analysis_params['z_threshold']
+z_threshold = analysis_params['z_threshold'] #2.7#
 
 TR = analysis_params["TR"]
 
@@ -514,7 +514,7 @@ allface_COM_4plot = allface_COM.copy()
 allface_COM_4plot[face_mask] = np.nan
 
 # 'eyebrows', 'eyes', 'mouth','tongue', , combined
-images['v_facecombined'] = cortex.Vertex(allface_COM_4plot, 'fsaverage_gross',
+images['v_facecombined'] = cortex.Vertex(allface_COM_4plot, 'fsaverage_meridians',#'fsaverage_gross',
                            vmin=0, vmax=3,
                            cmap='J4') #costum colormap added to database
 

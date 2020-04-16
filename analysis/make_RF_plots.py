@@ -53,6 +53,10 @@ else:
             analysis_params = json.load(json_file)  
 
 
+# set font type for plots globally
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = 'Helvetica'
+
 # used smoothed data (or not) for plots
 with_smooth = 'True'#analysis_params['with_smooth']
 
@@ -536,6 +540,7 @@ ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
 
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
+sns.despine(offset=15)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
  
@@ -555,6 +560,7 @@ ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
 
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
+sns.despine(offset=15)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
  
@@ -573,6 +579,7 @@ ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
 
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
+sns.despine(offset=15)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
  
@@ -592,6 +599,7 @@ ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
 
 ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
+sns.despine(offset=15)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
  
