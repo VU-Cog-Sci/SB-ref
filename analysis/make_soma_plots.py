@@ -35,6 +35,9 @@ else:
     with open('analysis_params.json','r') as json_file:	
             analysis_params = json.load(json_file)	
 
+# set font type for plots globally
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = 'Helvetica'
 
 # define paths and variables
 rsq_threshold = 0 #0.5 
@@ -77,6 +80,7 @@ if sj != 'median':
     face_index =  np.where(face_contrast == max(face_contrast))[0][0] 
     if sj=='11': face_index = 325606 # because it's a nice one to plot, to use in figure (rsq = 93% so also good fit)
     hand_index = np.where(hand_contrast == max(hand_contrast))[0][0] 
+    if sj=='11': hand_index = 309071 # because it's a nice one to plot, to use in figure (rsq = 93% so also good fit)
     leg_index = np.where(leg_contrast == max(leg_contrast))[0][0] 
 
     # path to events
@@ -160,13 +164,14 @@ if sj != 'median':
         #if task[i]=='upper_limb': axis = axis.twinx() 
 
         # plot data with model
-        axis.plot(time_sec,estimates['model'][vertex[i]],c=blue_color[i],lw=3,label=dlabel+', R$^2$=%.2f'%estimates['r2'][vertex[i]],zorder=1)
+        axis.plot(time_sec,estimates['model'][vertex[i]],c=blue_color[i],lw=3,label=dlabel+', R$^2$ = %.2f'%estimates['r2'][vertex[i]],zorder=1)
         axis.scatter(time_sec,data[vertex[i]], marker='v',s=15,c=blue_color[i])#,label=dlabel)
-        axis.set_xlabel('Time (s)',fontsize=18)
-        axis.set_ylabel('BOLD signal change (%)',fontsize=18)
-        axis.tick_params(axis='both', labelsize=14)
+        axis.set_xlabel('Time (s)',fontsize=20)
+        axis.set_ylabel('BOLD signal change (%)',fontsize=20)
+        axis.tick_params(axis='both', labelsize=18)
         #axis.tick_params(axis='y', labelcolor=blue_color[i])
         axis.set_xlim(0,len(data[vertex[i]])*TR)
+        if sj=='11': axis.set_ylim(top=4)
 
         #if task[i]=='upper_limb':
         #    axis.set_ylim(-2,3.5) 

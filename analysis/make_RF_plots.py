@@ -204,7 +204,7 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
         right_yy_4plot.append(right_yy[right_rsq>rsq_threshold]) 
         right_pa_4plot.append(right_pa[right_rsq>rsq_threshold]) 
         
-    f, ss = plt.subplots(1, 1, figsize=[2*x for x in plt.rcParams["figure.figsize"]], sharey=True)
+    f, ss = plt.subplots(1, 1, figsize=(16,9))#figsize=[2*x for x in plt.rcParams["figure.figsize"]], sharey=True)
 
     ss.hexbin(np.hstack(left_xx_4plot), 
               np.hstack(left_yy_4plot),
@@ -226,11 +226,12 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
               edgecolors='black',
               alpha=0.5)
 
-    ss.set_title('Visual field coverage for %s'%roi,fontsize=24)
-    ss.set_xlabel('Horizontal visual position [dva]',fontsize=22)
-    ss.set_ylabel('Vertical visual position [dva]',fontsize=22)
-    plt.xticks(fontsize = 22)
-    plt.yticks(fontsize = 22)
+    if sj != 'median':
+    	ss.set_title('Visual field coverage for %s'%roi,fontsize=27)
+    	ss.set_xlabel('Horizontal visual position [dva]',fontsize=27)
+    	ss.set_ylabel('Vertical visual position [dva]',fontsize=27)
+    plt.xticks(fontsize = 32)
+    plt.yticks(fontsize = 32)
     plt.tight_layout()
     plt.ylim(-vert_lim_dva, vert_lim_dva) #-6,6)#
     ss.set_aspect('auto')
@@ -242,9 +243,10 @@ for idx,roi in enumerate(ROIs): #enumerate(['V1'])
     custom_lines = [Line2D([0], [0], color='g',alpha=0.5, lw=4),
                     Line2D([0], [0], color='r',alpha=0.5, lw=4)]
 
-    plt.legend(custom_lines, ['LH', 'RH'],fontsize = 20)
+    plt.legend(custom_lines, ['LH', 'RH'],fontsize = 35)
 
-    plt.savefig(os.path.join(figure_out,'VF_coverage_ROI-%s_hemi-both.svg'%roi),dpi=100)
+    fig_hex = plt.gcf()
+    fig_hex.savefig(os.path.join(figure_out,'VF_coverage_ROI-%s_hemi-both.svg'%roi),dpi=100)
      
     # Visualise with polar histogram
     left_ind4plot = np.where((np.logical_not(np.isnan(left_pa))))
@@ -426,18 +428,20 @@ for i,region in enumerate(ROIs):
         for k in range(i):
             DF_var[region][k]=np.nan
 
-# plot representational similarity matrix
+
+# plot eccentricity difference matrix
 fig, ax = plt.subplots(1, 1, figsize=[2.5*x for x in plt.rcParams["figure.figsize"]], sharey=True)
 
 matrix = ax.matshow(DF_var,cmap='OrRd')
-plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=16)#, rotation=45)
-plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=16)
+plt.xticks(range(DF_var.shape[1]), DF_var.columns, fontsize=18)#, rotation=45)
+plt.yticks(range(DF_var.shape[1]), DF_var.columns, fontsize=18)
 cbar = fig.colorbar(matrix)
 matrix.set_clim(vmin=0,vmax=0.35)
-cbar.set_label('KS statistic', rotation=270, fontsize=14, labelpad=30)
-cbar.ax.tick_params(labelsize=12)
+cbar.set_label('KS statistic', rotation=270, fontsize=30, labelpad=50)
+cbar.ax.tick_params(labelsize=18)
 
-plt.title('Eccentricity distribution difference', fontsize=18, pad=30);
+if sj !='median':
+    plt.title('Eccentricity distribution difference', fontsize=18, pad=30);
 # This is very hack-ish, but works to make grid
 plt.gca().set_xticks([x - 0.51 for x in plt.gca().get_xticks()][1:], minor='true')
 plt.gca().set_yticks([y - 0.52 for y in plt.gca().get_yticks()][1:], minor='true')
@@ -522,87 +526,88 @@ for idx,roi in enumerate(ROIs):
                                                    'med_size':[np.nanmedian(med_size)],'med_size_std':[np.nanmedian(med_size_std)],
                                                    'ROI':[roi]}),ignore_index=True)
 
-### plot for early visual - V1 V2 V3 ###
-roi2plot = ['V1','V2','V3']
+
+### plot for Occipital Areas - V1 V2 V3 V3AB hV4 LO ###
+
+roi2plot = ['V1','V2','V3','V3AB','hV4','LO']
+
+sns.set(font_scale=1.3)
+sns.set_style("ticks")
+
 ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
                 scatter=True,
-               palette="YlGnBu_r",markers=['^','s','o'])
-
+               palette="YlGnBu_r",markers=['^','s','o','v','D','h'])
 
 ax = plt.gca()
-plt.xticks(fontsize = 14)
-plt.yticks(fontsize = 14)
+plt.xticks(fontsize = 18)
+plt.yticks(fontsize = 18)
+#ax.axes.tick_params(labelsize=16)
 ax.axes.set_xlim(0.25,3.3)
-if sj == 'median':
-    ax.axes.set_ylim(0.5,)
-ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
-ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
+ax.axes.set_ylim(0,5)
 
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
+ax.set_xlabel('pRF eccentricity [dva]', fontsize = 18, labelpad = 15)
+ax.set_ylabel('pRF size [dva]', fontsize = 18, labelpad = 15)
+
+#ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
 sns.despine(offset=15)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
  
-
-### plot for V3AB hV4 LO ###
-roi2plot = ['V3AB','hV4','LO']
-ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
-                scatter=True,
-               palette="PuBuGn",markers=['^','s','o'])
-ax = plt.gca()
-plt.xticks(fontsize = 14)
-plt.yticks(fontsize = 14)
-ax.axes.set_xlim(0.25,3.3)
-#ax.axes.set_ylim(0.7,2.1)
-ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
-ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
-
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
-
-sns.despine(offset=15)
-fig1 = plt.gcf()
-fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
  
-### plot for IPS0 IPS1 IPS2+ ###
+### plot for Parietal Areas - IPS0 IPS1 IPS2+ ###
 roi2plot = ['IPS0','IPS1','IPS2+']
+
+sns.set(font_scale=1.3)
+sns.set_style("ticks")
+
 ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
                 scatter=True,
                palette="YlOrRd",markers=['^','s','o'])
 ax = plt.gca()
-plt.xticks(fontsize = 14)
-plt.yticks(fontsize = 14)
+plt.xticks(fontsize = 18)
+plt.yticks(fontsize = 18)
+#ax.axes.tick_params(labelsize=16)
 ax.axes.set_xlim(0.25,3.3)
-#ax.axes.set_ylim(0.7,2.1)
-ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
-ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
+ax.axes.set_ylim(0,5)
 
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
+if sj != 'median':
+    ax.set_xlabel('pRF eccentricity [dva]', fontsize = 18, labelpad = 15)
+    ax.set_ylabel('pRF size [dva]', fontsize = 18, labelpad = 15)
+
+#ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
 sns.despine(offset=15)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
  
-### plot for sPCS iPCS ###
+ 
+### plot for Frontal Areas - sPCS iPCS ###
 roi2plot = ['sPCS','iPCS']
+
+sns.set(font_scale=1.3)
+sns.set_style("ticks")
+
 ax = sns.lmplot(x='med_ecc', y='med_size', hue='ROI',data=med_subs_df[med_subs_df.ROI.isin(roi2plot)],
                 scatter=True,
                palette="PuRd",markers=['^','s'])
 ax = plt.gca()
-plt.xticks(fontsize = 14)
-plt.yticks(fontsize = 14)
+plt.xticks(fontsize = 18)
+plt.yticks(fontsize = 18)
+#ax.axes.tick_params(labelsize=16)
 ax.axes.set_xlim(0.25,3.3)
-if sj == 'median':
-    ax.axes.set_ylim(0,)
-ax.set_xlabel('pRF eccentricity [dva]', fontsize = 12, labelpad = 10)
-ax.set_ylabel('pRF size [dva]', fontsize = 12, labelpad = 10)
+ax.axes.set_ylim(0,5)
 
-ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
+if sj != 'median':
+    ax.set_xlabel('pRF eccentricity [dva]', fontsize = 18, labelpad = 15)
+    ax.set_ylabel('pRF size [dva]', fontsize = 18, labelpad = 15)
+
+#ax.set_title('ecc vs size plot, %d bins from %.2f-%.2f ecc [dva]'%(n_bins,min_ecc,max_ecc),fontsize=12)
 
 sns.despine(offset=15)
 fig1 = plt.gcf()
 fig1.savefig(os.path.join(figure_out,'%s_ecc_vs_size_binned_rsq-%0.2f.svg'%(str(roi2plot),rsq_threshold)), dpi=100,bbox_inches = 'tight')
- 
+
 
 # now do single voxel fits, choosing voxels with highest rsq 
 # from each ROI (early visual vs sPCS vs iPCS)
@@ -884,12 +889,12 @@ if sj != 'median': # doesn't work for median subject
             if roi == 'sPCS': axis = axis.twinx() 
             
             # plot data with model
-            axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label=roi+', R$^2$=%.2f'%new_rsq[new_index],zorder=1)
+            axis.plot(time_sec,model_it_prfpy,c=red_color[idx],lw=3,label=roi+', R$^2$ = %.2f'%new_rsq[new_index],zorder=1)
             axis.scatter(time_sec,timeseries, marker='v',s=15,c=red_color[idx])#,label=roi)
-            axis.set_xlabel('Time (s)',fontsize=18)
-            axis.set_ylabel('BOLD signal change (%)',fontsize=18)
-            axis.tick_params(axis='both', labelsize=14)
-            axis.tick_params(axis='y', labelcolor=red_color[idx])
+            axis.set_xlabel('Time (s)',fontsize=20)
+            axis.set_ylabel('BOLD signal change (%)',fontsize=20)
+            axis.tick_params(axis='both', labelsize=18)
+            axis.tick_params(axis='y', labelcolor=red_color[idx], labelsize=18)
             axis.set_xlim(0,len(timeseries)*TR)
             plt.gca().set_ylim(bottom=0)
 
@@ -898,11 +903,11 @@ if sj != 'median': # doesn't work for median subject
             # to align axis centering it at 0
             if idx == 0:
                 if sj=='11':
-                    axis.set_ylim(-3,6)#9)
+                    axis.set_ylim(-3,9)#6)
                 ax1 = axis
             else:
                 if sj=='11':
-                    axis.set_ylim(-1.5,3)
+                    axis.set_ylim(-1.5,4.5)
                 align_yaxis(ax1, 0, axis, 0)
 
             #axis.axhline(y=0, xmin=0, xmax=len(timeseries)*TR,linestyle='--',c=red_color[idx])

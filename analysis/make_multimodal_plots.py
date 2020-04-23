@@ -172,7 +172,7 @@ _ = cortex.quickflat.make_png(filename, images['rsq_motor_norm'], recache=False,
 
 
 images['rsq_combined'] = cortex.Vertex2D(rsq_visual_norm,rsq_motor_norm, 
-                            subject='fsaverage_gross',
+                            subject='fsaverage_meridians',#'fsaverage_gross',
                             vmin=0.125, vmax=0.2,
                             vmin2=0.2,vmax2=0.6,
                             cmap=col2D_name)#'PU_RdBu_covar')
@@ -335,7 +335,7 @@ _ = cortex.quickflat.make_png(filename, images['angle_half_hemi'], recache=True,
 
 ## NOW DO SOMA PLOTS ###
 rsq_threshold = 0 
-z_threshold = analysis_params['z_threshold'] #2.7 #
+z_threshold = 2.7 #analysis_params['z_threshold'] #2.7 #
 
 # load contrasts for different regions
 face_contrast = np.load(os.path.join(soma_dir,'z_face_contrast_rsq-%.2f.npy' %(rsq_threshold)))
